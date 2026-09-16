@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Погода в горах — Красная Поляна</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="app">
+  <div id="home-screen">
+    <header class="hero">
+      <svg class="hero-mountains" viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#101c30"/><stop offset="1" stop-color="#0b1220"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="160" fill="url(#sky)"/>
+        <circle cx="330" cy="34" r="14" fill="#e8f4f8" opacity="0.85"/>
+        <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="#16243c"/>
+        <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" fill="#dfeaf2" opacity="0.9"/>
+        <path d="M60 84 L74 102 L64 98 L56 106 L49 96 L44 100 Z" fill="#dfeaf2" opacity="0.75"/>
+        <path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="#0f1930"/>
+        <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="#0a1120"/>
+      </svg>
+      <div class="hero-text">
+        <h1>Погода в горах</h1>
+        <p>Красная Поляна · Абхазия · сводка из нескольких источников</p>
+      </div>
+    </header>
+    <main id="points-list" class="points-list">
+      <div class="loading">Загружаю точки…</div>
+    </main>
+    <footer class="foot">Данные: Open-Meteo · MET Norway · кэш 30 мин</footer>
+  </div>
+
+  <div id="point-screen" class="hidden">
+    <button class="back-btn" onclick="goHome()">← Все точки</button>
+    <div id="point-content"></div>
+  </div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

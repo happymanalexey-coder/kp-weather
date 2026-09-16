@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+«Погода в горах Красной Поляны» — бэкенд на чистом stdlib.
+Сводка по точке из нескольких источников: Open-Meteo (best_match + модели
+ECMWF/GFS/ICON как независимые метеомодели) и MET Norway (api.met.no).
+Кэш 30 мин. Запуск: python3 server.py [--port 7100] [--host 127.0.0.1]
+"""
+import json
+import os
+import time
+import argparse
+import urllib.request
+import urllib.parse
+from datetime import datetime, timedelta, timezone
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+WEB = os.path.join(ROOT, "web")
+CACHE_DIR = os.path.join(ROOT, "cache")
+POINTS_FILE = os.path.join(ROOT, "data", "points.json")
+MSK = timezone(timedelta(hours=3))
+UA = {"User-Agent": "KPMountainWeather/0.1 (local app; contact: owner)"}
+
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+def load_env():
+    env_path = os.path.join(ROOT, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+
+def cache_ttl():
+    try:
+        return int(os.environ.get("CACHE_TTL_MIN", "30")) * 60
+    except ValueError:
+        return 1800
+
+
+def get_json(url, timeout=15):
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
+# ---------- источники ----------
+
+def fetch_openmeteo(lat, lon, ele):
+    """best_match: current + hourly + daily."""
+    q = urllib.parse.urlencode({
+        "latitude": lat, "longitude": lon, "elevation": ele,
+        "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m",
+        "hourly": "temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,relative_humidity_2m",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
+        "timezone": "Europe/Moscow", "forecast_days": 6, "wind_speed_unit": "ms",
+    })
+    return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
+
+
+def fetch_openmeteo_models(lat, lon, ele):
+    """Те же daily-поля по отдельным метеомоделям (ECMWF IFS, GFS, ICON-EU)."""
+    q = urllib.parse.urlencode({
+        "latitude": lat, "longitude": lon, "elevation": ele,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
+        "timezone": "Europe/Moscow", "forecast_days": 6, "wind_speed_unit": "ms",
+        "models": "ecmwf_ifs025,gfs_global,icon_eu",
+    })
+    return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
+
+
+def fetch_metno(lat, lon, ele):
+    q = urllib.parse.urlencode({"lat": lat, "lon": lon, "altitude": ele})
+    return get_json(f"https://api.met.no/weatherapi/locationforecast/2.0/compact?{q}")
+
+
+def metno_daily(raw):
+    """Суточные агрегаты из compact: {date: {tmax,tmin,precip,wind,cloud}} по МСК."""
+    days = {}
+    for ts in raw.get("properties", {}).get("timeseries", []):
+        t_utc = datetime.fromisoformat(ts["time"].replace("Z", "+00:00"))
+        t_msk = t_utc.astimezone(MSK)
+        key = t_msk.date().isoformat()
+        d = days.setdefault(key, {"temps": [], "precip": 0.0, "wind": [], "cloud": []})
+        inst = ts.get("data", {}).get("instant", {}).get("details", {})
+        if inst.get("air_temperature") is not None:
+            d["temps"].append(inst["air_temperature"])
+        if inst.get("wind_speed") is not None:
+            d["wind"].append(inst["wind_speed"])
+        if inst.get("cloud_area_fraction") is not None:
+            d["cloud"].append(inst["cloud_area_fraction"])
+        if "next_1_hours" in ts.get("data", {}):
+            d["precip"] += ts["data"]["next_1_hours"].get("details", {}).get("precipitation_amount", 0) or 0
+        elif "next_6_hours" in ts.get("data", {}):
+            d["precip"] += ts["data"]["next_6_hours"].get("details", {}).get("precipitation_amount", 0) or 0
+    out = {}
+    for k, d in days.items():
+        if not d["temps"]:
+            continue
+        out[k] = {
+            "tmax": max(d["temps"]), "tmin": min(d["temps"]),
+            "precip": round(d["precip"], 1),
+            "wind": max(d["wind"]) if d["wind"] else None,
+            "cloud": sum(d["cloud"]) / len(d["cloud"]) if d["cloud"] else None,
+        }
+    return out
+
+
+# ---------- агрегация ----------
+
+THUNDER = {95, 96, 99}
+
+
+def verdict_for(precip, wind, cloud, code):
+    if code in THUNDER or (precip is not None and precip >= 8) or (wind is not None and wind >= 15):
+        return "red"
+    if (precip is not None and precip >= 2) or (wind is not None and wind >= 8) or (cloud is not None and cloud >= 90):
+        return "yellow"
+    return "green"
+
+
+def mean(vals):
+    vals = [v for v in vals if v is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def aggregate(point):
+    lat, lon, ele = point["lat"], point["lon"], point["ele"]
+    sources, errors = [], []
+
+    om = om_models = metno = None
+    try:
+        om = fetch_openmeteo(lat, lon, ele)
+        sources.append("Open-Meteo")
+    except Exception as e:
+        errors.append(f"Open-Meteo: {type(e).__name__}")
+    try:
+        om_models = fetch_openmeteo_models(lat, lon, ele)
+        sources.append("ECMWF/GFS/ICON")
+    except Exception as e:
+        errors.append(f"Open-Meteo models: {type(e).__name__}")
+    try:
+        metno = metno_daily(fetch_metno(lat, lon, ele))
+        sources.append("MET Norway")
+    except Exception as e:
+        errors.append(f"MET Norway: {type(e).__name__}")
+
+    if om is None and metno is None:
+        raise RuntimeError("все источники недоступны: " + "; ".join(errors))
+
+    # даты: 6 суток начиная с сегодня (МСК)
+    dates = None
+    if om:
+        dates = om["daily"]["time"][:6]
+    else:
+        dates = sorted(metno.keys())[:6]
+
+    days = []
+    for i, date in enumerate(dates):
+        tmax_v, tmin_v, pr_v, w_v, c_v = [], [], [], [], []
+        code = None
+        if om and i < len(om["daily"]["time"]):
+            dd = om["daily"]
+            tmax_v.append(dd["temperature_2m_max"][i])
+            tmin_v.append(dd["temperature_2m_min"][i])
+            pr_v.append(dd["precipitation_sum"][i])
+            w_v.append(dd["wind_speed_10m_max"][i])
+            c_v.append(dd["cloud_cover_mean"][i])
+            code = dd["weather_code"][i]
+        if om_models:
+            dd = om_models["daily"]
+            for var, acc in (("temperature_2m_max", tmax_v), ("temperature_2m_min", tmin_v),
+                             ("precipitation_sum", pr_v), ("wind_speed_10m_max", w_v),
+                             ("cloud_cover_mean", c_v)):
+                for k, series in dd.items():
+                    if k.startswith(var + "_") and i < len(series):
+                        acc.append(series[i])
+        if metno and date in metno:
+            m = metno[date]
+            tmax_v.append(m["tmax"]); tmin_v.append(m["tmin"])
+            pr_v.append(m["precip"]); w_v.append(m["wind"]); c_v.append(m["cloud"])
+
+        tmax_f = [v for v in tmax_v if v is not None]
+        tmin_f = [v for v in tmin_v if v is not None]
+        t_day, t_night = mean(tmax_f), mean(tmin_f)
+        precip, wind, cloud = mean(pr_v), mean(w_v), mean(c_v)
+        days.append({
+            "date": date,
+            "t_day": round(t_day) if t_day is not None else None,
+            "t_night": round(t_night) if t_night is not None else None,
+            "t_day_spread": [round(min(tmax_f)), round(max(tmax_f))] if tmax_f else None,
+            "t_night_spread": [round(min(tmin_f)), round(max(tmin_f))] if tmin_f else None,
+            "precip": round(precip, 1) if precip is not None else None,
+            "wind": round(wind) if wind is not None else None,
+            "cloud": round(cloud) if cloud is not None else None,
+            "code": code,
+            "verdict": verdict_for(precip, wind, cloud, code),
+        })
+
+    current = None
+    if om and "current" in om:
+        c = om["current"]
+        current = {
+            "t": round(c["temperature_2m"]),
+            "feels": round(c["apparent_temperature"]),
+            "humidity": round(c["relative_humidity_2m"]),
+            "wind": round(c["wind_speed_10m"]),
+            "gust": round(c["wind_gusts_10m"]),
+            "cloud": round(c["cloud_cover"]),
+            "code": c["weather_code"],
+        }
+    if metno:
+        today = datetime.now(MSK).date().isoformat()
+        if today in metno and current is not None:
+            current["metno_t"] = round(metno[today]["tmax"])  # для ориентира
+
+    analysis = build_analysis(om, days)
+    advice = build_advice(days[1] if len(days) > 1 else days[0])
+    overall = "green"
+    for d in days[:2]:
+        if d["verdict"] == "red":
+            overall = "red"
+            break
+        if d["verdict"] == "yellow":
+            overall = "yellow"
+
+    return {
+        "point": {k: point[k] for k in ("id", "name", "lat", "lon", "ele", "region")},
+        "fetched_at": datetime.now(MSK).isoformat(timespec="seconds"),
+        "sources": sources, "errors": errors,
+        "current": current, "days": days,
+        "analysis": analysis, "advice": advice, "verdict": overall,
+    }
+
+
+def build_analysis(om, days):
+    """Микро-анализ на завтра + тренд 5 дней (правила по почасовым данным)."""
+    parts = []
+    if om and len(days) > 1:
+        h = om["hourly"]
+        times = [datetime.fromisoformat(t) for t in h["time"]]
+        tomorrow = days[1]["date"]
+        idx = [i for i, t in enumerate(times) if t.date().isoformat() == tomorrow]
+        if idx:
+            pr = [h["precipitation"][i] or 0 for i in idx]
+            w = [h["wind_speed_10m"][i] or 0 for i in idx]
+            cl = [h["cloud_cover"][i] or 0 for i in idx]
+            rh = [h["relative_humidity_2m"][i] or 0 for i in idx]
+            hrs = [times[i].hour for i in idx]
+
+            wet = [(hrs[j], pr[j]) for j in range(len(idx)) if pr[j] >= 0.3]
+            if wet:
+                spans = spanify([x[0] for x in wet])
+                parts.append(f"Осадки: {spans}.")
+            else:
+                parts.append("Осадков не ожидается.")
+
+            best = best_window(hrs, pr, w)
+            if best:
+                parts.append(f"Лучшее окно: {best}.")
+
+            wmax_i = max(range(len(idx)), key=lambda j: w[j])
+            if w[wmax_i] >= 8:
+                parts.append(f"Ветер на гребне до {round(w[wmax_i])} м/с ближе к {daypart(hrs[wmax_i])}.")
+
+            if mean([rh[j] for j in range(len(idx)) if hrs[j] < 9]) and \
+               mean([rh[j] for j in range(len(idx)) if hrs[j] < 9]) > 92 and \
+               mean([cl[j] for j in range(len(idx)) if hrs[j] < 9]) > 80:
+                parts.append("Утром возможен туман и низкая облачность в долине.")
+
+            codes = {h["weather_code"][i] for i in idx}
+            if codes & THUNDER:
+                parts.append("Возможна гроза — гребень проходить в первой половине дня.")
+
+    if len(days) >= 5:
+        later = days[2:]
+        wet_later = [d for d in later if (d["precip"] or 0) >= 2]
+        tomorrow_wet = len(days) > 1 and (days[1]["precip"] or 0) >= 2
+        if not wet_later:
+            parts.append("После завтра в основном сухо." if tomorrow_wet else "Весь период в основном сухо.")
+        else:
+            parts.append(f"С {fmt_date(wet_later[0]['date'])} осадки местами усиливаются.")
+    return " ".join(parts) if parts else "Без выраженных погодных явлений."
+
+
+def spanify(hours):
+    hours = sorted(set(hours))
+    spans, start, prev = [], hours[0], hours[0]
+    for hh in hours[1:]:
+        if hh == prev + 1:
+            prev = hh
+            continue
+        spans.append((start, prev + 1)); start = hh; prev = hh
+    spans.append((start, prev + 1))
+    out = []
+    for a, b in spans:
+        if a == 0 and b >= 23:
+            return "в течение суток"
+        out.append(f"с {a:02d}:00 до {b:02d}:00")
+    return ", ".join(out)
+
+
+def best_window(hrs, pr, w):
+    daylight = [j for j in range(len(hrs)) if 6 <= hrs[j] <= 20]
+    best, cur = None, []
+    for j in daylight:
+        if pr[j] < 0.3 and w[j] < 8:
+            cur.append(hrs[j])
+        else:
+            if best is None or len(cur) > len(best):
+                best = cur
+            cur = []
+    if best is None or len(cur) > len(best):
+        best = cur
+    if best and len(best) >= 3:
+        return f"{best[0]:02d}:00–{best[-1] + 1:02d}:00"
+    return None
+
+
+def daypart(h):
+    if h < 6: return "ночи"
+    if h < 12: return "утру"
+    if h < 18: return "вечеру"
+    return "ночи"
+
+
+def fmt_date(iso):
+    d = datetime.fromisoformat(iso)
+    wd = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"][d.weekday()]
+    return f"{wd} {d.day:02d}.{d.month:02d}"
+
+
+def build_advice(day):
+    take = []
+    if (day["precip"] or 0) >= 1:
+        take.append("дождевик")
+    if day["t_night"] is not None and day["t_night"] < 5:
+        take.append("тёплый слой")
+    if (day["wind"] or 0) >= 8:
+        take.append("ветровка")
+    if (day["cloud"] or 100) < 40 and (day["precip"] or 0) < 1:
+        take.append("солнцезащита")
+    return "Взять: " + (" · ".join(take) if take else "стандартный набор") + "."
+
+
+# ---------- HTTP ----------
+
+class Handler(SimpleHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/api/points":
+            return self.send_json(self.points_payload())
+        if path == "/api/weather":
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            pid = (qs.get("id") or [""])[0]
+            payload, code = self.weather_payload(pid)
+            return self.send_json(payload, code)
+        # статика
+        if path == "/":
+            path = "/index.html"
+        safe = os.path.normpath(path).lstrip("/")
+        full = os.path.join(WEB, safe)
+        if not full.startswith(WEB) or not os.path.isfile(full):
+            self.send_error(404)
+            return
+        ext = os.path.splitext(full)[1]
+        ctype = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
+                 ".png": "image/png", ".jpg": "image/jpeg"}.get(ext, "application/octet-stream")
+        with open(full, "rb") as f:
+            body = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_json(self, obj, code=200):
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def points_payload(self):
+        with open(POINTS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        pts = sorted(data["points"], key=lambda p: p["name"].lower())
+        return {"points": [{k: p[k] for k in ("id", "name", "ele", "region")} for p in pts]}
+
+    def weather_payload(self, pid):
+        with open(POINTS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        point = next((p for p in data["points"] if p["id"] == pid), None)
+        if not point:
+            return {"error": "unknown point"}, 404
+        cache_file = os.path.join(CACHE_DIR, f"{pid}.json")
+        if os.path.exists(cache_file) and time.time() - os.path.getmtime(cache_file) < cache_ttl():
+            with open(cache_file, encoding="utf-8") as f:
+                return json.load(f), 200
+        try:
+            payload = aggregate(point)
+        except Exception as e:
+            return {"error": str(e)}, 502
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        return payload, 200
+
+
+def main():
+    load_env()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--port", type=int, default=7100)
+    ap.add_argument("--host", default="127.0.0.1")
+    args, _ = ap.parse_known_args()
+    srv = ThreadingHTTPServer((args.host, args.port), Handler)
+    print(f"Сервер: http://{args.host}:{args.port}")
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

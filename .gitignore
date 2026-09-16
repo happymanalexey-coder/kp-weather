@@ -1,0 +1,7 @@
+.env
+cache/
+tools/
+__pycache__/
+*.log
+*.pid
+.DS_Store
