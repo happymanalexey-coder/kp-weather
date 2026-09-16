@@ -77,6 +77,41 @@ function mfLink(p) {
   return `<a class="link-btn disabled">Mountain-Forecast: нет вершин Абхазии</a>`;
 }
 
+/* Почасовой прогноз на сутки date (из d.hourly, время МСК) */
+function hoursHtml(d, date) {
+  if (!d.hourly) return `<div class="hours-empty">Почасовые данные недоступны</div>`;
+  const h = d.hourly;
+  const today = mskToday();
+  const nowH = parseInt(mskNowIso().slice(11, 13), 10);
+  let cells = "";
+  for (let i = 0; i < h.time.length; i++) {
+    if (h.time[i].slice(0, 10) !== date) continue;
+    const hh = parseInt(h.time[i].slice(11, 13), 10);
+    const isNow = date === today && hh === nowH;
+    const pr = h.precip[i] || 0;
+    cells += `
+      <div class="h-cell${isNow ? " now" : ""}" data-h="${hh}">
+        <div class="h-time">${isNow ? "сейчас" : String(hh).padStart(2, "0") + ":00"}</div>
+        <div class="h-icon">${icon(h.code[i])}</div>
+        <div class="h-t">${h.t[i] ?? "—"}°</div>
+        <div class="h-pr">${pr >= 0.1 ? pr.toFixed(1) : ""}</div>
+        <div class="h-w">${h.wind[i] ?? "—"}</div>
+      </div>`;
+  }
+  return `<div class="hours-strip">${cells}</div><div class="hours-legend">осадки, мм · ветер, м/с</div>`;
+}
+
+function toggleHours(rowEl) {
+  const wrap = rowEl.parentElement.querySelector(".hours-wrap");
+  const opening = wrap.classList.contains("hidden");
+  wrap.classList.toggle("hidden");
+  rowEl.classList.toggle("open", opening);
+  if (opening) {
+    const target = wrap.querySelector(".h-cell.now") || wrap.querySelector('[data-h="6"]');
+    if (target) target.scrollIntoView({ block: "nearest", inline: "center" });
+  }
+}
+
 async function loadPoint(id) {
   const box = document.getElementById("point-content");
   box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
@@ -119,11 +154,14 @@ async function loadPoint(id) {
     const spread = day.t_day_spread && (day.t_day_spread[0] !== day.t_day_spread[1])
       ? `<span class="spread">разброс ${day.t_day_spread[0]}…${day.t_day_spread[1]}°</span>` : "";
     return `
-      <div class="day-row">
-        <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм</small></div>
-        <div class="day-icon">${icon(day.code)}</div>
-        <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
-        <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}%</div>
+      <div class="day-block">
+        <div class="day-row" onclick="toggleHours(this)">
+          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм</small></div>
+          <div class="day-icon">${icon(day.code)}</div>
+          <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
+          <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
+        </div>
+        <div class="hours-wrap hidden">${hoursHtml(d, day.date)}</div>
       </div>`;
   }).join("");
 
@@ -136,7 +174,7 @@ async function loadPoint(id) {
       <div class="advice">${esc(d.advice)}</div>
     </div>
     <div class="card">
-      <h3>5 дней · день / ночь</h3>
+      <h3>5 дней · нажмите на день — прогноз по часам</h3>
       ${daysHtml}
     </div>
     <div class="card">

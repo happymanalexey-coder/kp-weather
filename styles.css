@@ -84,11 +84,28 @@ body {
 .badge.red { background: rgba(248,113,113,.14); color: var(--red); }
 .advice { margin-top: 10px; font-size: 14.5px; color: #cdd9ea; }
 
+.day-block { border-bottom: 1px solid var(--line); }
+.day-block:last-child { border-bottom: none; }
 .day-row {
   display: grid; grid-template-columns: 74px 30px 1fr auto; align-items: center;
-  gap: 8px; padding: 11px 2px; border-bottom: 1px solid var(--line);
+  gap: 8px; padding: 11px 2px; cursor: pointer;
 }
-.day-row:last-child { border-bottom: none; }
+.chev { display: inline-block; margin-left: 4px; color: var(--muted); transition: transform .15s ease; }
+.day-row.open .chev { transform: rotate(180deg); }
+
+/* почасовой прогноз */
+.hours-wrap { overflow-x: auto; scrollbar-width: thin; }
+.hours-strip { display: flex; gap: 4px; padding: 2px 0 6px; }
+.h-cell { min-width: 54px; flex: 0 0 auto; text-align: center; background: var(--bg2); border-radius: 12px; padding: 8px 4px 6px; }
+.h-cell.now { outline: 1px solid var(--accent); background: rgba(99,214,208,.10); }
+.h-time { font-size: 11px; color: var(--muted); font-weight: 600; }
+.h-cell.now .h-time { color: var(--accent); }
+.h-icon { font-size: 18px; margin: 3px 0 2px; }
+.h-t { font-size: 14px; font-weight: 700; }
+.h-pr { font-size: 10.5px; color: #6db3f2; min-height: 14px; margin-top: 2px; }
+.h-w { font-size: 10.5px; color: var(--muted); }
+.hours-legend { font-size: 10.5px; color: var(--muted); padding: 0 2px 8px; }
+.hours-empty { color: var(--muted); font-size: 13px; padding: 8px 2px 12px; }
 .day-date { font-weight: 700; font-size: 14px; }
 .day-date small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
 .day-icon { font-size: 22px; text-align: center; }

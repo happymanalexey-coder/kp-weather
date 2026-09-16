@@ -179,6 +179,13 @@ async function aggregate(point) {
     point: { id: point.id, name: point.name, lat: point.lat, lon: point.lon, ele: point.ele, region: point.region },
     fetched_at: mskNowIso(),
     sources, errors, current, days, analysis, advice, verdict: overall,
+    hourly: om ? {
+      time: om.hourly.time,
+      t: om.hourly.temperature_2m.map(v => v == null ? null : Math.round(v)),
+      precip: om.hourly.precipitation,
+      code: om.hourly.weather_code,
+      wind: om.hourly.wind_speed_10m.map(v => v == null ? null : Math.round(v)),
+    } : null,
   };
 }
 
@@ -287,7 +294,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx_" + point.id;
+  const key = "wx2_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;

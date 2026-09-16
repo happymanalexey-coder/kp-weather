@@ -235,6 +235,13 @@ def aggregate(point):
         "sources": sources, "errors": errors,
         "current": current, "days": days,
         "analysis": analysis, "advice": advice, "verdict": overall,
+        "hourly": ({
+            "time": om["hourly"]["time"],
+            "t": [round(v) if v is not None else None for v in om["hourly"]["temperature_2m"]],
+            "precip": om["hourly"]["precipitation"],
+            "code": om["hourly"]["weather_code"],
+            "wind": [round(v) if v is not None else None for v in om["hourly"]["wind_speed_10m"]],
+        } if om else None),
     }
 
 
