@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Погода в горах — Красная Поляна</title>
+<title>Погода в горах и на море — Красная Поляна</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
           </linearGradient>
         </defs>
         <rect width="400" height="160" fill="url(#sky)"/>
-        <circle cx="330" cy="34" r="14" fill="#e8f4f8" opacity="0.85"/>
+        <circle class="moon" cx="330" cy="34" r="14" fill="#e8f4f8" opacity="0.85" onclick="openSite()"/>
         <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="#16243c"/>
         <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" fill="#dfeaf2" opacity="0.9"/>
         <path d="M60 84 L74 102 L64 98 L56 106 L49 96 L44 100 Z" fill="#dfeaf2" opacity="0.75"/>
@@ -25,19 +25,25 @@
         <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="#0a1120"/>
       </svg>
       <div class="hero-text">
-        <h1>Погода в горах</h1>
-        <p>Красная Поляна · Абхазия · сводка из нескольких источников</p>
+        <h1>Погода в горах и на море</h1>
+        <p>Красная Поляна · Сочи · Абхазия</p>
+        <p class="slogan">5 источников. Одна сводка.</p>
       </div>
     </header>
     <main id="points-list" class="points-list">
       <div class="loading">Загружаю точки…</div>
     </main>
+    <section id="home-panels" class="panels"></section>
     <footer class="foot">Данные: Open-Meteo · MET Norway · кэш 30 мин</footer>
   </div>
 
   <div id="point-screen" class="hidden">
-    <button class="back-btn" onclick="goHome()">← Все точки</button>
+    <div class="sticky-head">
+      <button class="back-btn" onclick="goHome()">← Все точки</button>
+      <span class="sticky-name" id="sticky-name"></span>
+    </div>
     <div id="point-content"></div>
+    <section id="point-panels" class="panels"></section>
   </div>
 </div>
 <script src="weather.js"></script>

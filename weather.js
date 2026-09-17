@@ -47,7 +47,7 @@ function fetchOpenMeteoModels(p) {
 }
 
 function fetchMetNo(p) {
-  const q = new URLSearchParams({ lat: p.lat, lon: p.lon, altitude: p.ele });
+  const q = new URLSearchParams({ lat: p.lat, lon: p.lon, altitude: Math.round(p.ele) });
   return fetchJson("https://api.met.no/weatherapi/locationforecast/2.0/compact?" + q.toString());
 }
 
@@ -82,6 +82,17 @@ function metnoDaily(raw) {
   return out;
 }
 
+/* Текущие значения MET Norway: первая запись timeseries ≈ текущий час */
+function metnoCurrent(raw) {
+  const series = (raw && raw.properties && raw.properties.timeseries) || [];
+  if (!series.length) return null;
+  const inst = (series[0].data && series[0].data.instant && series[0].data.instant.details) || {};
+  return {
+    t: inst.air_temperature != null ? Math.round(inst.air_temperature) : null,
+    wind: inst.wind_speed != null ? Math.round(inst.wind_speed) : null,
+  };
+}
+
 /* ---------- агрегация ---------- */
 
 function verdictFor(precip, wind, cloud, code) {
@@ -102,11 +113,15 @@ async function aggregate(point) {
   ]);
   const om = omR.status === "fulfilled" ? omR.value : null;
   const omModels = modelsR.status === "fulfilled" ? modelsR.value : null;
-  let metno = null;
+  let metno = null, mCur = null;
   if (om) sources.push("Open-Meteo"); else errors.push("Open-Meteo: " + errName(omR.reason));
   if (omModels) sources.push("ECMWF/GFS/ICON"); else errors.push("Open-Meteo models: " + errName(modelsR.reason));
   if (metnoR.status === "fulfilled") {
-    try { metno = metnoDaily(metnoR.value); sources.push("MET Norway"); }
+    try {
+      metno = metnoDaily(metnoR.value);
+      mCur = metnoCurrent(metnoR.value);
+      sources.push("MET Norway");
+    }
     catch (e) { errors.push("MET Norway: " + errName(e)); }
   } else errors.push("MET Norway: " + errName(metnoR.reason));
 
@@ -160,11 +175,12 @@ async function aggregate(point) {
       t: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature),
       humidity: Math.round(c.relative_humidity_2m), wind: Math.round(c.wind_speed_10m),
       gust: Math.round(c.wind_gusts_10m), cloud: Math.round(c.cloud_cover), code: c.weather_code,
+      precip: c.precipitation != null ? Math.round(c.precipitation * 10) / 10 : 0,
     };
   }
-  if (metno && current) {
-    const today = mskToday();
-    if (metno[today]) current.metno_t = Math.round(metno[today].tmax);
+  if (mCur && current) {
+    if (mCur.t != null) current.metno_t = mCur.t;
+    if (mCur.wind != null) current.metno_wind = mCur.wind;
   }
 
   const analysis = buildAnalysis(om, days);
@@ -195,38 +211,11 @@ function errName(e) { return (e && e.name) || "Error"; }
 
 function buildAnalysis(om, days) {
   const parts = [];
-  if (om && days.length > 1) {
-    const h = om.hourly;
-    const tomorrow = days[1].date;
-    const idx = [];
-    for (let i = 0; i < h.time.length; i++) if (h.time[i].slice(0, 10) === tomorrow) idx.push(i);
-    if (idx.length) {
-      const pr = idx.map(i => h.precipitation[i] || 0);
-      const w = idx.map(i => h.wind_speed_10m[i] || 0);
-      const cl = idx.map(i => h.cloud_cover[i] || 0);
-      const rh = idx.map(i => h.relative_humidity_2m[i] || 0);
-      const hrs = idx.map(i => parseInt(h.time[i].slice(11, 13), 10));
-
-      const wet = hrs.filter((_, j) => pr[j] >= 0.3);
-      parts.push(wet.length ? "Осадки: " + spanify(wet) + "." : "Осадков не ожидается.");
-
-      const best = bestWindow(hrs, pr, w);
-      if (best) parts.push("Лучшее окно: " + best + ".");
-
-      let wmaxI = 0;
-      for (let j = 0; j < idx.length; j++) if (w[j] > w[wmaxI]) wmaxI = j;
-      if (w[wmaxI] >= 8) parts.push(`Ветер на гребне до ${Math.round(w[wmaxI])} м/с ближе к ${daypart(hrs[wmaxI])}.`);
-
-      const mornRh = mean(rh.filter((_, j) => hrs[j] < 9));
-      const mornCl = mean(cl.filter((_, j) => hrs[j] < 9));
-      if (mornRh != null && mornRh > 92 && mornCl != null && mornCl > 80) {
-        parts.push("Утром возможен туман и низкая облачность в долине.");
-      }
-
-      if (idx.some(i => THUNDER.has(h.weather_code[i]))) {
-        parts.push("Возможна гроза — гребень проходить в первой половине дня.");
-      }
-    }
+  if (om) {
+    const today = dayAnalysis(om, days[0] && days[0].date, "Сегодня");
+    if (today) parts.push(today);
+    const tomorrow = dayAnalysis(om, days[1] && days[1].date, "Завтра");
+    if (tomorrow) parts.push(tomorrow);
   }
   if (days.length >= 5) {
     const later = days.slice(2);
@@ -236,6 +225,41 @@ function buildAnalysis(om, days) {
     else parts.push(`С ${fmtDate(wetLater[0].date)} осадки местами усиливаются.`);
   }
   return parts.length ? parts.join(" ") : "Без выраженных погодных явлений.";
+}
+
+function dayAnalysis(om, dateStr, label) {
+  if (!dateStr) return "";
+  const h = om.hourly;
+  const idx = [];
+  for (let i = 0; i < h.time.length; i++) if (h.time[i].slice(0, 10) === dateStr) idx.push(i);
+  if (!idx.length) return "";
+  const pr = idx.map(i => h.precipitation[i] || 0);
+  const w = idx.map(i => h.wind_speed_10m[i] || 0);
+  const cl = idx.map(i => h.cloud_cover[i] || 0);
+  const rh = idx.map(i => h.relative_humidity_2m[i] || 0);
+  const hrs = idx.map(i => parseInt(h.time[i].slice(11, 13), 10));
+  const sub = [];
+
+  const wet = hrs.filter((_, j) => pr[j] >= 0.3);
+  sub.push(wet.length ? "осадки: " + spanify(wet) : "осадков не ожидается");
+
+  const best = bestWindow(hrs, pr, w);
+  if (best) sub.push("лучшее окно: " + best);
+
+  let wmaxI = 0;
+  for (let j = 0; j < idx.length; j++) if (w[j] > w[wmaxI]) wmaxI = j;
+  if (w[wmaxI] >= 8) sub.push(`ветер на гребне до ${Math.round(w[wmaxI])} м/с ближе к ${daypart(hrs[wmaxI])}`);
+
+  const mornRh = mean(rh.filter((_, j) => hrs[j] < 9));
+  const mornCl = mean(cl.filter((_, j) => hrs[j] < 9));
+  if (mornRh != null && mornRh > 92 && mornCl != null && mornCl > 80) {
+    sub.push("утром возможен туман и низкая облачность в долине");
+  }
+
+  if (idx.some(i => THUNDER.has(h.weather_code[i]))) {
+    sub.push("возможна гроза — гребень проходить в первой половине дня");
+  }
+  return label + ": " + sub.join("; ") + ".";
 }
 
 function spanify(hours) {
@@ -294,7 +318,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx2_" + point.id;
+  const key = "wx3_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;

@@ -1,0 +1,54 @@
+{
+ "peaks": {
+  "Mount-Fisht": [
+   43.9541,
+   39.9028
+  ],
+  "Oshten": [
+   43.9975,
+   39.9298
+  ],
+  "Mount-Agepsta": [
+   43.5475,
+   40.4813
+  ],
+  "Dombai-Ulgen": [
+   43.2333,
+   41.7167
+  ]
+ },
+ "mapping": {
+  "achishkho-glavnaya": "Mount-Fisht",
+  "belye-skaly": "Mount-Fisht",
+  "bzerpinsky": "Mount-Agepsta",
+  "keiva": "Mount-Agepsta",
+  "khrustalny": "Mount-Agepsta",
+  "kanyon-psaho": "Mount-Agepsta",
+  "krugozor-efremova": "Mount-Agepsta",
+  "kupel-beshenka": "Mount-Agepsta",
+  "lager-holodny": "Mount-Agepsta",
+  "mamdzyshkha": "Mount-Agepsta",
+  "mendelikha": "Mount-Agepsta",
+  "nahazo": "Mount-Agepsta",
+  "goluboe": "Mount-Agepsta",
+  "zerkalnoe": "Mount-Agepsta",
+  "kardyvach": "Mount-Agepsta",
+  "malaya-ritsa": "Mount-Agepsta",
+  "ritsa": "Mount-Agepsta",
+  "oshten": "Oshten",
+  "pereval-aishkha": "Mount-Agepsta",
+  "pitsunda": "Mount-Agepsta",
+  "laura-pichtovy": "Mount-Agepsta",
+  "priyut-fisht": "Mount-Fisht",
+  "pseashkha-saharnaya": "Mount-Agepsta",
+  "pshegishkhva": "Mount-Agepsta",
+  "rosa-pik": "Mount-Agepsta",
+  "rosa-dolina": "Mount-Agepsta",
+  "sirius": "Mount-Agepsta",
+  "chistaya-laba": "Mount-Agepsta",
+  "tkhach": "Oshten",
+  "fisht": "Mount-Fisht",
+  "aibga": "Mount-Agepsta",
+  "engelmanovy": "Mount-Agepsta"
+ }
+}

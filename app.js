@@ -1,5 +1,27 @@
-/* «Погода в горах Красной Поляны» — статичный фронт (hash-роутинг, без сервера).
+/* «Погода в горах и на море» v2 — статичный фронт (hash-роутинг, без сервера).
    Данные: weather.js ходит напрямую в Open-Meteo и MET Norway. */
+
+/* ---------- плейсхолдер-ссылки (заменить на реальные) ---------- */
+const SITE_URL = "https://example.com/";            // сайт-визитка (луна в шапке)
+const DONATE_URL = "https://example.com/pay";       // оплата подписки
+const COMMUNITY_URL = "https://example.com/community"; // комьюнити
+
+/* Ближайшие вершины Mountain-Forecast (проверено: страницы существуют) */
+const MF_MAP = {
+  "achishkho-glavnaya": "Mount-Fisht", "belye-skaly": "Mount-Fisht",
+  "bzerpinsky": "Mount-Agepsta", "keiva": "Mount-Agepsta", "khrustalny": "Mount-Agepsta",
+  "kanyon-psaho": "Mount-Agepsta", "krugozor-efremova": "Mount-Agepsta",
+  "kupel-beshenka": "Mount-Agepsta", "lager-holodny": "Mount-Agepsta",
+  "mamdzyshkha": "Mount-Agepsta", "mendelikha": "Mount-Agepsta", "nahazo": "Mount-Agepsta",
+  "goluboe": "Mount-Agepsta", "zerkalnoe": "Mount-Agepsta", "kardyvach": "Mount-Agepsta",
+  "malaya-ritsa": "Mount-Agepsta", "ritsa": "Mount-Agepsta", "oshten": "Oshten",
+  "pereval-aishkha": "Mount-Agepsta", "pitsunda": "Mount-Agepsta",
+  "laura-pichtovy": "Mount-Agepsta", "priyut-fisht": "Mount-Fisht",
+  "pseashkha-saharnaya": "Mount-Agepsta", "pshegishkhva": "Mount-Agepsta",
+  "rosa-pik": "Mount-Agepsta", "rosa-dolina": "Mount-Agepsta", "sirius": "Mount-Agepsta",
+  "chistaya-laba": "Mount-Agepsta", "tkhach": "Oshten", "fisht": "Mount-Fisht",
+  "aibga": "Mount-Agepsta", "engelmanovy": "Mount-Agepsta",
+};
 
 // Telegram WebApp SDK грузим асинхронно: страница работает и без него
 (function loadTgSdk() {
@@ -30,9 +52,6 @@ const WMO = {
   85: ["🌨", "снегопад"], 86: ["🌨", "снегопад"],
   95: ["⛈", "гроза"], 96: ["⛈", "гроза с градом"], 99: ["⛈", "гроза с градом"],
 };
-const VERDICT = {
-  green: "🟢 Отлично", yellow: "🟡 Осторожно", red: "🔴 Не стоит",
-};
 const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
 
 let POINTS = [];
@@ -47,6 +66,8 @@ function fmtDay(iso, i) {
   const d = new Date(iso + "T12:00:00");
   return WD[d.getDay()] + " " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0");
 }
+
+function openSite() { window.open(SITE_URL, "_blank", "noopener"); }
 
 /* ---------- главный экран ---------- */
 async function loadHome() {
@@ -66,15 +87,101 @@ async function loadHome() {
   } catch (e) {
     list.innerHTML = `<div class="error-box">Не удалось загрузить точки: ${esc(e.message)}</div>`;
   }
+  renderPanels();
 }
 
+/* ---------- ссылки ручной перепроверки ---------- */
+function windyLink(p) { return `https://www.windy.com/?${p.lat},${p.lon},11`; }
+function yrLink(p) { return `https://www.yr.no/en/search?q=${p.lat},${p.lon}`; }
+function mfLink(p) { return `https://www.mountain-forecast.com/peaks/${MF_MAP[p.id] || "Mount-Fisht"}`; }
+
 /* ---------- экран точки ---------- */
-function mfLink(p) {
-  // В базе Mountain-Forecast из вершин региона есть только Mount Fisht
-  if (p.region === "Красная Поляна") {
-    return `<a class="link-btn" href="https://www.mountain-forecast.com/peaks/Mount-Fisht" target="_blank" rel="noopener">Mountain-Forecast · Фишт</a>`;
+function windRange(cur) {
+  const vals = [cur.wind, cur.metno_wind].filter(v => v != null);
+  if (!vals.length) return "—";
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  return mn !== mx ? `от ${mn} до ${mx} м/с` : `${mn} м/с`;
+}
+
+async function loadPoint(id) {
+  const box = document.getElementById("point-content");
+  const point = POINTS.find(p => p.id === id);
+  document.getElementById("sticky-name").textContent = point ? point.name : "";
+  if (!point) {
+    box.innerHTML = `<div class="error-box">Точка не найдена.</div>`;
+    return;
   }
-  return `<a class="link-btn disabled">Mountain-Forecast: нет вершин Абхазии</a>`;
+  box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
+  let d;
+  try {
+    d = await getWeather(point);
+  } catch (e) {
+    box.innerHTML = `<div class="error-box">Не удалось получить погоду: ${esc(e.message)}<br><br>Попробуйте ещё раз через минуту.</div>`;
+    return;
+  }
+  const p = d.point;
+  const cur = d.current;
+  const fetched = d.fetched_at ? d.fetched_at.slice(11, 16) : "";
+
+  const nowHtml = cur ? `
+    <div class="card">
+      <h3>Погода сейчас · обновлено ${fetched} МСК</h3>
+      <div class="now-main">
+        <div class="now-icon">${icon(cur.code)}</div>
+        <div>
+          <div class="now-t">${cur.t}°</div>
+          <div class="now-desc">${wmoLabel(cur.code)} · ощущается ${cur.feels}°</div>
+        </div>
+      </div>
+      <div class="now-grid">
+        <div class="now-cell"><div class="k">Ветер</div><div class="v">${windRange(cur)}</div></div>
+        <div class="now-cell"><div class="k">Осадки</div><div class="v">${(cur.precip || 0) > 0 ? cur.precip + " мм" : "нет"}</div></div>
+        <div class="now-cell"><div class="k">Облачность</div><div class="v">${cur.cloud}%</div></div>
+      </div>
+    </div>` : "";
+
+  const daysHtml = d.days.map((day, i) => {
+    const label = fmtDay(day.date, i);
+    const spread = day.t_day_spread && (day.t_day_spread[0] !== day.t_day_spread[1])
+      ? `<span class="spread">разброс ${day.t_day_spread[0]}…${day.t_day_spread[1]}°</span>` : "";
+    return `
+      <div class="day-block">
+        <div class="day-row" onclick="toggleHours(this)">
+          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм</small></div>
+          <div class="day-icon">${icon(day.code)}</div>
+          <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
+          <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
+        </div>
+        <div class="hours-wrap hidden">${hoursHtml(d, day.date)}</div>
+      </div>`;
+  }).join("");
+
+  box.innerHTML = `
+    <h2 class="pt-title">${esc(p.name)}</h2>
+    <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
+    ${nowHtml}
+    <div class="links-row">
+      <a class="link-btn" href="${windyLink(p)}" target="_blank" rel="noopener">Windy</a>
+      <a class="link-btn" href="${yrLink(p)}" target="_blank" rel="noopener">Yr.no</a>
+      <a class="link-btn" href="${mfLink(p)}" target="_blank" rel="noopener">Mountain-Forecast</a>
+    </div>
+    <div class="card collapse-card">
+      <div class="collapse-head" onclick="toggleCollapse(this)">Микро-анализ сегодня <span class="chev">▾</span></div>
+      <div class="collapse-body hidden"><div class="analysis-text">${esc(d.analysis)}</div></div>
+    </div>
+    <div class="card">
+      <h3>5 дней · нажмите на день — прогноз по часам</h3>
+      ${daysHtml}
+    </div>
+  `;
+  renderPanels();
+}
+
+function toggleCollapse(headEl) {
+  const body = headEl.nextElementSibling;
+  const opening = body.classList.contains("hidden");
+  body.classList.toggle("hidden");
+  headEl.classList.toggle("open", opening);
 }
 
 /* Почасовой прогноз на сутки date (из d.hourly, время МСК) */
@@ -112,81 +219,69 @@ function toggleHours(rowEl) {
   }
 }
 
-async function loadPoint(id) {
-  const box = document.getElementById("point-content");
-  box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
-  const point = POINTS.find(p => p.id === id);
-  if (!point) {
-    box.innerHTML = `<div class="error-box">Точка не найдена.</div>`;
-    return;
-  }
-  let d;
-  try {
-    d = await getWeather(point);
-  } catch (e) {
-    box.innerHTML = `<div class="error-box">Не удалось получить погоду: ${esc(e.message)}<br><br>Попробуйте ещё раз через минуту.</div>`;
-    return;
-  }
-  const p = d.point;
-  const cur = d.current;
-  const fetched = d.fetched_at ? d.fetched_at.slice(11, 16) : "";
+/* ---------- донат-подписка и комьюнити ---------- */
+let dpAmount = null;
 
-  const nowHtml = cur ? `
-    <div class="card">
-      <h3>Сейчас · ${p.ele} м</h3>
-      <div class="now-main">
-        <div class="now-icon">${icon(cur.code)}</div>
-        <div>
-          <div class="now-t">${cur.t}°</div>
-          <div class="now-desc">${wmoLabel(cur.code)} · ощущается ${cur.feels}°</div>
-        </div>
-      </div>
-      <div class="now-grid">
-        <div class="now-cell"><div class="k">Ветер</div><div class="v">${cur.wind} м/с</div></div>
-        <div class="now-cell"><div class="k">Порывы</div><div class="v">${cur.gust} м/с</div></div>
-        <div class="now-cell"><div class="k">Облачность</div><div class="v">${cur.cloud}%</div></div>
-      </div>
-      <div class="meta-line">Обновлено ${fetched} МСК · источники: ${d.sources.join(", ")}${d.errors.length ? " · не ответили: " + d.errors.join(", ") : ""}</div>
-    </div>` : "";
+function donateState() {
+  try { return JSON.parse(localStorage.getItem("kp_donate") || "null"); } catch (e) { return null; }
+}
 
-  const daysHtml = d.days.map((day, i) => {
-    const label = fmtDay(day.date, i);
-    const spread = day.t_day_spread && (day.t_day_spread[0] !== day.t_day_spread[1])
-      ? `<span class="spread">разброс ${day.t_day_spread[0]}…${day.t_day_spread[1]}°</span>` : "";
+function donateHtml() {
+  const st = donateState();
+  if (st && st.subscribed) {
     return `
-      <div class="day-block">
-        <div class="day-row" onclick="toggleHours(this)">
-          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм</small></div>
-          <div class="day-icon">${icon(day.code)}</div>
-          <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
-          <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
-        </div>
-        <div class="hours-wrap hidden">${hoursHtml(d, day.date)}</div>
+      <div class="donate-panel">
+        <div class="dp-thanks">СПАСИБО 🙏</div>
+        <div class="dp-change" onclick="donateReset()">Вы всегда можете изменить сумму подписки</div>
       </div>`;
-  }).join("");
+  }
+  return `
+    <div class="donate-panel pulse">
+      <div class="dp-title">Поддержать проект — любая сумма от 0 ₽/мес</div>
+      <div class="dp-amounts">
+        ${[0, 10, 20, 30, 50, 100].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
+        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)">
+      </div>
+      <button class="dp-go" onclick="donateGo()">Оформить подписку</button>
+    </div>`;
+}
 
-  box.innerHTML = `
-    <h2 class="pt-title">${esc(p.name)}</h2>
-    <div class="pt-sub">${p.ele} м · ${esc(p.region)} · ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>
-    ${nowHtml}
-    <div class="card">
-      <span class="badge ${d.verdict}">${VERDICT[d.verdict]}</span>
-      <div class="advice">${esc(d.advice)}</div>
-    </div>
-    <div class="card">
-      <h3>5 дней · нажмите на день — прогноз по часам</h3>
-      ${daysHtml}
-    </div>
-    <div class="card">
-      <h3>Микро-анализ</h3>
-      <div class="analysis-text">${esc(d.analysis)}</div>
-    </div>
-    <div class="links-row">
-      <a class="link-btn" href="https://www.windy.com/${p.lat},${p.lon},11" target="_blank" rel="noopener">Windy</a>
-      ${mfLink(p)}
-    </div>
-    <div class="soon-note">🔔 Уведомления о походе — в следующей версии</div>
-  `;
+function renderPanels() {
+  const hp = document.getElementById("home-panels");
+  if (hp) {
+    hp.innerHTML = donateHtml() +
+      `<a class="community-panel" href="${COMMUNITY_URL}" target="_blank" rel="noopener">Вступить в комьюнити</a>`;
+  }
+  const pp = document.getElementById("point-panels");
+  if (pp) pp.innerHTML = donateHtml();
+  dpAmount = null;
+}
+
+function donatePick(btn) {
+  const panel = btn.closest(".donate-panel");
+  panel.querySelectorAll(".dp-amt").forEach(b => b.classList.remove("sel"));
+  panel.querySelector(".dp-custom").value = "";
+  btn.classList.add("sel");
+  dpAmount = parseInt(btn.dataset.amt, 10);
+}
+
+function donateCustom(input) {
+  const panel = input.closest(".donate-panel");
+  panel.querySelectorAll(".dp-amt").forEach(b => b.classList.remove("sel"));
+  const v = parseInt(String(input.value).replace(/[^\d]/g, ""), 10);
+  dpAmount = isNaN(v) ? null : v;
+}
+
+function donateGo() {
+  const amount = dpAmount == null ? 0 : dpAmount;
+  if (amount > 0) window.open(DONATE_URL, "_blank", "noopener");
+  try { localStorage.setItem("kp_donate", JSON.stringify({ subscribed: true, amount, ts: Date.now() })); } catch (e) {}
+  renderPanels();
+}
+
+function donateReset() {
+  try { localStorage.removeItem("kp_donate"); } catch (e) {}
+  renderPanels();
 }
 
 /* ---------- роутинг ---------- */

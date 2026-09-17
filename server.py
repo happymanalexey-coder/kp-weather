@@ -75,7 +75,7 @@ def fetch_openmeteo_models(lat, lon, ele):
 
 
 def fetch_metno(lat, lon, ele):
-    q = urllib.parse.urlencode({"lat": lat, "lon": lon, "altitude": ele})
+    q = urllib.parse.urlencode({"lat": lat, "lon": lon, "altitude": int(round(ele))})
     return get_json(f"https://api.met.no/weatherapi/locationforecast/2.0/compact?{q}")
 
 
@@ -111,6 +111,19 @@ def metno_daily(raw):
     return out
 
 
+def metno_current(raw):
+    """Текущие значения MET Norway: первая запись timeseries ≈ текущий час."""
+    series = raw.get("properties", {}).get("timeseries", [])
+    if not series:
+        return None
+    inst = series[0].get("data", {}).get("instant", {}).get("details", {})
+    t, w = inst.get("air_temperature"), inst.get("wind_speed")
+    return {
+        "t": round(t) if t is not None else None,
+        "wind": round(w) if w is not None else None,
+    }
+
+
 # ---------- агрегация ----------
 
 THUNDER = {95, 96, 99}
@@ -133,7 +146,7 @@ def aggregate(point):
     lat, lon, ele = point["lat"], point["lon"], point["ele"]
     sources, errors = [], []
 
-    om = om_models = metno = None
+    om = om_models = metno = m_cur = None
     try:
         om = fetch_openmeteo(lat, lon, ele)
         sources.append("Open-Meteo")
@@ -145,7 +158,9 @@ def aggregate(point):
     except Exception as e:
         errors.append(f"Open-Meteo models: {type(e).__name__}")
     try:
-        metno = metno_daily(fetch_metno(lat, lon, ele))
+        metno_raw = fetch_metno(lat, lon, ele)
+        metno = metno_daily(metno_raw)
+        m_cur = metno_current(metno_raw)
         sources.append("MET Norway")
     except Exception as e:
         errors.append(f"MET Norway: {type(e).__name__}")
@@ -213,11 +228,13 @@ def aggregate(point):
             "gust": round(c["wind_gusts_10m"]),
             "cloud": round(c["cloud_cover"]),
             "code": c["weather_code"],
+            "precip": round(c.get("precipitation") or 0, 1),
         }
-    if metno:
-        today = datetime.now(MSK).date().isoformat()
-        if today in metno and current is not None:
-            current["metno_t"] = round(metno[today]["tmax"])  # для ориентира
+    if m_cur and current is not None:
+        if m_cur["t"] is not None:
+            current["metno_t"] = m_cur["t"]
+        if m_cur["wind"] is not None:
+            current["metno_wind"] = m_cur["wind"]
 
     analysis = build_analysis(om, days)
     advice = build_advice(days[1] if len(days) > 1 else days[0])
@@ -246,43 +263,15 @@ def aggregate(point):
 
 
 def build_analysis(om, days):
-    """Микро-анализ на завтра + тренд 5 дней (правила по почасовым данным)."""
+    """Микро-анализ на сегодня и завтра + тренд 5 дней (правила по почасовым данным)."""
     parts = []
-    if om and len(days) > 1:
-        h = om["hourly"]
-        times = [datetime.fromisoformat(t) for t in h["time"]]
-        tomorrow = days[1]["date"]
-        idx = [i for i, t in enumerate(times) if t.date().isoformat() == tomorrow]
-        if idx:
-            pr = [h["precipitation"][i] or 0 for i in idx]
-            w = [h["wind_speed_10m"][i] or 0 for i in idx]
-            cl = [h["cloud_cover"][i] or 0 for i in idx]
-            rh = [h["relative_humidity_2m"][i] or 0 for i in idx]
-            hrs = [times[i].hour for i in idx]
-
-            wet = [(hrs[j], pr[j]) for j in range(len(idx)) if pr[j] >= 0.3]
-            if wet:
-                spans = spanify([x[0] for x in wet])
-                parts.append(f"Осадки: {spans}.")
-            else:
-                parts.append("Осадков не ожидается.")
-
-            best = best_window(hrs, pr, w)
-            if best:
-                parts.append(f"Лучшее окно: {best}.")
-
-            wmax_i = max(range(len(idx)), key=lambda j: w[j])
-            if w[wmax_i] >= 8:
-                parts.append(f"Ветер на гребне до {round(w[wmax_i])} м/с ближе к {daypart(hrs[wmax_i])}.")
-
-            if mean([rh[j] for j in range(len(idx)) if hrs[j] < 9]) and \
-               mean([rh[j] for j in range(len(idx)) if hrs[j] < 9]) > 92 and \
-               mean([cl[j] for j in range(len(idx)) if hrs[j] < 9]) > 80:
-                parts.append("Утром возможен туман и низкая облачность в долине.")
-
-            codes = {h["weather_code"][i] for i in idx}
-            if codes & THUNDER:
-                parts.append("Возможна гроза — гребень проходить в первой половине дня.")
+    if om:
+        today = day_analysis(om, days[0]["date"] if days else None, "Сегодня")
+        if today:
+            parts.append(today)
+        tomorrow = day_analysis(om, days[1]["date"] if len(days) > 1 else None, "Завтра")
+        if tomorrow:
+            parts.append(tomorrow)
 
     if len(days) >= 5:
         later = days[2:]
@@ -293,6 +282,43 @@ def build_analysis(om, days):
         else:
             parts.append(f"С {fmt_date(wet_later[0]['date'])} осадки местами усиливаются.")
     return " ".join(parts) if parts else "Без выраженных погодных явлений."
+
+
+def day_analysis(om, date_str, label):
+    if not date_str:
+        return ""
+    h = om["hourly"]
+    times = [datetime.fromisoformat(t) for t in h["time"]]
+    idx = [i for i, t in enumerate(times) if t.date().isoformat() == date_str]
+    if not idx:
+        return ""
+    pr = [h["precipitation"][i] or 0 for i in idx]
+    w = [h["wind_speed_10m"][i] or 0 for i in idx]
+    cl = [h["cloud_cover"][i] or 0 for i in idx]
+    rh = [h["relative_humidity_2m"][i] or 0 for i in idx]
+    hrs = [times[i].hour for i in idx]
+    sub = []
+
+    wet = [(hrs[j], pr[j]) for j in range(len(idx)) if pr[j] >= 0.3]
+    sub.append(f"осадки: {spanify([x[0] for x in wet])}" if wet else "осадков не ожидается")
+
+    best = best_window(hrs, pr, w)
+    if best:
+        sub.append(f"лучшее окно: {best}")
+
+    wmax_i = max(range(len(idx)), key=lambda j: w[j])
+    if w[wmax_i] >= 8:
+        sub.append(f"ветер на гребне до {round(w[wmax_i])} м/с ближе к {daypart(hrs[wmax_i])}")
+
+    morn_rh = mean([rh[j] for j in range(len(idx)) if hrs[j] < 9])
+    morn_cl = mean([cl[j] for j in range(len(idx)) if hrs[j] < 9])
+    if morn_rh is not None and morn_rh > 92 and morn_cl is not None and morn_cl > 80:
+        sub.append("утром возможен туман и низкая облачность в долине")
+
+    codes = {h["weather_code"][i] for i in idx}
+    if codes & THUNDER:
+        sub.append("возможна гроза — гребень проходить в первой половине дня")
+    return f"{label}: " + "; ".join(sub) + "."
 
 
 def spanify(hours):
