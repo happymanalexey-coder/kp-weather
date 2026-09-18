@@ -217,6 +217,18 @@ def aggregate(point):
             "verdict": verdict_for(precip, wind, cloud, code),
         })
 
+    # Дневная сумма осадков = сумме показываемых часов (один источник, best_match).
+    # Иначе число в дне не сходится с почасовой раскладкой — подрывает доверие.
+    if om and om.get("hourly") and om["hourly"].get("precipitation"):
+        sums = {}
+        for t, pr in zip(om["hourly"]["time"], om["hourly"]["precipitation"]):
+            d = t[:10]
+            sums[d] = sums.get(d, 0.0) + (pr or 0)
+        for day in days:
+            if day["date"] in sums:
+                day["precip"] = round(sums[day["date"]], 1)
+                day["verdict"] = verdict_for(day["precip"], day["wind"], day["cloud"], day["code"])
+
     current = None
     if om and "current" in om:
         c = om["current"]

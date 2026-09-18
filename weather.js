@@ -168,6 +168,23 @@ async function aggregate(point) {
     };
   });
 
+  /* Дневная сумма осадков = сумме показываемых часов (один и тот же источник,
+     best_match). Иначе число в дне не сходится с почасовой раскладкой —
+     подрывает доверие к прогнозу. */
+  if (om && om.hourly && om.hourly.precipitation) {
+    const sums = {};
+    om.hourly.time.forEach((t, i) => {
+      const d = t.slice(0, 10);
+      sums[d] = (sums[d] || 0) + (om.hourly.precipitation[i] || 0);
+    });
+    for (const day of days) {
+      if (sums[day.date] != null) {
+        day.precip = Math.round(sums[day.date] * 10) / 10;
+        day.verdict = verdictFor(day.precip, day.wind, day.cloud, day.code);
+      }
+    }
+  }
+
   let current = null;
   if (om && om.current) {
     const c = om.current;
@@ -318,7 +335,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx3_" + point.id;
+  const key = "wx4_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;
