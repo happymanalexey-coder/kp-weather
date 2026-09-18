@@ -172,15 +172,16 @@ async function loadPoint(id) {
       </div>`;
   }).join("");
 
+  const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
     <h2 class="pt-title">${esc(p.name)}</h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
     ${nowHtml}
-    <div class="links-row">
+    ${SHOW_EXT_LINKS ? `<div class="links-row">
       <a class="link-btn" href="${windyLink(p)}" target="_blank" rel="noopener">Windy</a>
       <a class="link-btn" href="${yrLink(p)}" target="_blank" rel="noopener">Yr.no</a>
       <a class="link-btn" href="${mfLink(p)}" target="_blank" rel="noopener">Mountain-Forecast</a>
-    </div>
+    </div>` : ""}
     <div class="card collapse-card">
       <div class="collapse-head" onclick="toggleCollapse(this)">Микро-анализ сегодня <span class="chev">▾</span></div>
       <div class="collapse-body hidden"><div class="analysis-text">${esc(d.analysis)}</div></div>
