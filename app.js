@@ -548,8 +548,14 @@ function renderPanels() {
   dpAmount = null;
 }
 
-/* Кнопка «Оформить подписку» всегда должна быть видна */
-function scrollDonateBtn() {
+/* Кнопка «Оформить подписку» всегда должна быть видна.
+   ВАЖНО: viewportChanged срабатывает и при смене темы — поэтому без явного
+   force скроллим только когда открыта клавиатура (фокус в поле суммы). */
+function scrollDonateBtn(force) {
+  if (!force) {
+    const ae = document.activeElement;
+    if (!ae || !ae.classList || !ae.classList.contains("dp-custom")) return;
+  }
   setTimeout(() => {
     const btns = [...document.querySelectorAll(".donate-panel .dp-go")].filter(b => b.offsetParent);
     const btn = btns[btns.length - 1];
