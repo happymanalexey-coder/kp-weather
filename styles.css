@@ -205,3 +205,6 @@ body {
   max-width: 90vw; text-align: center;
 }
 .soon-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- v2: разнос осадков по моделям в строке дня ---------- */
+.d-spread { color: var(--muted); font-size: 11px; margin-left: 2px; }

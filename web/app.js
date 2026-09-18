@@ -168,7 +168,7 @@ async function loadPoint(id) {
     return `
       <div class="day-block">
         <div class="day-row" onclick="toggleHours(this)">
-          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм</small></div>
+          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм${day.precip_spread && day.precip_spread[0] !== day.precip_spread[1] ? ` <span class="d-spread">${day.precip_spread[0]}–${day.precip_spread[1]}</span>` : ""}</small></div>
           <div class="day-icon">${icon(day.code)}</div>
           <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
           <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>

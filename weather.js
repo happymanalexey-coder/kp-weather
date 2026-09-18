@@ -42,6 +42,7 @@ function fetchOpenMeteo(p) {
 function fetchOpenMeteoModels(p) {
   return fetchJson(omParams(p, {
     daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
+    hourly: "temperature_2m,precipitation,wind_speed_10m",
     models: "ecmwf_ifs025,gfs_global,icon_eu",
   }));
 }
@@ -82,6 +83,24 @@ function metnoDaily(raw) {
   return out;
 }
 
+/* Почасовые данные MET Norway по МСК: {"YYYY-MM-DDTHH:00": {t,wind,precip}} */
+function metnoHourly(raw) {
+  const out = {};
+  const series = (raw && raw.properties && raw.properties.timeseries) || [];
+  for (const ts of series) {
+    const key = new Date(new Date(ts.time).getTime() + MSK_OFFSET_MS).toISOString().slice(0, 13) + ":00";
+    const inst = (ts.data && ts.data.instant && ts.data.instant.details) || {};
+    let precip = null;
+    if (ts.data && ts.data.next_1_hours) precip = (ts.data.next_1_hours.details || {}).precipitation_amount ?? null;
+    out[key] = {
+      t: inst.air_temperature != null ? inst.air_temperature : null,
+      wind: inst.wind_speed != null ? inst.wind_speed : null,
+      precip,
+    };
+  }
+  return out;
+}
+
 /* Текущие значения MET Norway: первая запись timeseries ≈ текущий час */
 function metnoCurrent(raw) {
   const series = (raw && raw.properties && raw.properties.timeseries) || [];
@@ -113,19 +132,39 @@ async function aggregate(point) {
   ]);
   const om = omR.status === "fulfilled" ? omR.value : null;
   const omModels = modelsR.status === "fulfilled" ? modelsR.value : null;
-  let metno = null, mCur = null;
+  let metno = null, mCur = null, metnoH = null;
   if (om) sources.push("Open-Meteo"); else errors.push("Open-Meteo: " + errName(omR.reason));
   if (omModels) sources.push("ECMWF/GFS/ICON"); else errors.push("Open-Meteo models: " + errName(modelsR.reason));
   if (metnoR.status === "fulfilled") {
     try {
       metno = metnoDaily(metnoR.value);
       mCur = metnoCurrent(metnoR.value);
+      metnoH = metnoHourly(metnoR.value);
       sources.push("MET Norway");
     }
     catch (e) { errors.push("MET Norway: " + errName(e)); }
   } else errors.push("MET Norway: " + errName(metnoR.reason));
 
   if (!om && !metno) throw new Error("все источники недоступны: " + errors.join("; "));
+
+  /* Почасовой консенсус: среднее по всем источникам в каждом часе
+     (best_match + ECMWF/GFS/ICON + MET Norway). Иконка/код — от best_match. */
+  if (om && om.hourly) {
+    const h = om.hourly, mh = omModels && omModels.hourly;
+    for (let i = 0; i < h.time.length; i++) {
+      const tv = [h.temperature_2m[i]], pv = [h.precipitation[i]], wv = [h.wind_speed_10m[i]];
+      if (mh) for (const [k, s] of Object.entries(mh)) {
+        if (k.startsWith("temperature_2m_")) tv.push(s[i]);
+        else if (k.startsWith("precipitation_")) pv.push(s[i]);
+        else if (k.startsWith("wind_speed_10m_")) wv.push(s[i]);
+      }
+      const m = metnoH && metnoH[h.time[i].slice(0, 13) + ":00"];
+      if (m) { tv.push(m.t); pv.push(m.precip); wv.push(m.wind); }
+      h.temperature_2m[i] = mean(tv);
+      h.precipitation[i] = mean(pv);
+      h.wind_speed_10m[i] = mean(wv);
+    }
+  }
 
   const dates = om ? om.daily.time.slice(0, 6) : Object.keys(metno).sort().slice(0, 6);
 
@@ -161,6 +200,7 @@ async function aggregate(point) {
       t_day_spread: tmaxF.length ? [Math.round(Math.min(...tmaxF)), Math.round(Math.max(...tmaxF))] : null,
       t_night_spread: tminF.length ? [Math.round(Math.min(...tminF)), Math.round(Math.max(...tminF))] : null,
       precip: precip != null ? Math.round(precip * 10) / 10 : null,
+      precip_spread: (() => { const f = prV.filter(v => v != null); return f.length > 1 ? [Math.round(Math.min(...f) * 10) / 10, Math.round(Math.max(...f) * 10) / 10] : null; })(),
       wind: wind != null ? Math.round(wind) : null,
       cloud: cloud != null ? Math.round(cloud) : null,
       code,
@@ -335,7 +375,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx4_" + point.id;
+  const key = "wx5_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;

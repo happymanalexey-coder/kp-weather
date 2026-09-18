@@ -64,10 +64,11 @@ def fetch_openmeteo(lat, lon, ele):
 
 
 def fetch_openmeteo_models(lat, lon, ele):
-    """Те же daily-поля по отдельным метеомоделям (ECMWF IFS, GFS, ICON-EU)."""
+    """Те же поля по отдельным метеомоделям (ECMWF IFS, GFS, ICON-EU)."""
     q = urllib.parse.urlencode({
         "latitude": lat, "longitude": lon, "elevation": ele,
         "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
+        "hourly": "temperature_2m,precipitation,wind_speed_10m",
         "timezone": "Europe/Moscow", "forecast_days": 6, "wind_speed_unit": "ms",
         "models": "ecmwf_ifs025,gfs_global,icon_eu",
     })
@@ -111,6 +112,24 @@ def metno_daily(raw):
     return out
 
 
+def metno_hourly(raw):
+    """Почасовые данные по МСК: {"YYYY-MM-DDTHH:00": {t,wind,precip}}."""
+    out = {}
+    for ts in raw.get("properties", {}).get("timeseries", []):
+        t_utc = datetime.fromisoformat(ts["time"].replace("Z", "+00:00"))
+        key = t_utc.astimezone(MSK).strftime("%Y-%m-%dT%H:00")
+        inst = ts.get("data", {}).get("instant", {}).get("details", {})
+        precip = None
+        if "next_1_hours" in ts.get("data", {}):
+            precip = ts["data"]["next_1_hours"].get("details", {}).get("precipitation_amount")
+        out[key] = {
+            "t": inst.get("air_temperature"),
+            "wind": inst.get("wind_speed"),
+            "precip": precip,
+        }
+    return out
+
+
 def metno_current(raw):
     """Текущие значения MET Norway: первая запись timeseries ≈ текущий час."""
     series = raw.get("properties", {}).get("timeseries", [])
@@ -146,7 +165,7 @@ def aggregate(point):
     lat, lon, ele = point["lat"], point["lon"], point["ele"]
     sources, errors = [], []
 
-    om = om_models = metno = m_cur = None
+    om = om_models = metno = m_cur = metno_h = None
     try:
         om = fetch_openmeteo(lat, lon, ele)
         sources.append("Open-Meteo")
@@ -161,12 +180,39 @@ def aggregate(point):
         metno_raw = fetch_metno(lat, lon, ele)
         metno = metno_daily(metno_raw)
         m_cur = metno_current(metno_raw)
+        metno_h = metno_hourly(metno_raw)
         sources.append("MET Norway")
     except Exception as e:
         errors.append(f"MET Norway: {type(e).__name__}")
 
     if om is None and metno is None:
         raise RuntimeError("все источники недоступны: " + "; ".join(errors))
+
+    # Почасовой консенсус: среднее по всем источникам в каждом часе
+    # (best_match + ECMWF/GFS/ICON + MET Norway). Код погоды — от best_match.
+    if om and om.get("hourly"):
+        h = om["hourly"]
+        mh = om_models.get("hourly") if om_models else None
+        for i, tstr in enumerate(h["time"]):
+            tv = [h["temperature_2m"][i]]
+            pv = [h["precipitation"][i]]
+            wv = [h["wind_speed_10m"][i]]
+            if mh:
+                for k, s in mh.items():
+                    if i >= len(s):
+                        continue
+                    if k.startswith("temperature_2m_"):
+                        tv.append(s[i])
+                    elif k.startswith("precipitation_"):
+                        pv.append(s[i])
+                    elif k.startswith("wind_speed_10m_"):
+                        wv.append(s[i])
+            m = metno_h.get(tstr[:13] + ":00") if metno_h else None
+            if m:
+                tv.append(m["t"]); pv.append(m["precip"]); wv.append(m["wind"])
+            h["temperature_2m"][i] = mean(tv)
+            h["precipitation"][i] = mean(pv)
+            h["wind_speed_10m"][i] = mean(wv)
 
     # даты: 6 суток начиная с сегодня (МСК)
     dates = None
@@ -202,6 +248,7 @@ def aggregate(point):
 
         tmax_f = [v for v in tmax_v if v is not None]
         tmin_f = [v for v in tmin_v if v is not None]
+        pf = [v for v in pr_v if v is not None]
         t_day, t_night = mean(tmax_f), mean(tmin_f)
         precip, wind, cloud = mean(pr_v), mean(w_v), mean(c_v)
         days.append({
@@ -211,6 +258,7 @@ def aggregate(point):
             "t_day_spread": [round(min(tmax_f)), round(max(tmax_f))] if tmax_f else None,
             "t_night_spread": [round(min(tmin_f)), round(max(tmin_f))] if tmin_f else None,
             "precip": round(precip, 1) if precip is not None else None,
+            "precip_spread": [round(min(pf), 1), round(max(pf), 1)] if len(pf) > 1 else None,
             "wind": round(wind) if wind is not None else None,
             "cloud": round(cloud) if cloud is not None else None,
             "code": code,
