@@ -296,6 +296,17 @@ def aggregate(point):
         if m_cur["wind"] is not None:
             current["metno_wind"] = m_cur["wind"]
 
+    # Осадки «сейчас» = тому же консенсус-часу, что виден в почасовой ленте.
+    # current.precipitation у Open-Meteo — одиночная модель best_match,
+    # из-за неё число в шапке расходилось с ячейкой «сейчас».
+    if current is not None and om and om.get("hourly"):
+        now_key = datetime.now(MSK).strftime("%Y-%m-%dT%H:00")
+        if now_key in om["hourly"]["time"]:
+            ni = om["hourly"]["time"].index(now_key)
+            v = om["hourly"]["precipitation"][ni]
+            if v is not None:
+                current["precip"] = round(v, 1)
+
     analysis = build_analysis(om, days)
     advice = build_advice(days[1] if len(days) > 1 else days[0])
     overall = "green"

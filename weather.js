@@ -240,6 +240,15 @@ async function aggregate(point) {
     if (mCur.wind != null) current.metno_wind = mCur.wind;
   }
 
+  /* Осадки «сейчас» = тому же консенсус-часу, что виден в почасовой ленте.
+     current.precipitation у Open-Meteo — это одиночная модель best_match,
+     из-за неё число в шапке расходилось с ячейкой «сейчас». */
+  if (current && om && om.hourly) {
+    const ni = om.hourly.time.indexOf(mskNowIso().slice(0, 13) + ":00");
+    if (ni >= 0 && om.hourly.precipitation[ni] != null)
+      current.precip = Math.round(om.hourly.precipitation[ni] * 10) / 10;
+  }
+
   const analysis = buildAnalysis(om, days);
   const advice = buildAdvice(days.length > 1 ? days[1] : days[0]);
   let overall = "green";
@@ -375,7 +384,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx5_" + point.id;
+  const key = "wx6_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;
