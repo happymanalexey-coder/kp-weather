@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -13,27 +13,53 @@
       <svg class="hero-mountains" viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#101c30"/><stop offset="1" stop-color="#0b1220"/>
+            <stop offset="0" class="sk0"/><stop offset="1" class="sk1"/>
           </linearGradient>
         </defs>
         <rect width="400" height="160" fill="url(#sky)"/>
-        <circle class="moon" cx="330" cy="34" r="14" fill="#e8f4f8" opacity="0.85" onclick="openSite()"/>
-        <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="#16243c"/>
-        <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" fill="#dfeaf2" opacity="0.9"/>
-        <path d="M60 84 L74 102 L64 98 L56 106 L49 96 L44 100 Z" fill="#dfeaf2" opacity="0.75"/>
-        <path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="#0f1930"/>
-        <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="#0a1120"/>
+        <g class="rainbow-g" aria-hidden="true">
+          <path d="M120 84 A30 30 0 0 0 180 84" fill="none" stroke="#f87171" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M125 84 A25 25 0 0 0 175 84" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M130 84 A20 20 0 0 0 170 84" fill="none" stroke="#4ade80" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+        <g id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" role="button" aria-label="Переключить тему">
+          <g class="moon-g">
+            <path d="M330 20 A14 14 0 0 1 330 48 A11 11 0 0 0 330 20 Z" fill="#e8f4f8" opacity="0.9"/>
+          </g>
+          <g class="sun-g">
+            <circle cx="330" cy="34" r="9" fill="#ffd166"/>
+            <g stroke="#ffd166" stroke-width="2" stroke-linecap="round">
+              <line x1="341.5" y1="34" x2="345.5" y2="34"/>
+              <line x1="338.1" y1="42.1" x2="340.9" y2="44.9"/>
+              <line x1="330" y1="45.5" x2="330" y2="49.5"/>
+              <line x1="321.9" y1="42.1" x2="319.1" y2="44.9"/>
+              <line x1="318.5" y1="34" x2="314.5" y2="34"/>
+              <line x1="321.9" y1="25.9" x2="319.1" y2="23.1"/>
+              <line x1="330" y1="22.5" x2="330" y2="18.5"/>
+              <line x1="338.1" y1="25.9" x2="340.9" y2="23.1"/>
+            </g>
+          </g>
+          <circle cx="330" cy="34" r="24" fill="transparent"/>
+        </g>
+        <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" class="mt1"/>
+        <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" class="snow"/>
+        <path d="M60 84 L74 102 L64 98 L56 106 L49 96 L44 100 Z" class="snow snow2"/>
+        <path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" class="mt2"/>
+        <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" class="mt3"/>
       </svg>
       <div class="hero-text">
         <h1>Погода в горах и на море</h1>
-        <p>Красная Поляна · Сочи · Абхазия</p>
-        <p class="slogan">5 источников. Одна сводка.</p>
+        <p>Красная Поляна · Сочи · Абхазия · и весь Мир <button class="globe-btn" onclick="openLibrary()" aria-label="Библиотека точек">🌍</button></p>
       </div>
     </header>
     <main id="points-list" class="points-list">
       <div class="loading">Загружаю точки…</div>
     </main>
     <section id="home-panels" class="panels"></section>
+    <div class="home-fb">
+      <button class="ha-btn" onclick="openFeedback()">+ Предложить точку</button>
+      <div class="ha-hint">Формат: Название — 43.709, 40.376</div>
+    </div>
     <footer class="foot">Данные: Open-Meteo · MET Norway · кэш 30 мин</footer>
   </div>
 
@@ -44,6 +70,14 @@
     </div>
     <div id="point-content"></div>
     <section id="point-panels" class="panels"></section>
+  </div>
+
+  <div id="lib-screen" class="lib-overlay hidden">
+    <div class="lib-head">
+      <input id="lib-search" class="lib-search" placeholder="Поиск точки…" oninput="renderLibrary(this.value)">
+      <button class="lib-close" onclick="closeLibrary()" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="lib-list" class="lib-list"></div>
   </div>
 </div>
 <script src="weather.js"></script>
