@@ -24,22 +24,22 @@
         </g>
         <g id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" role="button" aria-label="Переключить тему">
           <g class="moon-g">
-            <path d="M330 20 A14 14 0 0 1 330 48 A18 18 0 0 0 330 20 Z" fill="#e8f4f8" opacity="0.9"/>
+            <path d="M316 30 A16 16 0 0 1 316 62 A17.14 17.14 0 0 0 316 30 Z" fill="#e8f4f8" opacity="0.92"/>
           </g>
           <g class="sun-g">
-            <circle cx="330" cy="34" r="9" fill="#ffd166"/>
-            <g stroke="#ffd166" stroke-width="2" stroke-linecap="round">
-              <line x1="341.5" y1="34" x2="345.5" y2="34"/>
-              <line x1="338.1" y1="42.1" x2="340.9" y2="44.9"/>
-              <line x1="330" y1="45.5" x2="330" y2="49.5"/>
-              <line x1="321.9" y1="42.1" x2="319.1" y2="44.9"/>
-              <line x1="318.5" y1="34" x2="314.5" y2="34"/>
-              <line x1="321.9" y1="25.9" x2="319.1" y2="23.1"/>
-              <line x1="330" y1="22.5" x2="330" y2="18.5"/>
-              <line x1="338.1" y1="25.9" x2="340.9" y2="23.1"/>
+            <circle cx="316" cy="46" r="10" fill="#ffd166"/>
+            <g stroke="#ffd166" stroke-width="2.2" stroke-linecap="round">
+              <line x1="329" y1="46" x2="333.5" y2="46"/>
+              <line x1="325.2" y1="55.2" x2="328.4" y2="58.4"/>
+              <line x1="316" y1="59" x2="316" y2="63.5"/>
+              <line x1="306.8" y1="55.2" x2="303.6" y2="58.4"/>
+              <line x1="303" y1="46" x2="298.5" y2="46"/>
+              <line x1="306.8" y1="36.8" x2="303.6" y2="33.6"/>
+              <line x1="316" y1="33" x2="316" y2="28.5"/>
+              <line x1="325.2" y1="36.8" x2="328.4" y2="33.6"/>
             </g>
           </g>
-          <circle cx="330" cy="34" r="24" fill="transparent"/>
+          <circle cx="316" cy="46" r="26" fill="transparent"/>
         </g>
         <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" class="mt1"/>
         <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" class="snow"/>
@@ -79,7 +79,7 @@
   <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
     <div class="fb-card">
       <div class="fb-title">Предложить точку</div>
-      <div class="fb-text">Пришлите в чат бота так:<br><b>Название — 43.709, 40.376</b><br><br>Точка появится в библиотеке в течение ~24 часов.</div>
+      <div class="fb-text">Пришлите в чат бота название и координаты точки.<br><br>Пример:<br><b>Озеро Рица — 43.472, 40.534</b><br><br>Точка появится в библиотеке в течение ~24 часов.</div>
       <button class="fb-go" onclick="feedbackGo()">Открыть чат @broKimibot</button>
       <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
     </div>
