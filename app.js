@@ -169,8 +169,7 @@ function homeActionsHtml() {
     <div class="home-actions">
       <button class="ha-btn" onclick="openLibrary()">🌍 Библиотека точек</button>
       <button class="ha-btn" onclick="openFeedback()">+ Предложить точку</button>
-    </div>
-    <div class="ha-hint">Новую точку пришлите так: Название — 43.709, 40.376</div>`;
+    </div>`;
 }
 
 function renderHome() {
@@ -331,6 +330,15 @@ function renderLibrary(filter) {
 
 /* ---------- предложить точку / обратная связь ---------- */
 function openFeedback() {
+  const m = document.getElementById("fb-modal");
+  if (m) m.classList.remove("hidden");
+}
+function closeFeedback() {
+  const m = document.getElementById("fb-modal");
+  if (m) m.classList.add("hidden");
+}
+function feedbackGo() {
+  closeFeedback();
   try {
     if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
       Telegram.WebApp.openTelegramLink(FEEDBACK_TG);

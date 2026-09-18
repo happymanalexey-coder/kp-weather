@@ -24,7 +24,7 @@
         </g>
         <g id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" role="button" aria-label="Переключить тему">
           <g class="moon-g">
-            <path d="M330 20 A14 14 0 0 1 330 48 A11 11 0 0 0 330 20 Z" fill="#e8f4f8" opacity="0.9"/>
+            <path d="M330 20 A14 14 0 0 1 330 48 A18 18 0 0 0 330 20 Z" fill="#e8f4f8" opacity="0.9"/>
           </g>
           <g class="sun-g">
             <circle cx="330" cy="34" r="9" fill="#ffd166"/>
@@ -56,10 +56,6 @@
       <div class="loading">Загружаю точки…</div>
     </main>
     <section id="home-panels" class="panels"></section>
-    <div class="home-fb">
-      <button class="ha-btn" onclick="openFeedback()">+ Предложить точку</button>
-      <div class="ha-hint">Формат: Название — 43.709, 40.376</div>
-    </div>
     <footer class="foot">Данные: Open-Meteo · MET Norway · кэш 30 мин</footer>
   </div>
 
@@ -78,6 +74,15 @@
       <button class="lib-close" onclick="closeLibrary()" aria-label="Закрыть">✕</button>
     </div>
     <div id="lib-list" class="lib-list"></div>
+  </div>
+
+  <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
+    <div class="fb-card">
+      <div class="fb-title">Предложить точку</div>
+      <div class="fb-text">Пришлите в чат бота так:<br><b>Название — 43.709, 40.376</b><br><br>Точка появится в библиотеке в течение ~24 часов.</div>
+      <button class="fb-go" onclick="feedbackGo()">Открыть чат @broKimibot</button>
+      <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
+    </div>
   </div>
 </div>
 <script src="/app.js"></script>
