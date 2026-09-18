@@ -128,6 +128,8 @@ async function loadPoint(id) {
     return;
   }
   box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
+  const pp = document.getElementById("point-panels");
+  if (pp) pp.innerHTML = ""; // панели покажем только после загрузки — без мелькания
   let d;
   try {
     d = await getWeather(point);

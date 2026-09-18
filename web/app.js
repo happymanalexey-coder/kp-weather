@@ -130,6 +130,8 @@ function windRange(cur) {
 async function loadPoint(id) {
   const box = document.getElementById("point-content");
   box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
+  const pp = document.getElementById("point-panels");
+  if (pp) pp.innerHTML = ""; // панели покажем только после загрузки — без мелькания
   let d;
   try {
     d = await fetchJSON("/api/weather?id=" + encodeURIComponent(id));
