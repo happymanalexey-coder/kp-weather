@@ -67,7 +67,23 @@ function fmtDay(iso, i) {
   return WD[d.getDay()] + " " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0");
 }
 
-function openSite() { window.open(SITE_URL, "_blank", "noopener"); }
+/* Плейсхолдеры: пока ссылок нет — не уводим пользователя на заглушку */
+const isPlaceholder = u => !u || u.includes("example.com");
+function soonHint(text) {
+  let t = document.getElementById("soon-toast");
+  if (!t) { t = document.createElement("div"); t.id = "soon-toast"; t.className = "soon-toast"; document.body.appendChild(t); }
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+function openSite() {
+  if (isPlaceholder(SITE_URL)) return soonHint("Сайт-визитка скоро появится");
+  window.open(SITE_URL, "_blank", "noopener");
+}
+function openCommunity(e) {
+  if (isPlaceholder(COMMUNITY_URL)) { e.preventDefault(); soonHint("Комьюнити скоро откроется"); }
+}
 
 /* ---------- главный экран ---------- */
 async function loadHome() {
@@ -250,7 +266,7 @@ function renderPanels() {
   const hp = document.getElementById("home-panels");
   if (hp) {
     hp.innerHTML = donateHtml() +
-      `<a class="community-panel" href="${COMMUNITY_URL}" target="_blank" rel="noopener">Вступить в комьюнити</a>`;
+      `<a class="community-panel" href="${COMMUNITY_URL}" target="_blank" rel="noopener" onclick="openCommunity(event)">Вступить в комьюнити</a>`;
   }
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateHtml();
@@ -274,7 +290,10 @@ function donateCustom(input) {
 
 function donateGo() {
   const amount = dpAmount == null ? 0 : dpAmount;
-  if (amount > 0) window.open(DONATE_URL, "_blank", "noopener");
+  if (amount > 0) {
+    if (isPlaceholder(DONATE_URL)) soonHint("Оплата подключится чуть позже — спасибо! 🙏");
+    else window.open(DONATE_URL, "_blank", "noopener");
+  }
   try { localStorage.setItem("kp_donate", JSON.stringify({ subscribed: true, amount, ts: Date.now() })); } catch (e) {}
   renderPanels();
 }

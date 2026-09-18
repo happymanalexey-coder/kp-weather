@@ -192,3 +192,19 @@ body {
   background: var(--card); border: 1px solid var(--line); color: var(--accent);
   border-radius: 18px; padding: 16px; font-size: 15px; font-weight: 800; margin-bottom: 12px;
 }
+(--accent);
+  border-radius: 18px; padding: 16px; font-size: 15px; font-weight: 800; margin-bottom: 12px;
+}
+
+/* ---------- v2: всплывающая подсказка «скоро» для плейсхолдеров ---------- */
+.soon-toast {
+  position: fixed; left: 50%; bottom: 24px;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--card2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 16px; font-size: 14px;
+  opacity: 0; pointer-events: none; z-index: 999;
+  transition: opacity .25s ease, transform .25s ease;
+  max-width: 90vw; text-align: center;
+}
+.soon-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
