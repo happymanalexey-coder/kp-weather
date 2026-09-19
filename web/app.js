@@ -35,8 +35,6 @@ const MF_MAP = {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         applyTgColors();
-        // клавиатура в мини-аппе меняет viewport — держим кнопку подписки видимой
-        if (Telegram.WebApp.onEvent) Telegram.WebApp.onEvent("viewportChanged", scrollDonateBtn);
       }
     } catch (e) {}
   };
@@ -538,8 +536,8 @@ function donateHtml() {
     <div class="donate-panel pulse">
       <div class="dp-title">Поддержать проект — любая сумма от 0 ₽/мес</div>
       <div class="dp-amounts">
-        ${[0, 10, 20, 30, 50, 100].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
-        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)" onfocus="scrollDonateBtn()">
+        ${[0, 100, 500].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
+        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)">
       </div>
       <button class="dp-go" onclick="donateGo()">Оформить подписку</button>
     </div>`;
@@ -557,26 +555,9 @@ function renderPanels() {
   dpAmount = null;
 }
 
-/* Кнопка «Оформить подписку» всегда должна быть видна.
-   ВАЖНО: viewportChanged срабатывает и при смене темы — поэтому без явного
-   force скроллим только когда открыта клавиатура (фокус в поле суммы). */
-function scrollDonateBtn(force) {
-  if (!force) {
-    const ae = document.activeElement;
-    if (!ae || !ae.classList || !ae.classList.contains("dp-custom")) return;
-  }
-  setTimeout(() => {
-    const btns = [...document.querySelectorAll(".donate-panel .dp-go")].filter(b => b.offsetParent);
-    const btn = btns[btns.length - 1];
-    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, 120);
-}
-// браузерный фолбэк: клавиатура уменьшает visualViewport
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", () => {
-    if (window.visualViewport.height < window.innerHeight * 0.85) scrollDonateBtn();
-  });
-}
+/* Скролл к кнопке «Оформить подписку» — только по явному выбору суммы
+   (см. donatePick). Никаких автосроллов по viewport/фокусу: иначе
+   приложение «тянет» к подписке и не даёт смотреть контент. */
 
 function donatePick(btn) {
   const panel = btn.closest(".donate-panel");
