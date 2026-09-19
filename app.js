@@ -35,6 +35,8 @@ const MF_MAP = {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         applyTgColors();
+        // клавиатура в мини-аппе меняет viewport — scrollDonateBtn сам проверит фокус
+        if (Telegram.WebApp.onEvent) Telegram.WebApp.onEvent("viewportChanged", scrollDonateBtn);
       }
     } catch (e) {}
   };
@@ -528,7 +530,7 @@ function donateHtml() {
       <div class="dp-title">Поддержать проект — любая сумма от 0 ₽/мес</div>
       <div class="dp-amounts">
         ${[0, 100, 500].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
-        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)">
+        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)" onfocus="scrollDonateBtn()">
       </div>
       <button class="dp-go" onclick="donateGo()">Оформить подписку</button>
     </div>`;
@@ -546,9 +548,22 @@ function renderPanels() {
   dpAmount = null;
 }
 
-/* Скролл к кнопке «Оформить подписку» — только по явному выбору суммы
-   (см. donatePick). Никаких автосроллов по viewport/фокусу: иначе
-   приложение «тянет» к подписке и не даёт смотреть контент. */
+/* Кнопка «Оформить подписку» не должна прятаться под клавиатуру при вводе
+   своей суммы — и при этом НИКОГДА не скроллить сама по себе: скроллим,
+   только когда фокус в поле «своя сумма» (клавиатура открыта). */
+function scrollDonateBtn() {
+  const ae = document.activeElement;
+  if (!ae || !ae.classList || !ae.classList.contains("dp-custom")) return;
+  setTimeout(() => {
+    const panels = [...document.querySelectorAll(".donate-panel")].filter(p => p.offsetParent);
+    const panel = panels[panels.length - 1];
+    const btn = panel && panel.querySelector(".dp-go");
+    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, 250);
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", scrollDonateBtn);
+}
 
 function donatePick(btn) {
   const panel = btn.closest(".donate-panel");
