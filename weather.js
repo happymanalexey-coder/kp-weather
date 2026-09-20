@@ -1,6 +1,8 @@
 /* Движок сводки погоды — клиентская версия (без сервера).
-   Источники: Open-Meteo (best_match), Open-Meteo (ECMWF/GFS/ICON), MET Norway.
-   Все API открыты для CORS и не требуют ключей. Кэш — localStorage, 30 мин. */
+   Источники: Open-Meteo (best_match), Open-Meteo (ECMWF/GFS/ICON),
+   Open-Meteo Ensemble (ICON, min/max по членам ансамбля), MET Norway,
+   Open-Meteo Marine (волны). Все API открыты для CORS и не требуют ключей.
+   Кэш — localStorage, 30 мин. */
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const THUNDER = new Set([95, 96, 99]);
@@ -50,6 +52,61 @@ function fetchOpenMeteoModels(p) {
 function fetchMetNo(p) {
   const q = new URLSearchParams({ lat: p.lat, lon: p.lon, altitude: Math.round(p.ele) });
   return fetchJson("https://api.met.no/weatherapi/locationforecast/2.0/compact?" + q.toString());
+}
+
+/* Ансамбль ICON (51 член): min/max по членам = честный разброс прогноза */
+function fetchEnsemble(p) {
+  const q = new URLSearchParams({
+    latitude: p.lat, longitude: p.lon,
+    timezone: "Europe/Moscow", forecast_days: 6,
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
+    models: "icon_seamless",
+  });
+  return fetchJson("https://ensemble-api.open-meteo.com/v1/ensemble?" + q.toString());
+}
+
+/* {date: {tmax:[min,max], tmin:[min,max], pr:[min,max]}} по всем членам ансамбля */
+function ensembleSpreads(raw) {
+  const out = {};
+  const d = raw && raw.daily;
+  if (!d || !d.time) return out;
+  const buckets = { tmax: [], tmin: [], pr: [] };
+  for (const k of Object.keys(d)) {
+    if (k.startsWith("temperature_2m_max")) buckets.tmax.push(d[k]);
+    else if (k.startsWith("temperature_2m_min")) buckets.tmin.push(d[k]);
+    else if (k.startsWith("precipitation_sum")) buckets.pr.push(d[k]);
+  }
+  const pick = (arrs, i) => {
+    const vals = [];
+    for (const a of arrs) if (a && a[i] != null) vals.push(a[i]);
+    return vals.length ? [Math.min(...vals), Math.max(...vals)] : null;
+  };
+  d.time.forEach((date, i) => {
+    out[date] = { tmax: pick(buckets.tmax, i), tmin: pick(buckets.tmin, i), pr: pick(buckets.pr, i) };
+  });
+  return out;
+}
+
+/* Волны: Open-Meteo Marine API. В горах приходят null — блок не показываем. */
+function fetchMarine(p) {
+  const q = new URLSearchParams({
+    latitude: p.lat, longitude: p.lon,
+    timezone: "Europe/Moscow", forecast_days: 6,
+    daily: "wave_height_max,wave_period_max,wave_direction_dominant",
+  });
+  return fetchJson("https://marine-api.open-meteo.com/v1/marine?" + q.toString());
+}
+
+function wavesFrom(raw) {
+  const d = raw && raw.daily;
+  if (!d || !d.time) return null;
+  const days = d.time.map((date, i) => ({
+    date,
+    height: d.wave_height_max ? d.wave_height_max[i] : null,
+    period: d.wave_period_max ? d.wave_period_max[i] : null,
+    dir: d.wave_direction_dominant ? d.wave_direction_dominant[i] : null,
+  })).filter(w => w.height != null);
+  return days.length ? days.slice(0, 6) : null;
 }
 
 /* Суточные агрегаты MET Norway по МСК: {date: {tmax,tmin,precip,wind,cloud}} */
@@ -127,14 +184,19 @@ function mean(vals) {
 
 async function aggregate(point) {
   const sources = [], errors = [];
-  const [omR, modelsR, metnoR] = await Promise.allSettled([
+  const [omR, modelsR, metnoR, ensR, marineR] = await Promise.allSettled([
     fetchOpenMeteo(point), fetchOpenMeteoModels(point), fetchMetNo(point),
+    fetchEnsemble(point), fetchMarine(point),
   ]);
   const om = omR.status === "fulfilled" ? omR.value : null;
   const omModels = modelsR.status === "fulfilled" ? modelsR.value : null;
+  const ens = ensR.status === "fulfilled" ? ensembleSpreads(ensR.value) : null;
+  const waves = marineR.status === "fulfilled" ? wavesFrom(marineR.value) : null;
   let metno = null, mCur = null, metnoH = null;
   if (om) sources.push("Open-Meteo"); else errors.push("Open-Meteo: " + errName(omR.reason));
   if (omModels) sources.push("ECMWF/GFS/ICON"); else errors.push("Open-Meteo models: " + errName(modelsR.reason));
+  if (ens) sources.push("ICON Ensemble"); else errors.push("Ensemble: " + errName(ensR.reason));
+  if (waves) sources.push("Marine"); // в горах данных нет — это норма, не ошибка
   if (metnoR.status === "fulfilled") {
     try {
       metno = metnoDaily(metnoR.value);
@@ -193,14 +255,21 @@ async function aggregate(point) {
     const tmaxF = tmaxV.filter(v => v != null), tminF = tminV.filter(v => v != null);
     const tDay = mean(tmaxF), tNight = mean(tminF);
     const precip = mean(prV), wind = mean(wV), cloud = mean(cV);
+    /* Разброс: модели + члены ансамбля ICON (честный min/max сценариев) */
+    const es = ens && ens[date];
+    const widen = (vals, ext, scale) => {
+      let r = vals.length ? [Math.min(...vals), Math.max(...vals)] : null;
+      if (ext) r = r ? [Math.min(r[0], ext[0]), Math.max(r[1], ext[1])] : ext;
+      return r ? [Math.round(r[0] * scale) / scale, Math.round(r[1] * scale) / scale] : null;
+    };
     return {
       date,
       t_day: tDay != null ? Math.round(tDay) : null,
       t_night: tNight != null ? Math.round(tNight) : null,
-      t_day_spread: tmaxF.length ? [Math.round(Math.min(...tmaxF)), Math.round(Math.max(...tmaxF))] : null,
-      t_night_spread: tminF.length ? [Math.round(Math.min(...tminF)), Math.round(Math.max(...tminF))] : null,
+      t_day_spread: widen(tmaxF, es && es.tmax, 1),
+      t_night_spread: widen(tminF, es && es.tmin, 1),
       precip: precip != null ? Math.round(precip * 10) / 10 : null,
-      precip_spread: (() => { const f = prV.filter(v => v != null); return f.length > 1 ? [Math.round(Math.min(...f) * 10) / 10, Math.round(Math.max(...f) * 10) / 10] : null; })(),
+      precip_spread: widen(prV.filter(v => v != null), es && es.pr, 10),
       wind: wind != null ? Math.round(wind) : null,
       cloud: cloud != null ? Math.round(cloud) : null,
       code,
@@ -261,6 +330,7 @@ async function aggregate(point) {
     point: { id: point.id, name: point.name, lat: point.lat, lon: point.lon, ele: point.ele, region: point.region },
     fetched_at: mskNowIso(),
     sources, errors, current, days, analysis, advice, verdict: overall,
+    waves,
     hourly: om ? {
       time: om.hourly.time,
       t: om.hourly.temperature_2m.map(v => v == null ? null : Math.round(v)),
@@ -384,7 +454,7 @@ function buildAdvice(day) {
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx6_" + point.id;
+  const key = "wx7_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;

@@ -1,12 +1,14 @@
-/* «Погода в горах и на море» v2.1 — статичный фронт (hash-роутинг, без сервера).
-   Данные: weather.js ходит напрямую в Open-Meteo и MET Norway.
+/* «Погода в горах и на море» v2.2 — статичный фронт (hash-роутинг, без сервера).
+   Данные: weather.js ходит напрямую в Open-Meteo, Ensemble, Marine и MET Norway.
    Состояние (тема, набор и порядок виджетов, подписка) — в localStorage. */
 
-/* ---------- плейсхолдер-ссылки (заменить на реальные) ---------- */
-const SITE_URL = "https://example.com/";            // сайт-визитка (зарезервировано)
-const DONATE_URL = "https://example.com/pay";       // оплата подписки
-const COMMUNITY_URL = "https://example.com/community"; // комьюнити
-const FEEDBACK_TG = "tg://resolve?domain=broKimibot";  // чат бота для «Предложить точку»
+/* ---------- КОНСТАНТЫ ПРОЕКТА (все ссылки — здесь, см. README) ---------- */
+const SITE_URL = "https://pogoda-pro.ru/";               // сайт-визитка
+const SBP_URL = "PENDING_SBP";                           // разовая поддержка: ссылка СБП из банка
+const DONATE_URL = "https://boosty.to/happymanalexey";   // подписка (Boosty)
+const COMMUNITY_URL = "https://example.com/community";   // комьюнити (зарезервировано)
+const FEEDBACK_TG = "tg://resolve?domain=broKimibot";    // чат бота для «Предложить точку»
+const HOME_LIMIT = 24;                                   // максимум виджетов на главной
 
 /* Ближайшие вершины Mountain-Forecast (проверено: страницы существуют) */
 const MF_MAP = {
@@ -71,7 +73,7 @@ function fmtDay(iso, i) {
 }
 
 /* ---------- плейсхолдеры: подсказка «скоро» вместо перехода ---------- */
-const isPlaceholder = u => !u || u.includes("example.com");
+const isPlaceholder = u => !u || u.includes("example.com") || u.includes("PENDING_");
 function soonHint(text) {
   let t = document.getElementById("soon-toast");
   if (!t) { t = document.createElement("div"); t.id = "soon-toast"; t.className = "soon-toast"; document.body.appendChild(t); }
@@ -150,7 +152,13 @@ function pushRecent(id) {
 }
 function libAdd(id) {
   const ids = homeBaseIds();
-  if (!ids.includes(id)) { ids.push(id); saveHomeIds(ids); }
+  if (!ids.includes(id)) {
+    if (ids.length >= HOME_LIMIT) {
+      soonHint(`На главной максимум ${HOME_LIMIT} виджета — уберите лишние (зажмите карточку)`);
+      return;
+    }
+    ids.push(id); saveHomeIds(ids);
+  }
   renderLibrary(document.getElementById("lib-search").value);
   renderHome();
 }
@@ -299,18 +307,52 @@ function bindHomeList() {
   list.addEventListener("contextmenu", e => { if (editMode || e.target.closest(".point-btn")) e.preventDefault(); });
 }
 
-/* ---------- библиотека виджетов ---------- */
+/* ---------- библиотека виджетов: вкладки «Все / От разработчиков / Мои» ---------- */
+let libTab = "all";
+
+function tgUserId() {
+  try {
+    const u = window.Telegram && Telegram.WebApp &&
+      Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user;
+    return u && u.id ? String(u.id) : null;
+  } catch (e) { return null; }
+}
+function myPointIds() {
+  const me = tgUserId();
+  const ids = new Set();
+  if (me) POINTS.forEach(p => { if (p.submitted_by != null && String(p.submitted_by) === me) ids.add(p.id); });
+  try { JSON.parse(localStorage.getItem("kp_suggested") || "[]").forEach(id => ids.add(id)); } catch (e) {}
+  return ids;
+}
+
 function openLibrary() { location.hash = "#library"; }
 function closeLibrary() { location.hash = ""; }
+function setLibTab(tab) {
+  libTab = tab;
+  renderLibrary(document.getElementById("lib-search").value);
+}
+
+function libTabsHtml() {
+  const mine = tgUserId() !== null; // «Мои» — только внутри Telegram
+  const tab = (key, label) =>
+    `<button class="lib-tab${libTab === key ? " active" : ""}" onclick="setLibTab('${key}')">${label}</button>`;
+  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", "⭐ От разработчиков")}${mine ? tab("mine", "Мои") : ""}</div>`;
+}
 
 function renderLibrary(filter) {
   const box = document.getElementById("lib-list");
   if (!box) return;
+  const tabs = document.getElementById("lib-tabs-wrap");
+  if (tabs) tabs.innerHTML = libTabsHtml();
+  if (libTab === "mine" && tgUserId() === null) libTab = "all"; // на всякий случай
   const q = String(filter || "").trim().toLowerCase();
   const ids = homeBaseIds();
-  const rows = POINTS.filter(p =>
-    !q || p.name.toLowerCase().includes(q) || p.region.toLowerCase().includes(q)
-  ).map(p => {
+  const mine = myPointIds();
+  const rows = POINTS.filter(p => {
+    if (libTab === "dev" && p.verified === false) return false;
+    if (libTab === "mine" && !mine.has(p.id)) return false;
+    return !q || p.name.toLowerCase().includes(q) || p.region.toLowerCase().includes(q);
+  }).map(p => {
     const on = ids.includes(p.id);
     return `
       <div class="lib-row">
@@ -323,35 +365,118 @@ function renderLibrary(filter) {
           : `<button class="lib-add" data-add="${p.id}">Добавить</button>`}
       </div>`;
   });
-  box.innerHTML = rows.length ? rows.join("") : `<div class="lib-empty">Ничего не найдено</div>`;
+  const emptyText = libTab === "mine"
+    ? "Пока пусто — предложенные вами точки появятся здесь после модерации"
+    : "Ничего не найдено";
+  box.innerHTML = rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`;
   box.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => libAdd(b.dataset.add)));
   box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => libRemove(b.dataset.rm)));
 }
 
-/* ---------- предложить точку / обратная связь ---------- */
+/* ---------- предложить точку: форма с валидацией ---------- */
+const FB_NAME_RE = /^[А-Яа-яЁёA-Za-z0-9 \-]+$/; // кириллица/латиница/цифры/пробел/дефис — без эмодзи
+const FB_BAD_WORDS = ["хуй","хуя","хуе","хуи","пизд","бляд","блят","ебан","ебал","ёбан","ебуч",
+  "мудак","мудил","сукa","сука","пидор","пидар","гандон","шлюх","залуп","мандa","манда"];
+
 function openFeedback() {
   const m = document.getElementById("fb-modal");
   if (m) m.classList.remove("hidden");
+  fbShowError("");
 }
 function closeFeedback() {
   const m = document.getElementById("fb-modal");
   if (m) m.classList.add("hidden");
 }
-function feedbackGo() {
+function fbShowError(text) {
+  const el = document.getElementById("fb-err");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("hidden", !text);
+}
+
+/* Возвращает {name, lat, lon} или {error} — те же правила, что на бэкенде (tools/intake_points.py) */
+function validateSuggestion(nameRaw, coordsRaw) {
+  const name = String(nameRaw || "").trim().replace(/\s+/g, " ");
+  if (name.length < 3 || name.length > 40)
+    return { error: "Название: от 3 до 40 символов" };
+  if (!FB_NAME_RE.test(name))
+    return { error: "Название: только буквы (рус/лат), цифры, пробел и дефис — без эмодзи" };
+  const low = " " + name.toLowerCase().replace(/[^а-яa-z0-9]+/g, " ") + " ";
+  if (FB_BAD_WORDS.some(w => low.includes(w)))
+    return { error: "Такое название не пройдёт модерацию" };
+
+  const m = String(coordsRaw || "").trim().match(/^(-?\d+(?:[.,]\d+)?)\s*[,\s]\s*(-?\d+(?:[.,]\d+)?)$/);
+  if (!m) return { error: "Координаты: два числа через запятую, например 43.472, 40.534" };
+  const lat = parseFloat(m[1].replace(",", "."));
+  const lon = parseFloat(m[2].replace(",", "."));
+  if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180)
+    return { error: "Координаты вне диапазона: широта −90…90, долгота −180…180" };
+  if (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)
+    return { error: "0, 0 — это точка в океане у Африки. Проверьте координаты" };
+
+  const dup = POINTS.some(p => p.name.trim().toLowerCase() === name.toLowerCase());
+  if (dup) return { error: "Такая точка уже есть в библиотеке" };
+
+  let last = 0;
+  try { last = parseInt(localStorage.getItem("kp_suggest_ts") || "0", 10); } catch (e) {}
+  const leftMs = last + 24 * 3600 * 1000 - Date.now();
+  if (leftMs > 0) {
+    const h = Math.ceil(leftMs / 3600000);
+    return { error: `С этого устройства точку можно предложить раз в сутки — подождите ещё ~${h} ч` };
+  }
+  return { name, lat: Math.round(lat * 10000) / 10000, lon: Math.round(lon * 10000) / 10000 };
+}
+
+function feedbackSubmit() {
+  const nameEl = document.getElementById("fb-name");
+  const coordsEl = document.getElementById("fb-coords");
+  const r = validateSuggestion(nameEl && nameEl.value, coordsEl && coordsEl.value);
+  if (r.error) { fbShowError(r.error); return; }
+  const text = `Точка: ${r.name} — ${r.lat}, ${r.lon}`;
+  try { localStorage.setItem("kp_suggest_ts", String(Date.now())); } catch (e) {}
   closeFeedback();
-  try {
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
-      Telegram.WebApp.openTelegramLink(FEEDBACK_TG);
-      return;
-    }
-  } catch (e) {}
-  window.open(FEEDBACK_TG, "_blank");
+  const openChat = () => {
+    try {
+      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
+        Telegram.WebApp.openTelegramLink(FEEDBACK_TG);
+        return;
+      }
+    } catch (e) {}
+    window.open(FEEDBACK_TG, "_blank");
+  };
+  const done = () => { soonHint("Текст скопирован — вставьте его в чат бота 📋"); openChat(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => { fallbackCopy(text, () => {}); done(); });
+  } else { fallbackCopy(text, () => {}); done(); }
 }
 
 /* ---------- ссылки ручной перепроверки ---------- */
 function windyLink(p) { return `https://www.windy.com/?${p.lat},${p.lon},11`; }
 function yrLink(p) { return `https://www.yr.no/en/search?q=${p.lat},${p.lon}`; }
 function mfLink(p) { return `https://www.mountain-forecast.com/peaks/${MF_MAP[p.id] || "Mount-Fisht"}`; }
+function gmapsLink(p) { return `https://maps.google.com/?q=${p.lat},${p.lon}`; }
+function yamapsLink(p) { return `https://yandex.ru/maps/?pt=${p.lon},${p.lat}&z=15&l=map`; }
+
+/* ---------- волны ---------- */
+const RUMBS = ["С", "ССВ", "СВ", "ВСВ", "В", "ВЮВ", "ЮВ", "ЮЮВ", "Ю", "ЮЮЗ", "ЮЗ", "ЗЮЗ", "З", "ЗСЗ", "СЗ", "ССЗ"];
+function rumb(deg) { return deg == null ? "—" : RUMBS[Math.round(deg / 22.5) % 16]; }
+
+function waveLine(w) {
+  return `🌊 ${w.height.toFixed(1)} м · период ${Math.round(w.period)} с · направление ${rumb(w.dir)}`;
+}
+function wavesHtml(d) {
+  if (!d.waves || !d.waves.length) return "";
+  const today = d.waves[0];
+  const rows = d.waves.slice(1, 6).map((w, i) =>
+    `<div class="wv-row"><span>${fmtDay(w.date, i + 1)}</span><span>${waveLine(w)}</span></div>`
+  ).join("");
+  return `
+    <div class="card waves-card">
+      <h3>Волны</h3>
+      <div class="wv-now">${waveLine(today)}</div>
+      ${rows ? `<div class="wv-days">${rows}</div>` : ""}
+    </div>`;
+}
 
 /* ---------- экран точки ---------- */
 let lastPayload = null;
@@ -424,8 +549,16 @@ async function loadPoint(id) {
   box.innerHTML = `
     <h2 class="pt-title">${esc(p.name)}</h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
-    <button class="share-btn" onclick="sharePoint()">📤 Поделиться</button>
+    <div class="pt-actions">
+      <button class="share-btn" onclick="sharePoint()">📤 Поделиться</button>
+      <button class="share-btn" onclick="toggleMapChoice()">🗺 На карте</button>
+    </div>
+    <div class="map-choice hidden" id="map-choice">
+      <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
+      <a class="link-btn" href="${yamapsLink(p)}" target="_blank" rel="noopener">Яндекс Карты</a>
+    </div>
     ${nowHtml}
+    ${wavesHtml(d)}
     ${SHOW_EXT_LINKS ? `<div class="links-row">
       <a class="link-btn" href="${windyLink(p)}" target="_blank" rel="noopener">Windy</a>
       <a class="link-btn" href="${yrLink(p)}" target="_blank" rel="noopener">Yr.no</a>
@@ -465,6 +598,11 @@ function fallbackCopy(text, done) {
   try { document.execCommand("copy"); done(); }
   catch (e) { soonHint("Не удалось скопировать"); }
   ta.remove();
+}
+
+function toggleMapChoice() {
+  const el = document.getElementById("map-choice");
+  if (el) el.classList.toggle("hidden");
 }
 
 function toggleCollapse(headEl) {
@@ -523,17 +661,25 @@ function donateHtml() {
       <div class="donate-panel">
         <div class="dp-thanks">СПАСИБО 🙏</div>
         <div class="dp-change" onclick="donateReset()">Вы всегда можете изменить сумму подписки</div>
+        <button class="dp-sbp" onclick="donateSbp()">Поддержать разово (СБП)</button>
       </div>`;
   }
   return `
     <div class="donate-panel pulse">
-      <div class="dp-title">Поддержать проект — любая сумма от 0 ₽/мес</div>
+      <div class="dp-title">Поддержать проект</div>
+      <button class="dp-sbp" onclick="donateSbp()">Поддержать разово (СБП)</button>
+      <div class="dp-sub-title">Подписка от 0 ₽/мес</div>
       <div class="dp-amounts">
         ${[0, 100, 500].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
         <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)" onfocus="scrollDonateBtn()">
       </div>
       <button class="dp-go" onclick="donateGo()">Оформить подписку</button>
     </div>`;
+}
+
+function donateSbp() {
+  if (isPlaceholder(SBP_URL)) return soonHint("Ссылка СБП появится чуть позже — спасибо! 🙏");
+  window.open(SBP_URL, "_blank", "noopener");
 }
 
 function communityHtml() {

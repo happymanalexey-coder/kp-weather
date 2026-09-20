@@ -1,8 +1,8 @@
 {
  "meta": {
-  "version": 2,
-  "source": "ТЗ v2.0, высоты Open-Meteo Elevation API",
-  "count": 32
+  "version": 3,
+  "source": "ТЗ v2.2: +20 спотов Бали (verified=false), остальные verified=true",
+  "count": 52
  },
  "points": [
   {
@@ -11,7 +11,8 @@
    "lat": 43.727442,
    "lon": 40.124403,
    "ele": 2370,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "belye-skaly",
@@ -19,7 +20,8 @@
    "lat": 43.561647,
    "lon": 39.898901,
    "ele": 165,
-   "region": "Сочи"
+   "region": "Сочи",
+   "verified": true
   },
   {
    "id": "bzerpinsky",
@@ -27,7 +29,8 @@
    "lat": 43.709039,
    "lon": 40.376418,
    "ele": 2061,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "keiva",
@@ -35,7 +38,8 @@
    "lat": 43.700155,
    "lon": 40.229701,
    "ele": 1126,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "khrustalny",
@@ -43,7 +47,8 @@
    "lat": 43.635768,
    "lon": 40.118325,
    "ele": 316,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "kanyon-psaho",
@@ -51,7 +56,8 @@
    "lat": 43.554519,
    "lon": 39.964052,
    "ele": 180,
-   "region": "Сочи"
+   "region": "Сочи",
+   "verified": true
   },
   {
    "id": "krugozor-efremova",
@@ -59,7 +65,8 @@
    "lat": 43.673313,
    "lon": 40.182786,
    "ele": 758,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "kupel-beshenka",
@@ -67,7 +74,8 @@
    "lat": 43.709493,
    "lon": 40.177307,
    "ele": 1002,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "lager-holodny",
@@ -75,7 +83,8 @@
    "lat": 43.763268,
    "lon": 40.417411,
    "ele": 1767,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "mamdzyshkha",
@@ -83,7 +92,8 @@
    "lat": 43.305876,
    "lon": 40.334895,
    "ele": 1832,
-   "region": "Абхазия"
+   "region": "Абхазия",
+   "verified": true
   },
   {
    "id": "mendelikha",
@@ -91,7 +101,8 @@
    "lat": 43.609759,
    "lon": 40.281519,
    "ele": 1458,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "nahazo",
@@ -99,7 +110,8 @@
    "lat": 43.591299,
    "lon": 40.358396,
    "ele": 1901,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "goluboe",
@@ -107,7 +119,8 @@
    "lat": 43.578766,
    "lon": 40.449602,
    "ele": 2229,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "zerkalnoe",
@@ -115,7 +128,8 @@
    "lat": 43.727382,
    "lon": 40.173137,
    "ele": 1876,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "kardyvach",
@@ -123,7 +137,8 @@
    "lat": 43.572342,
    "lon": 40.628913,
    "ele": 1836,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "malaya-ritsa",
@@ -131,7 +146,8 @@
    "lat": 43.475166,
    "lon": 40.503263,
    "ele": 1241,
-   "region": "Абхазия"
+   "region": "Абхазия",
+   "verified": true
   },
   {
    "id": "ritsa",
@@ -139,7 +155,8 @@
    "lat": 43.472046,
    "lon": 40.533743,
    "ele": 885,
-   "region": "Абхазия"
+   "region": "Абхазия",
+   "verified": true
   },
   {
    "id": "oshten",
@@ -147,7 +164,8 @@
    "lat": 43.997092,
    "lon": 39.92939,
    "ele": 2775,
-   "region": "Адыгея"
+   "region": "Адыгея",
+   "verified": true
   },
   {
    "id": "pereval-aishkha",
@@ -155,7 +173,8 @@
    "lat": 43.668876,
    "lon": 40.454069,
    "ele": 2409,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "pitsunda",
@@ -163,7 +182,8 @@
    "lat": 43.146935,
    "lon": 40.344687,
    "ele": 10,
-   "region": "Абхазия"
+   "region": "Абхазия",
+   "verified": true
   },
   {
    "id": "laura-pichtovy",
@@ -171,7 +191,8 @@
    "lat": 43.692057,
    "lon": 40.345252,
    "ele": 1652,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "priyut-fisht",
@@ -179,7 +200,8 @@
    "lat": 43.959755,
    "lon": 39.930045,
    "ele": 1583,
-   "region": "Адыгея"
+   "region": "Адыгея",
+   "verified": true
   },
   {
    "id": "pseashkha-saharnaya",
@@ -187,7 +209,8 @@
    "lat": 43.708706,
    "lon": 40.444334,
    "ele": 3164,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "pshegishkhva",
@@ -195,7 +218,8 @@
    "lat": 43.461199,
    "lon": 40.489269,
    "ele": 2185,
-   "region": "Абхазия"
+   "region": "Абхазия",
+   "verified": true
   },
   {
    "id": "rosa-pik",
@@ -203,7 +227,8 @@
    "lat": 43.625286,
    "lon": 40.310063,
    "ele": 2293,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "rosa-dolina",
@@ -211,7 +236,8 @@
    "lat": 43.672268,
    "lon": 40.296555,
    "ele": 570,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "sirius",
@@ -219,7 +245,8 @@
    "lat": 43.400523,
    "lon": 39.948687,
    "ele": 2,
-   "region": "Сочи"
+   "region": "Сочи",
+   "verified": true
   },
   {
    "id": "chistaya-laba",
@@ -227,7 +254,8 @@
    "lat": 43.710734,
    "lon": 40.504343,
    "ele": 1700,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "tkhach",
@@ -235,7 +263,8 @@
    "lat": 44.037692,
    "lon": 40.429712,
    "ele": 1981,
-   "region": "Адыгея"
+   "region": "Адыгея",
+   "verified": true
   },
   {
    "id": "fisht",
@@ -243,7 +272,8 @@
    "lat": 43.953762,
    "lon": 39.903121,
    "ele": 2751,
-   "region": "Адыгея"
+   "region": "Адыгея",
+   "verified": true
   },
   {
    "id": "aibga",
@@ -251,7 +281,8 @@
    "lat": 43.636127,
    "lon": 40.261971,
    "ele": 2368,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
   },
   {
    "id": "engelmanovy",
@@ -259,7 +290,188 @@
    "lat": 43.615904,
    "lon": 40.471845,
    "ele": 1254,
-   "region": "Красная Поляна"
+   "region": "Красная Поляна",
+   "verified": true
+  },
+  {
+   "id": "uluwatu",
+   "name": "Улувату",
+   "lat": -8.829,
+   "lon": 115.0843,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "padang-padang",
+   "name": "Паданг-Паданг",
+   "lat": -8.8111,
+   "lon": 115.1039,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "bingin",
+   "name": "Бингин",
+   "lat": -8.8053,
+   "lon": 115.1136,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "balangan",
+   "name": "Баланган",
+   "lat": -8.7926,
+   "lon": 115.1233,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "dreamland",
+   "name": "Дримленд",
+   "lat": -8.7997,
+   "lon": 115.1176,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "green-bowl",
+   "name": "Грин-Боул",
+   "lat": -8.8489,
+   "lon": 115.1597,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "nyang-nyang",
+   "name": "Ньянг-Нянг",
+   "lat": -8.8392,
+   "lon": 115.1253,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "thomas-beach",
+   "name": "Томас-Бич",
+   "lat": -8.8008,
+   "lon": 115.1194,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "suluban",
+   "name": "Сулубан",
+   "lat": -8.8156,
+   "lon": 115.0889,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "batu-bolong",
+   "name": "Бату-Болонг",
+   "lat": -8.6593,
+   "lon": 115.1303,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "echo-beach",
+   "name": "Эхо-Бич",
+   "lat": -8.6503,
+   "lon": 115.1372,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "berawa",
+   "name": "Берава",
+   "lat": -8.6557,
+   "lon": 115.1511,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "kuta-beach",
+   "name": "Кута-Бич",
+   "lat": -8.7183,
+   "lon": 115.1686,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "kuta-reef",
+   "name": "Кута-Риф",
+   "lat": -8.7386,
+   "lon": 115.1642,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "seminyak",
+   "name": "Семиньяк",
+   "lat": -8.6941,
+   "lon": 115.1614,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "legian",
+   "name": "Легиан",
+   "lat": -8.7026,
+   "lon": 115.1607,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "double-six",
+   "name": "Дабл-Сикс",
+   "lat": -8.6903,
+   "lon": 115.1575,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "nusa-dua",
+   "name": "Нуса-Дуа",
+   "lat": -8.7952,
+   "lon": 115.2336,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "keramas",
+   "name": "Керамас",
+   "lat": -8.6278,
+   "lon": 115.3264,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
+  },
+  {
+   "id": "medewi",
+   "name": "Медеви",
+   "lat": -8.3475,
+   "lon": 114.6339,
+   "ele": 5,
+   "region": "Бали, Индонезия",
+   "verified": false
   }
  ]
 }

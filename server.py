@@ -80,6 +80,68 @@ def fetch_metno(lat, lon, ele):
     return get_json(f"https://api.met.no/weatherapi/locationforecast/2.0/compact?{q}")
 
 
+def fetch_ensemble(lat, lon):
+    """Ансамбль ICON (51 член): min/max по членам = честный разброс."""
+    q = urllib.parse.urlencode({
+        "latitude": lat, "longitude": lon,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+        "timezone": "Europe/Moscow", "forecast_days": 6,
+        "models": "icon_seamless",
+    })
+    return get_json(f"https://ensemble-api.open-meteo.com/v1/ensemble?{q}")
+
+
+def ensemble_spreads(raw):
+    """{date: {"tmax": [min,max], "tmin": [...], "pr": [...]}} по всем членам."""
+    out = {}
+    d = (raw or {}).get("daily") or {}
+    times = d.get("time") or []
+    buckets = {"tmax": [], "tmin": [], "pr": []}
+    for k in d:
+        if k.startswith("temperature_2m_max"):
+            buckets["tmax"].append(d[k])
+        elif k.startswith("temperature_2m_min"):
+            buckets["tmin"].append(d[k])
+        elif k.startswith("precipitation_sum"):
+            buckets["pr"].append(d[k])
+
+    def pick(arrs, i):
+        vals = [a[i] for a in arrs if a and i < len(a) and a[i] is not None]
+        return [min(vals), max(vals)] if vals else None
+
+    for i, date in enumerate(times):
+        out[date] = {"tmax": pick(buckets["tmax"], i),
+                     "tmin": pick(buckets["tmin"], i),
+                     "pr": pick(buckets["pr"], i)}
+    return out
+
+
+def fetch_marine(lat, lon):
+    """Волны: Open-Meteo Marine API. В горах значения null — блок не показываем."""
+    q = urllib.parse.urlencode({
+        "latitude": lat, "longitude": lon,
+        "daily": "wave_height_max,wave_period_max,wave_direction_dominant",
+        "timezone": "Europe/Moscow", "forecast_days": 6,
+    })
+    return get_json(f"https://marine-api.open-meteo.com/v1/marine?{q}")
+
+
+def waves_from(raw):
+    d = (raw or {}).get("daily") or {}
+    times = d.get("time") or []
+    days = []
+    for i, date in enumerate(times):
+        h = (d.get("wave_height_max") or [None] * len(times))[i]
+        if h is None:
+            continue
+        days.append({
+            "date": date, "height": h,
+            "period": (d.get("wave_period_max") or [None] * len(times))[i],
+            "dir": (d.get("wave_direction_dominant") or [None] * len(times))[i],
+        })
+    return days[:6] or None
+
+
 def metno_daily(raw):
     """Суточные агрегаты из compact: {date: {tmax,tmin,precip,wind,cloud}} по МСК."""
     days = {}
@@ -184,6 +246,19 @@ def aggregate(point):
         sources.append("MET Norway")
     except Exception as e:
         errors.append(f"MET Norway: {type(e).__name__}")
+    ens = None
+    try:
+        ens = ensemble_spreads(fetch_ensemble(lat, lon))
+        sources.append("ICON Ensemble")
+    except Exception as e:
+        errors.append(f"Ensemble: {type(e).__name__}")
+    waves = None
+    try:
+        waves = waves_from(fetch_marine(lat, lon))
+        if waves:
+            sources.append("Marine")  # в горах данных нет — это норма, не ошибка
+    except Exception:
+        pass  # волны — необязательный блок
 
     if om is None and metno is None:
         raise RuntimeError("все источники недоступны: " + "; ".join(errors))
@@ -251,14 +326,28 @@ def aggregate(point):
         pf = [v for v in pr_v if v is not None]
         t_day, t_night = mean(tmax_f), mean(tmin_f)
         precip, wind, cloud = mean(pr_v), mean(w_v), mean(c_v)
+
+        # Разброс: модели + члены ансамбля ICON (честный min/max сценариев)
+        es = (ens or {}).get(date) or {}
+
+        def widen(vals, ext, nd):
+            r = [min(vals), max(vals)] if vals else None
+            if ext:
+                r = [min(r[0], ext[0]), max(r[1], ext[1])] if r else list(ext)
+            if not r:
+                return None
+            if nd == 0:
+                return [int(round(r[0])), int(round(r[1]))]
+            return [round(r[0], nd), round(r[1], nd)]
+
         days.append({
             "date": date,
             "t_day": round(t_day) if t_day is not None else None,
             "t_night": round(t_night) if t_night is not None else None,
-            "t_day_spread": [round(min(tmax_f)), round(max(tmax_f))] if tmax_f else None,
-            "t_night_spread": [round(min(tmin_f)), round(max(tmin_f))] if tmin_f else None,
+            "t_day_spread": widen(tmax_f, es.get("tmax"), 0),
+            "t_night_spread": widen(tmin_f, es.get("tmin"), 0),
             "precip": round(precip, 1) if precip is not None else None,
-            "precip_spread": [round(min(pf), 1), round(max(pf), 1)] if len(pf) > 1 else None,
+            "precip_spread": widen(pf, es.get("pr"), 1),
             "wind": round(wind) if wind is not None else None,
             "cloud": round(cloud) if cloud is not None else None,
             "code": code,
@@ -323,6 +412,7 @@ def aggregate(point):
         "sources": sources, "errors": errors,
         "current": current, "days": days,
         "analysis": analysis, "advice": advice, "verdict": overall,
+        "waves": waves,
         "hourly": ({
             "time": om["hourly"]["time"],
             "t": [round(v) if v is not None else None for v in om["hourly"]["temperature_2m"]],

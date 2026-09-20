@@ -1,0 +1,7 @@
+{
+ "meta": {
+  "note": "Очередь модерации предложенных точек. НЕ публикуется в приложении автоматически. Одобрение: перенести запись в data/points.json (добавить id, ele, region, verified: false, submitted_by) и удалить отсюда.",
+  "updated_by": ".github/workflows/points-intake.yml"
+ },
+ "pending": []
+}

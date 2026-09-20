@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Погода">
 <title>Погода в горах и на море — Красная Поляна</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -68,18 +75,29 @@
       <input id="lib-search" class="lib-search" placeholder="Поиск точки…" oninput="renderLibrary(this.value)">
       <button class="lib-close" onclick="closeLibrary()" aria-label="Закрыть">✕</button>
     </div>
+    <div id="lib-tabs-wrap"></div>
     <div id="lib-list" class="lib-list"></div>
   </div>
 
   <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
     <div class="fb-card">
       <div class="fb-title">Предложить точку</div>
-      <div class="fb-text">Пришлите в чат бота название и координаты точки.<br><br>Пример:<br><b>Озеро Рица — 43.472, 40.534</b><br><br>Точка появится в библиотеке в течение ~24 часов.</div>
-      <button class="fb-go" onclick="feedbackGo()">Открыть чат @broKimibot</button>
+      <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
+      <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
+      <div class="fb-err hidden" id="fb-err"></div>
+      <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
+      <button class="fb-go" onclick="feedbackSubmit()">Отправить в @broKimibot</button>
       <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
     </div>
   </div>
 </div>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
+</script>
 <script src="/app.js"></script>
 </body>
 </html>
