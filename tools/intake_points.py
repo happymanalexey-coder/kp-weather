@@ -12,11 +12,8 @@ Offset хранится в data/intake_state.json, чтобы не читать 
 import json, os, re, sys, time, urllib.request
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
-if not TOKEN:
-    print("BOT_TOKEN не задан — выходим (задайте в GitHub Secrets)")
-    sys.exit(0)
 
-API = f"https://api.telegram.org/bot{TOKEN}"
+API = "https://api.telegram.org/bot" + TOKEN
 POINTS_PATH = "data/points.json"
 PENDING_PATH = "data/pending.json"
 STATE_PATH = "data/intake_state.json"
@@ -70,6 +67,9 @@ def validate(name, lat, lon, existing_names):
 
 
 def main():
+    if not TOKEN:
+        print("BOT_TOKEN не задан — выходим (задайте в GitHub Secrets)")
+        return
     points = load(POINTS_PATH, {"points": []})
     pending = load(PENDING_PATH, {"meta": {"note": "очередь модерации, не публикуется"}, "pending": []})
     state = load(STATE_PATH, {"offset": 0})
