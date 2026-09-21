@@ -2,15 +2,18 @@
    Источники: Open-Meteo (best_match), Open-Meteo (ECMWF/GFS/ICON),
    Open-Meteo Ensemble (ICON, min/max по членам ансамбля), MET Norway,
    Open-Meteo Marine (волны). Все API открыты для CORS и не требуют ключей.
-   Кэш — localStorage, 30 мин. */
+   Кэш — localStorage, 30 мин.
+   Время — МЕСТНОЕ для каждой точки (timezone=auto, utc_offset_seconds из ответа). */
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const THUNDER = new Set([95, 96, 99]);
-const MSK_OFFSET_MS = 3 * 3600 * 1000; // МСК = UTC+3 круглый год
 
-function mskNow() { return new Date(Date.now() + MSK_OFFSET_MS); }
-function mskToday() { return mskNow().toISOString().slice(0, 10); }
-function mskNowIso() { return mskNow().toISOString().slice(0, 19); }
+/* Локальное «сейчас» точки: offsetSec — сдвиг её часового пояса от UTC */
+function tzNowIso(offsetSec) {
+  return new Date(Date.now() + offsetSec * 1000).toISOString().slice(0, 19);
+}
+/* Запасной сдвиг по долготе (если Open-Meteo не ответил и взять неоткуда) */
+function lonOffsetSec(lon) { return Math.round(lon / 15) * 3600; }
 
 async function fetchJson(url, timeoutMs = 15000) {
   const ctrl = new AbortController();
@@ -27,7 +30,7 @@ async function fetchJson(url, timeoutMs = 15000) {
 function omParams(p, extra) {
   const q = new URLSearchParams({
     latitude: p.lat, longitude: p.lon, elevation: p.ele,
-    timezone: "Europe/Moscow", forecast_days: 6, wind_speed_unit: "ms",
+    timezone: "auto", forecast_days: 6, wind_speed_unit: "ms",
     ...extra,
   });
   return "https://api.open-meteo.com/v1/forecast?" + q.toString();
@@ -58,7 +61,7 @@ function fetchMetNo(p) {
 function fetchEnsemble(p) {
   const q = new URLSearchParams({
     latitude: p.lat, longitude: p.lon,
-    timezone: "Europe/Moscow", forecast_days: 6,
+    timezone: "auto", forecast_days: 6,
     daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
     models: "icon_seamless",
   });
@@ -91,7 +94,7 @@ function ensembleSpreads(raw) {
 function fetchMarine(p) {
   const q = new URLSearchParams({
     latitude: p.lat, longitude: p.lon,
-    timezone: "Europe/Moscow", forecast_days: 6,
+    timezone: "auto", forecast_days: 6,
     daily: "wave_height_max,wave_period_max,wave_direction_dominant",
   });
   return fetchJson("https://marine-api.open-meteo.com/v1/marine?" + q.toString());
@@ -109,13 +112,13 @@ function wavesFrom(raw) {
   return days.length ? days.slice(0, 6) : null;
 }
 
-/* Суточные агрегаты MET Norway по МСК: {date: {tmax,tmin,precip,wind,cloud}} */
-function metnoDaily(raw) {
+/* Суточные агрегаты MET Norway по МЕСТНОМУ времени точки: {date: {tmax,tmin,precip,wind,cloud}} */
+function metnoDaily(raw, offsetSec) {
   const days = {};
   const series = (raw && raw.properties && raw.properties.timeseries) || [];
   for (const ts of series) {
-    const tMsk = new Date(new Date(ts.time).getTime() + MSK_OFFSET_MS);
-    const key = tMsk.toISOString().slice(0, 10);
+    const tLoc = new Date(new Date(ts.time).getTime() + offsetSec * 1000);
+    const key = tLoc.toISOString().slice(0, 10);
     const d = days[key] || (days[key] = { temps: [], precip: 0, wind: [], cloud: [] });
     const inst = (ts.data && ts.data.instant && ts.data.instant.details) || {};
     if (inst.air_temperature != null) d.temps.push(inst.air_temperature);
@@ -140,12 +143,12 @@ function metnoDaily(raw) {
   return out;
 }
 
-/* Почасовые данные MET Norway по МСК: {"YYYY-MM-DDTHH:00": {t,wind,precip}} */
-function metnoHourly(raw) {
+/* Почасовые данные MET Norway по МЕСТНОМУ времени точки: {"YYYY-MM-DDTHH:00": {t,wind,precip}} */
+function metnoHourly(raw, offsetSec) {
   const out = {};
   const series = (raw && raw.properties && raw.properties.timeseries) || [];
   for (const ts of series) {
-    const key = new Date(new Date(ts.time).getTime() + MSK_OFFSET_MS).toISOString().slice(0, 13) + ":00";
+    const key = new Date(new Date(ts.time).getTime() + offsetSec * 1000).toISOString().slice(0, 13) + ":00";
     const inst = (ts.data && ts.data.instant && ts.data.instant.details) || {};
     let precip = null;
     if (ts.data && ts.data.next_1_hours) precip = (ts.data.next_1_hours.details || {}).precipitation_amount ?? null;
@@ -192,6 +195,9 @@ async function aggregate(point) {
   const omModels = modelsR.status === "fulfilled" ? modelsR.value : null;
   const ens = ensR.status === "fulfilled" ? ensembleSpreads(ensR.value) : null;
   const waves = marineR.status === "fulfilled" ? wavesFrom(marineR.value) : null;
+  /* Часовой пояс точки — из ответа Open-Meteo (timezone=auto), запасной вариант — по долготе */
+  const tzOffset = (om && om.utc_offset_seconds) ||
+    (omModels && omModels.utc_offset_seconds) || lonOffsetSec(point.lon);
   let metno = null, mCur = null, metnoH = null;
   if (om) sources.push("Open-Meteo"); else errors.push("Open-Meteo: " + errName(omR.reason));
   if (omModels) sources.push("ECMWF/GFS/ICON"); else errors.push("Open-Meteo models: " + errName(modelsR.reason));
@@ -199,9 +205,9 @@ async function aggregate(point) {
   if (waves) sources.push("Marine"); // в горах данных нет — это норма, не ошибка
   if (metnoR.status === "fulfilled") {
     try {
-      metno = metnoDaily(metnoR.value);
+      metno = metnoDaily(metnoR.value, tzOffset);
       mCur = metnoCurrent(metnoR.value);
-      metnoH = metnoHourly(metnoR.value);
+      metnoH = metnoHourly(metnoR.value, tzOffset);
       sources.push("MET Norway");
     }
     catch (e) { errors.push("MET Norway: " + errName(e)); }
@@ -313,13 +319,11 @@ async function aggregate(point) {
      current.precipitation у Open-Meteo — это одиночная модель best_match,
      из-за неё число в шапке расходилось с ячейкой «сейчас». */
   if (current && om && om.hourly) {
-    const ni = om.hourly.time.indexOf(mskNowIso().slice(0, 13) + ":00");
+    const ni = om.hourly.time.indexOf(tzNowIso(tzOffset).slice(0, 13) + ":00");
     if (ni >= 0 && om.hourly.precipitation[ni] != null)
       current.precip = Math.round(om.hourly.precipitation[ni] * 10) / 10;
   }
 
-  const analysis = buildAnalysis(om, days);
-  const advice = buildAdvice(days.length > 1 ? days[1] : days[0]);
   let overall = "green";
   for (const d of days.slice(0, 2)) {
     if (d.verdict === "red") { overall = "red"; break; }
@@ -328,8 +332,9 @@ async function aggregate(point) {
 
   return {
     point: { id: point.id, name: point.name, lat: point.lat, lon: point.lon, ele: point.ele, region: point.region },
-    fetched_at: mskNowIso(),
-    sources, errors, current, days, analysis, advice, verdict: overall,
+    fetched_at: tzNowIso(tzOffset),
+    tz_offset: tzOffset,
+    sources, errors, current, days, verdict: overall,
     waves,
     hourly: om ? {
       time: om.hourly.time,
@@ -343,118 +348,10 @@ async function aggregate(point) {
 
 function errName(e) { return (e && e.name) || "Error"; }
 
-/* ---------- микро-анализ ---------- */
-
-function buildAnalysis(om, days) {
-  const parts = [];
-  if (om) {
-    const today = dayAnalysis(om, days[0] && days[0].date, "Сегодня");
-    if (today) parts.push(today);
-    const tomorrow = dayAnalysis(om, days[1] && days[1].date, "Завтра");
-    if (tomorrow) parts.push(tomorrow);
-  }
-  if (days.length >= 5) {
-    const later = days.slice(2);
-    const wetLater = later.filter(d => (d.precip || 0) >= 2);
-    const tomorrowWet = days.length > 1 && (days[1].precip || 0) >= 2;
-    if (!wetLater.length) parts.push(tomorrowWet ? "После завтра в основном сухо." : "Весь период в основном сухо.");
-    else parts.push(`С ${fmtDate(wetLater[0].date)} осадки местами усиливаются.`);
-  }
-  return parts.length ? parts.join(" ") : "Без выраженных погодных явлений.";
-}
-
-function dayAnalysis(om, dateStr, label) {
-  if (!dateStr) return "";
-  const h = om.hourly;
-  const idx = [];
-  for (let i = 0; i < h.time.length; i++) if (h.time[i].slice(0, 10) === dateStr) idx.push(i);
-  if (!idx.length) return "";
-  const pr = idx.map(i => h.precipitation[i] || 0);
-  const w = idx.map(i => h.wind_speed_10m[i] || 0);
-  const cl = idx.map(i => h.cloud_cover[i] || 0);
-  const rh = idx.map(i => h.relative_humidity_2m[i] || 0);
-  const hrs = idx.map(i => parseInt(h.time[i].slice(11, 13), 10));
-  const sub = [];
-
-  const wet = hrs.filter((_, j) => pr[j] >= 0.3);
-  sub.push(wet.length ? "осадки: " + spanify(wet) : "осадков не ожидается");
-
-  const best = bestWindow(hrs, pr, w);
-  if (best) sub.push("лучшее окно: " + best);
-
-  let wmaxI = 0;
-  for (let j = 0; j < idx.length; j++) if (w[j] > w[wmaxI]) wmaxI = j;
-  if (w[wmaxI] >= 8) sub.push(`ветер на гребне до ${Math.round(w[wmaxI])} м/с ближе к ${daypart(hrs[wmaxI])}`);
-
-  const mornRh = mean(rh.filter((_, j) => hrs[j] < 9));
-  const mornCl = mean(cl.filter((_, j) => hrs[j] < 9));
-  if (mornRh != null && mornRh > 92 && mornCl != null && mornCl > 80) {
-    sub.push("утром возможен туман и низкая облачность в долине");
-  }
-
-  if (idx.some(i => THUNDER.has(h.weather_code[i]))) {
-    sub.push("возможна гроза — гребень проходить в первой половине дня");
-  }
-  return label + ": " + sub.join("; ") + ".";
-}
-
-function spanify(hours) {
-  hours = [...new Set(hours)].sort((a, b) => a - b);
-  const spans = [];
-  let start = hours[0], prev = hours[0];
-  for (const hh of hours.slice(1)) {
-    if (hh === prev + 1) { prev = hh; continue; }
-    spans.push([start, prev + 1]); start = hh; prev = hh;
-  }
-  spans.push([start, prev + 1]);
-  const out = [];
-  for (const [a, b] of spans) {
-    if (a === 0 && b >= 23) return "в течение суток";
-    out.push(`с ${String(a).padStart(2, "0")}:00 до ${String(b).padStart(2, "0")}:00`);
-  }
-  return out.join(", ");
-}
-
-function bestWindow(hrs, pr, w) {
-  let best = null, cur = [];
-  for (let j = 0; j < hrs.length; j++) {
-    if (hrs[j] < 6 || hrs[j] > 20) continue;
-    if (pr[j] < 0.3 && w[j] < 8) cur.push(hrs[j]);
-    else { if (!best || cur.length > best.length) best = cur; cur = []; }
-  }
-  if (!best || cur.length > best.length) best = cur;
-  if (best && best.length >= 3) {
-    return `${String(best[0]).padStart(2, "0")}:00–${String(best[best.length - 1] + 1).padStart(2, "0")}:00`;
-  }
-  return null;
-}
-
-function daypart(h) {
-  if (h < 6) return "ночи";
-  if (h < 12) return "утру";
-  if (h < 18) return "вечеру";
-  return "ночи";
-}
-
-function fmtDate(iso) {
-  const d = new Date(iso + "T12:00:00");
-  const wd = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"][(d.getDay() + 6) % 7];
-  return `${wd} ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function buildAdvice(day) {
-  const take = [];
-  if ((day.precip || 0) >= 1) take.push("дождевик");
-  if (day.t_night != null && day.t_night < 5) take.push("тёплый слой");
-  if ((day.wind || 0) >= 8) take.push("ветровка");
-  if ((day.cloud != null ? day.cloud : 100) < 40 && (day.precip || 0) < 1) take.push("солнцезащита");
-  return "Взять: " + (take.length ? take.join(" · ") : "стандартный набор") + ".";
-}
-
 /* ---------- кэш и публичный интерфейс ---------- */
 
 async function getWeather(point) {
-  const key = "wx7_" + point.id;
+  const key = "wx8_" + point.id;
   try {
     const cached = JSON.parse(localStorage.getItem(key) || "null");
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.payload;

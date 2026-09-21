@@ -50,7 +50,7 @@
         <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" class="mt3"/>
       </svg>
       <div class="hero-text">
-        <h1>Погода в горах и на море</h1>
+        <h1>Погода в горах, на море и дома <button class="info-btn" onclick="openAbout()" aria-label="О проекте">i</button></h1>
         <p>Красная Поляна · Сочи · Абхазия · и весь Мир <button class="globe-btn" onclick="openLibrary()" aria-label="Библиотека точек">🌍</button></p>
       </div>
     </header>
@@ -58,7 +58,7 @@
       <div class="loading">Загружаю точки…</div>
     </main>
     <section id="home-panels" class="panels"></section>
-    <footer class="foot">Данные: Open-Meteo · MET Norway · кэш 30 мин</footer>
+    <footer class="foot">Данные: ECMWF · ICON · GFS · MET Norway · Marine API · кэш 30 мин</footer>
   </div>
 
   <div id="point-screen" class="hidden">
@@ -72,11 +72,27 @@
 
   <div id="lib-screen" class="lib-overlay hidden">
     <div class="lib-head">
+      <button class="lib-close" onclick="closeLibrary()" aria-label="Назад">✕</button>
       <input id="lib-search" class="lib-search" placeholder="Поиск точки…" oninput="renderLibrary(this.value)">
-      <button class="lib-close" onclick="closeLibrary()" aria-label="Закрыть">✕</button>
     </div>
     <div id="lib-tabs-wrap"></div>
     <div id="lib-list" class="lib-list"></div>
+  </div>
+
+  <div id="about-screen" class="lib-overlay hidden">
+    <div class="lib-head">
+      <button class="lib-close" onclick="closeAbout()" aria-label="Назад">✕</button>
+      <span class="about-title">О проекте</span>
+    </div>
+    <div class="about-body">
+      <p>Мы объединили прогнозы пяти лучших мировых метеоисточников — тех же моделей, на которых работают Windy, Yr.no и Mountain-Forecast. Диверсификация метеосервисов обеспечивает самый надёжный прогноз — и больше нет необходимости сверять данные топовых приложений вручную!</p>
+      <p>Наша библиотека точек пополняется ежедневно и там будет весь мир — от Эвереста до серф-спотов на Бали. Также точки можно добавлять самому: свою дачу, любимый пляж в Тайланде, горнолыжный курорт — любое место на планете.</p>
+      <p>Приложение всегда будет бесплатное. Мы делали лучшее для себя и теперь этим хочется поделиться с каждым!</p>
+      <p>Нам важна любая обратная связь: напишите, что добавить или исправить.</p>
+      <p>Всем — доброго дня, светлого неба, хорошей погоды, отличных волн и мягкого снега 🌤️</p>
+      <p>Если у вас есть возможность поддержать проект, можете отправить любую сумму — СПАСИБО 🙏</p>
+      <button class="fb-go" onclick="closeAbout(); donateGo()">Поддержать проект</button>
+    </div>
   </div>
 
   <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
@@ -86,7 +102,7 @@
       <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
       <div class="fb-err hidden" id="fb-err"></div>
       <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
-      <button class="fb-go" onclick="feedbackSubmit()">Отправить в @broKimibot</button>
+      <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
       <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
     </div>
   </div>

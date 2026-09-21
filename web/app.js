@@ -1,14 +1,15 @@
-/* «Погода в горах и на море» v2.2 — фронт серверной версии (hash-роутинг, без сборки).
+/* «Погода в горах, на море и дома» v2.3 — фронт серверной версии (hash-роутинг, без сборки).
    Данные: /api/points и /api/weather локального server.py.
-   Состояние (тема, набор и порядок виджетов, подписка) — в localStorage. */
+   Состояние (тема, набор и порядок виджетов) — в localStorage. */
 
 /* ---------- КОНСТАНТЫ ПРОЕКТА (все ссылки — здесь, см. README) ---------- */
-const SITE_URL = "https://pogoda-pro.ru/";               // сайт-визитка
-const SBP_URL = "PENDING_SBP";                           // разовая поддержка: ссылка СБП из банка
-const DONATE_URL = "https://boosty.to/happymanalexey";   // подписка (Boosty)
-const COMMUNITY_URL = "https://example.com/community";   // комьюнити (зарезервировано)
-const FEEDBACK_TG = "tg://resolve?domain=broKimibot";    // чат бота для «Предложить точку»
-const HOME_LIMIT = 24;                                   // максимум виджетов на главной
+const SITE_URL = "https://pogoda-pro.ru/";                    // сайт-визитка
+const DONATE_URL = "https://www.tbank.ru/cf/83mAzHJg3A";      // поддержка проекта (сбор Т-Банк)
+const AUTHOR_TG = "tg://resolve?domain=go_ride_bro";          // «Написать автору»
+const COMMUNITY_URL = "https://example.com/community";        // комьюнити (зарезервировано)
+const FEEDBACK_TG = "tg://resolve?domain=broKimibot";         // чат бота для «Предложить точку»
+const SBP_URL = "PENDING_SBP";                                // (резерв) разовая поддержка СБП
+const HOME_LIMIT = 24;                                        // максимум виджетов на главной
 
 /* Ближайшие вершины Mountain-Forecast (проверено: страницы существуют) */
 const MF_MAP = {
@@ -37,19 +38,13 @@ const MF_MAP = {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         applyTgColors();
-        // клавиатура в мини-аппе меняет viewport — scrollDonateBtn сам проверит фокус
-        if (Telegram.WebApp.onEvent) Telegram.WebApp.onEvent("viewportChanged", scrollDonateBtn);
       }
     } catch (e) {}
   };
   document.head.appendChild(s);
 })();
 
-/* В серверной версии weather.js не подключён — нужны свои хелперы */
-const MSK_OFFSET_MS = 3 * 3600 * 1000;
-function mskNow() { return new Date(Date.now() + MSK_OFFSET_MS); }
-function mskToday() { return mskNow().toISOString().slice(0, 10); }
-function mskNowIso() { return mskNow().toISOString().slice(0, 19); }
+/* В серверной версии weather.js не подключён — нужен свой fetchJSON */
 async function fetchJSON(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error("HTTP " + r.status);
@@ -96,9 +91,6 @@ function soonHint(text) {
 function openSite() {
   if (isPlaceholder(SITE_URL)) return soonHint("Сайт-визитка скоро появится");
   window.open(SITE_URL, "_blank", "noopener");
-}
-function openCommunity(e) {
-  if (isPlaceholder(COMMUNITY_URL)) { e.preventDefault(); soonHint("Комьюнити скоро откроется"); }
 }
 
 /* ---------- тема (тёмная ↔ светлая), луна/солнце в шапке ---------- */
@@ -336,6 +328,8 @@ function myPointIds() {
 
 function openLibrary() { location.hash = "#library"; }
 function closeLibrary() { location.hash = ""; }
+function openAbout() { location.hash = "#about"; }
+function closeAbout() { location.hash = ""; }
 function setLibTab(tab) {
   libTab = tab;
   renderLibrary(document.getElementById("lib-search").value);
@@ -401,6 +395,18 @@ function fbShowError(text) {
   if (!el) return;
   el.textContent = text;
   el.classList.toggle("hidden", !text);
+}
+
+/* Копирование в буфер (запасной путь для старых WebView) */
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); done(); }
+  catch (e) { soonHint("Не удалось скопировать"); }
+  ta.remove();
 }
 
 /* Возвращает {name, lat, lon} или {error} — те же правила, что на бэкенде (tools/intake_points.py) */
@@ -516,6 +522,7 @@ async function loadPoint(id) {
     return;
   }
   lastPayload = d;
+  checkWatchedPoint(d); // заготовка уведомлений: сравнить со снимком (без рассылки)
   pushRecent(id);
   const p = d.point;
   const cur = d.current;
@@ -523,7 +530,7 @@ async function loadPoint(id) {
 
   const nowHtml = cur ? `
     <div class="card">
-      <h3>Погода сейчас · обновлено ${fetched} МСК</h3>
+      <h3>Погода сейчас · обновлено ${fetched} местн.</h3>
       <div class="now-main">
         <div class="now-icon">${icon(cur.code)}</div>
         <div>
@@ -556,12 +563,8 @@ async function loadPoint(id) {
 
   const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
-    <h2 class="pt-title">${esc(p.name)}</h2>
+    <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">🌍</button></h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
-    <div class="pt-actions">
-      <button class="share-btn" onclick="sharePoint()">📤 Поделиться</button>
-      <button class="share-btn" onclick="toggleMapChoice()">🗺 На карте</button>
-    </div>
     <div class="map-choice hidden" id="map-choice">
       <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
       <a class="link-btn" href="${yamapsLink(p)}" target="_blank" rel="noopener">Яндекс Карты</a>
@@ -573,10 +576,6 @@ async function loadPoint(id) {
       <a class="link-btn" href="${yrLink(p)}" target="_blank" rel="noopener">Yr.no</a>
       <a class="link-btn" href="${mfLink(p)}" target="_blank" rel="noopener">Mountain-Forecast</a>
     </div>` : ""}
-    <div class="card collapse-card">
-      <div class="collapse-head" onclick="toggleCollapse(this)">Микро-анализ сегодня <span class="chev">▾</span></div>
-      <div class="collapse-body hidden"><div class="analysis-text">${esc(d.analysis)}</div></div>
-    </div>
     <div class="card">
       <h3>5 дней · нажмите на день — прогноз по часам</h3>
       ${daysHtml}
@@ -585,28 +584,47 @@ async function loadPoint(id) {
   renderPanels();
 }
 
-/* ---------- карточка пересылки ---------- */
-function sharePoint() {
-  if (!lastPayload) return;
-  const d = lastPayload, t = d.days[1];
-  if (!t) return;
-  const spread = t.t_day_spread && t.t_day_spread[0] !== t.t_day_spread[1]
-    ? `, разброс ${t.t_day_spread[0]}…${t.t_day_spread[1]}°` : "";
-  const text = `${d.point.name}, завтра ${t.t_day ?? "—"}°${spread}, осадки ${t.precip ?? 0} мм — Погода в горах`;
-  const done = () => soonHint("Скопировано — отправь другу 📤");
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
-  } else fallbackCopy(text, done);
+/* ---------- заготовка: отслеживание изменений прогноза (рассылка — позже, с сервером 24/7) ----------
+   Подписка «точка + дата» хранится локально (kp_watch). При каждом открытии точки
+   свежий прогноз сравнивается со снимком (kp_watch_snap): дождь появился /
+   ветер вырос за порог / температура вышла за разброс. Сейчас результат только
+   пишется в консоль — НЕ показывается и НЕ рассылается (см. README, план). */
+function watchList() {
+  try { return JSON.parse(localStorage.getItem("kp_watch") || "[]"); } catch (e) { return []; }
 }
-function fallbackCopy(text, done) {
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.position = "fixed"; ta.style.opacity = "0";
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand("copy"); done(); }
-  catch (e) { soonHint("Не удалось скопировать"); }
-  ta.remove();
+function watchSnaps() {
+  try { return JSON.parse(localStorage.getItem("kp_watch_snap") || "{}"); } catch (e) { return {}; }
+}
+function diffForecast(prev, next) {
+  /* Возвращает список изменений прогноза по дням или [] — ядро будущих уведомлений */
+  const out = [];
+  if (!prev || !next || !prev.days || !next.days) return out;
+  const byDate = Object.fromEntries(prev.days.map(d => [d.date, d]));
+  for (const nd of next.days) {
+    const od = byDate[nd.date];
+    if (!od) continue;
+    if ((od.precip || 0) < 1 && (nd.precip || 0) >= 1)
+      out.push(`${nd.date}: появились осадки (${nd.precip} мм)`);
+    if ((od.wind || 0) < 10 && (nd.wind || 0) >= 10)
+      out.push(`${nd.date}: ветер усилился до ${nd.wind} м/с`);
+    if (od.t_day_spread && nd.t_day != null &&
+        (nd.t_day < od.t_day_spread[0] - 2 || nd.t_day > od.t_day_spread[1] + 2))
+      out.push(`${nd.date}: температура ${nd.t_day}° вышла за прежний разброс ${od.t_day_spread[0]}…${od.t_day_spread[1]}°`);
+  }
+  return out;
+}
+function checkWatchedPoint(payload) {
+  /* Вызывается после загрузки точки: сравнить со снимком, обновить снимок. Без рассылки. */
+  const id = payload.point && payload.point.id;
+  if (!id || !watchList().some(w => w.id === id)) return;
+  const snaps = watchSnaps();
+  const prev = snaps[id];
+  if (prev) {
+    const changes = diffForecast(prev, payload);
+    if (changes.length) console.info("[watch] прогноз изменился:", changes); // заготовка, UI нет
+  }
+  snaps[id] = payload;
+  try { localStorage.setItem("kp_watch_snap", JSON.stringify(snaps)); } catch (e) {}
 }
 
 function toggleMapChoice() {
@@ -614,19 +632,14 @@ function toggleMapChoice() {
   if (el) el.classList.toggle("hidden");
 }
 
-function toggleCollapse(headEl) {
-  const body = headEl.nextElementSibling;
-  const opening = body.classList.contains("hidden");
-  body.classList.toggle("hidden");
-  headEl.classList.toggle("open", opening);
-}
-
-/* Почасовой прогноз на сутки date (из d.hourly, время МСК) */
+/* Почасовой прогноз на сутки date (из d.hourly, МЕСТНОЕ время точки) */
 function hoursHtml(d, date) {
   if (!d.hourly) return `<div class="hours-empty">Почасовые данные недоступны</div>`;
   const h = d.hourly;
-  const today = mskToday();
-  const nowH = parseInt(mskNowIso().slice(11, 13), 10);
+  const off = d.tz_offset != null ? d.tz_offset : 3 * 3600;
+  const nowIso = new Date(Date.now() + off * 1000).toISOString().slice(0, 19);
+  const today = nowIso.slice(0, 10);
+  const nowH = parseInt(nowIso.slice(11, 13), 10);
   let cells = "";
   for (let i = 0; i < h.time.length; i++) {
     if (h.time[i].slice(0, 10) !== date) continue;
@@ -656,43 +669,32 @@ function toggleHours(rowEl) {
   }
 }
 
-/* ---------- донат-подписка и комьюнити ---------- */
-let dpAmount = null;
-
-function donateState() {
-  try { return JSON.parse(localStorage.getItem("kp_donate") || "null"); } catch (e) { return null; }
-}
-
+/* ---------- поддержка проекта (одна кнопка → сбор Т-Банк) и связь с автором ---------- */
 function donateHtml() {
-  const st = donateState();
-  if (st && st.subscribed) {
-    return `
-      <div class="donate-panel">
-        <div class="dp-thanks">СПАСИБО 🙏</div>
-        <div class="dp-change" onclick="donateReset()">Вы всегда можете изменить сумму подписки</div>
-        <button class="dp-sbp" onclick="donateSbp()">Поддержать разово (СБП)</button>
-      </div>`;
-  }
   return `
-    <div class="donate-panel pulse">
-      <div class="dp-title">Поддержать проект</div>
-      <button class="dp-sbp" onclick="donateSbp()">Поддержать разово (СБП)</button>
-      <div class="dp-sub-title">Подписка от 0 ₽/мес</div>
-      <div class="dp-amounts">
-        ${[0, 100, 500].map(a => `<button class="dp-amt" data-amt="${a}" onclick="donatePick(this)">${a} ₽</button>`).join("")}
-        <input class="dp-custom" placeholder="своя сумма" inputmode="numeric" oninput="donateCustom(this)" onfocus="scrollDonateBtn()">
-      </div>
-      <button class="dp-go" onclick="donateGo()">Оформить подписку</button>
+    <div class="donate-panel">
+      <div class="dp-title">Приложение всегда бесплатное.<br>Но вы можете помочь проекту расти 🙏</div>
+      <button class="dp-go" onclick="donateGo()">Поддержать проект</button>
     </div>`;
 }
 
-function donateSbp() {
-  if (isPlaceholder(SBP_URL)) return soonHint("Ссылка СБП появится чуть позже — спасибо! 🙏");
-  window.open(SBP_URL, "_blank", "noopener");
+function donateGo() {
+  if (isPlaceholder(DONATE_URL)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
+  window.open(DONATE_URL, "_blank", "noopener");
+  setTimeout(() => soonHint("СПАСИБО 🙏"), 400);
 }
 
 function communityHtml() {
-  return `<a class="community-panel" href="${COMMUNITY_URL}" target="_blank" rel="noopener" onclick="openCommunity(event)">Вступить в комьюнити</a>`;
+  return `<button class="community-panel" onclick="authorGo()">Написать автору</button>`;
+}
+function authorGo() {
+  try {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
+      Telegram.WebApp.openTelegramLink(AUTHOR_TG);
+      return;
+    }
+  } catch (e) {}
+  window.open(AUTHOR_TG, "_blank");
 }
 
 function renderPanels() {
@@ -700,56 +702,6 @@ function renderPanels() {
   if (hp) hp.innerHTML = donateHtml() + communityHtml();
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateHtml() + communityHtml();
-  dpAmount = null;
-}
-
-/* Кнопка «Оформить подписку» не должна прятаться под клавиатуру при вводе
-   своей суммы — и при этом НИКОГДА не скроллить сама по себе: скроллим,
-   только когда фокус в поле «своя сумма» (клавиатура открыта). */
-function scrollDonateBtn() {
-  const ae = document.activeElement;
-  if (!ae || !ae.classList || !ae.classList.contains("dp-custom")) return;
-  setTimeout(() => {
-    const panels = [...document.querySelectorAll(".donate-panel")].filter(p => p.offsetParent);
-    const panel = panels[panels.length - 1];
-    const btn = panel && panel.querySelector(".dp-go");
-    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, 250);
-}
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", scrollDonateBtn);
-}
-
-function donatePick(btn) {
-  const panel = btn.closest(".donate-panel");
-  panel.querySelectorAll(".dp-amt").forEach(b => b.classList.remove("sel"));
-  panel.querySelector(".dp-custom").value = "";
-  btn.classList.add("sel");
-  dpAmount = parseInt(btn.dataset.amt, 10);
-  const go = panel.querySelector(".dp-go");
-  if (go) setTimeout(() => go.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
-}
-
-function donateCustom(input) {
-  const panel = input.closest(".donate-panel");
-  panel.querySelectorAll(".dp-amt").forEach(b => b.classList.remove("sel"));
-  const v = parseInt(String(input.value).replace(/[^\d]/g, ""), 10);
-  dpAmount = isNaN(v) ? null : v;
-}
-
-function donateGo() {
-  const amount = dpAmount == null ? 0 : dpAmount;
-  if (amount > 0) {
-    if (isPlaceholder(DONATE_URL)) soonHint("Оплата подключится чуть позже — спасибо! 🙏");
-    else window.open(DONATE_URL, "_blank", "noopener");
-  }
-  try { localStorage.setItem("kp_donate", JSON.stringify({ subscribed: true, amount, ts: Date.now() })); } catch (e) {}
-  renderPanels();
-}
-
-function donateReset() {
-  try { localStorage.removeItem("kp_donate"); } catch (e) {}
-  renderPanels();
 }
 
 /* ---------- роутинг ---------- */
@@ -761,9 +713,12 @@ function route() {
   const home = document.getElementById("home-screen");
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");
+  const about = document.getElementById("about-screen");
   const m = h.match(/^#point\/(.+)$/);
   if (lib) lib.classList.toggle("hidden", h !== "#library");
+  if (about) about.classList.toggle("hidden", h !== "#about");
   if (h === "#library") { renderLibrary(document.getElementById("lib-search").value); return; }
+  if (h === "#about") return;
   if (m) {
     home.classList.add("hidden");
     point.classList.remove("hidden");
@@ -774,6 +729,28 @@ function route() {
     home.classList.remove("hidden");
   }
 }
+
+/* ---------- свайп вправо = назад (библиотека, точка, «О проекте» → главная) ---------- */
+(function bindSwipeBack() {
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  document.addEventListener("touchstart", e => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    st = Date.now(); tracking = true;
+  }, { passive: true });
+  document.addEventListener("touchend", e => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if (dx < 70 || Math.abs(dy) > 50 || Date.now() - st > 600) return;
+    if (editMode || dragCtx) return; // идёт перетаскивание виджета
+    const t = e.target;
+    if (t && t.closest && t.closest(".hours-wrap, input, textarea")) return; // горизонтальный скролл/ввод
+    const h = location.hash;
+    if (h === "#library" || h === "#about" || h.indexOf("#point/") === 0) goHome();
+  }, { passive: true });
+})();
 
 window.addEventListener("hashchange", route);
 initTheme();

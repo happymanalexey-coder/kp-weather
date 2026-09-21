@@ -66,13 +66,48 @@ def validate(name, lat, lon, existing_names):
     return name, None
 
 
+def notify(chat_id, text):
+    """Ответ пользователю в Telegram. Тихо пропускаем ошибки (бот мог быть заблокирован)."""
+    if not chat_id:
+        return
+    try:
+        api("sendMessage", chat_id=chat_id, text=text)
+    except Exception as e:
+        print(f"notify {chat_id} failed: {type(e).__name__}")
+
+
+def entry_key(e):
+    return f"{e.get('name', '').strip().lower()}|{e.get('lat')}|{e.get('lon')}"
+
+
+def process_rejections(points, pending, state):
+    """Модератор убрал запись из pending.json = отклонил. Пишем автору причину
+    (moderator_note из последнего снимка записи или причину по умолчанию)."""
+    known = state.get("known", {})
+    current = {entry_key(e): e for e in pending.get("pending", [])}
+    published = {p["name"].strip().lower() for p in points.get("points", [])}
+    sent = 0
+    for key, old in known.items():
+        if key in current:
+            continue  # ещё на модерации
+        if (old.get("name") or "").strip().lower() in published:
+            continue  # одобрена и опубликована — молчим
+        uid = old.get("submitted_by")
+        reason = old.get("moderator_note") or "точка не прошла модерацию (проверьте название и координаты)"
+        notify(uid, f"Не принято: «{old.get('name')}» — {reason}")
+        print(f"rejected notify: {old.get('name')} → {uid} ({reason})")
+        sent += 1
+    state["known"] = current
+    return sent
+
+
 def main():
     if not TOKEN:
         print("BOT_TOKEN не задан — выходим (задайте в GitHub Secrets)")
         return
     points = load(POINTS_PATH, {"points": []})
     pending = load(PENDING_PATH, {"meta": {"note": "очередь модерации, не публикуется"}, "pending": []})
-    state = load(STATE_PATH, {"offset": 0})
+    state = load(STATE_PATH, {"offset": 0, "known": {}})
 
     existing = {p["name"].strip().lower() for p in points.get("points", [])}
     existing |= {p["name"].strip().lower() for p in pending.get("pending", [])}
@@ -94,9 +129,12 @@ def main():
         lat = float(lat_s.replace(",", "."))
         lon = float(lon_s.replace(",", "."))
         user = (msg.get("from") or {})
+        chat_id = (msg.get("chat") or {}).get("id") or user.get("id")
         name, err = validate(name_raw, lat, lon, existing)
         if err:
             skipped += 1
+            notify(chat_id, f"Не принято: «{' '.join(str(name_raw).split())}» — {err}. "
+                            f"Формат: Точка: Название — 43.472, 40.534")
             print(f"skip: {name_raw!r} ({lat}, {lon}) — {err}")
             continue
         entry = {
@@ -110,11 +148,15 @@ def main():
         pending["pending"].append(entry)
         existing.add(name.lower())
         added += 1
+        notify(chat_id, f"Принято на модерацию: «{name}» — появится в библиотеке в течение ~24 часов после проверки 🙌")
         print(f"ok: {name} — {lat}, {lon} от @{user.get('username') or user.get('id')}")
+
+    rejected = process_rejections(points, pending, state)
 
     save(PENDING_PATH, pending)
     save(STATE_PATH, state)
-    print(f"готово: добавлено {added}, отклонено {skipped}, всего в очереди {len(pending['pending'])}")
+    print(f"готово: добавлено {added}, отклонено на входе {skipped}, "
+          f"уведомлений об отклонении {rejected}, всего в очереди {len(pending['pending'])}")
 
 
 if __name__ == "__main__":
