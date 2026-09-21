@@ -21,7 +21,7 @@ function cut(startMark, endMark) {
 }
 const iconCode =
   cut("const WMO =", "const WD =") +
-  cut("function esc(", "function fmtDay") +
+  cut("/* Честное название осадков", "function fmtDay") +
   cut("/* ---------- SVG-иконки погоды", "function wmoLabel") +
   "function wmoLabel(code){return (WMO[code]||[\"\",\"—\"])[1];}\n" +
   cut("/* «Суровость» кода погоды", "/* Почасовой прогноз на сутки");

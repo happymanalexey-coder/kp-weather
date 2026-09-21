@@ -74,6 +74,7 @@ const WIC = {
   rain: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="rn"><line x1="7.2" y1="17.4" x2="6.3" y2="20.3"/><line x1="12" y1="17.4" x2="11.1" y2="20.3"/><line x1="16.8" y1="17.4" x2="15.9" y2="20.3"/></g></svg>`,
   snow: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="snw"><line x1="5.9" y1="19.2" x2="8.5" y2="19.2"/><line x1="6.52" y1="18.02" x2="7.88" y2="20.38"/><line x1="6.52" y1="20.38" x2="7.88" y2="18.02"/><line x1="10.7" y1="20.4" x2="13.3" y2="20.4"/><line x1="11.32" y1="19.22" x2="12.68" y2="21.58"/><line x1="11.32" y1="21.58" x2="12.68" y2="19.22"/><line x1="15.5" y1="19.2" x2="18.1" y2="19.2"/><line x1="16.12" y1="18.02" x2="17.48" y2="20.38"/><line x1="16.12" y1="20.38" x2="17.48" y2="18.02"/></g></svg>`,
   thunder: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><path class="blt" d="M13.2 15.6 L9.9 20.3 L12 20.3 L10.8 23.4 L14.9 18.4 L12.5 18.4 L14.2 15.6 Z"/></svg>`,
+  wind: `<svg class="wic" viewBox="0 0 24 24"><g class="wnd"><path d="M3 8h9.5a3 3 0 1 0-3-3.2"/><path d="M3 12.5h14a3 3 0 1 1-3 3.2"/><path d="M3 17h7"/></g></svg>`,
 };
 function iconName(code, night) {
   if (code === 0 || code === 1) return night ? "moon" : "sun";
@@ -88,6 +89,23 @@ function iconName(code, night) {
 }
 function icon(code, night) { return WIC[iconName(code, night)] || WIC.cloud; }
 function wmoLabel(code) { return (WMO[code] || ["", "—"])[1]; }
+/* Честное название осадков по ФАКТИЧЕСКОЙ интенсивности (мм), а не только по коду WMO:
+   0.3 мм — это «небольшой дождь», а не «ливень». Гроза остаётся грозой независимо от мм. */
+function precipLabel(code, mm) {
+  const rain = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code);
+  const snow = [71, 73, 75, 77, 85, 86].includes(code);
+  if ((!rain && !snow) || mm == null) return wmoLabel(code);
+  if (rain) {
+    if (mm < 0.5) return "морось";
+    if (mm < 2) return "небольшой дождь";
+    if (mm < 6) return "дождь";
+    if (mm < 12) return "сильный дождь";
+    return "ливень";
+  }
+  if (mm < 1) return "небольшой снег";
+  if (mm < 4) return "снег";
+  return "снегопад";
+}
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 function fmtDay(iso, i) {
@@ -558,7 +576,7 @@ async function loadPoint(id) {
         <div class="now-icon">${icon(cur.code, nowNight)}</div>
         <div>
           <div class="now-t">${cur.t}°</div>
-          <div class="now-desc">${wmoLabel(cur.code)} · ощущается ${cur.feels}°</div>
+          <div class="now-desc">${precipLabel(cur.code, cur.precip)} · ощущается ${cur.feels}°</div>
         </div>
       </div>
       <div class="now-grid">
@@ -570,15 +588,16 @@ async function loadPoint(id) {
 
   const daysHtml = d.days.map((day, i) => {
     const label = fmtDay(day.date, i);
-    const spread = day.t_day_spread && (day.t_day_spread[0] !== day.t_day_spread[1])
-      ? `<span class="spread">разброс ${day.t_day_spread[0]}…${day.t_day_spread[1]}°</span>` : "";
     return `
       <div class="day-block">
         <div class="day-row" onclick="toggleHours(this)">
-          <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм${day.precip_spread && day.precip_spread[0] !== day.precip_spread[1] ? ` <span class="d-spread">${day.precip_spread[0]}–${day.precip_spread[1]}</span>` : ""}</small></div>
-          ${periodsHtml(d, day.date, day.code)}
-          <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
-          <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
+          <div class="d-left">
+            <div class="d-date"><span class="vdot ${day.verdict}"></span>${label}</div>
+            <div class="d-temp"><span class="d-max">${day.t_day ?? "—"}°</span><span class="d-min"> / ${day.t_night ?? "—"}°</span></div>
+            <div class="d-pr">${day.precip != null ? day.precip + " мм" : "—"}</div>
+          </div>
+          <div class="d-icons">${periodsHtml(d, day.date, day.code)}</div>
+          <div class="d-right">${WIC.wind} ${day.wind ?? "—"} м/с<br>${WIC.cloud} ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
         </div>
         <div class="hours-wrap hidden">${hoursHtml(d, day.date)}</div>
       </div>`;
@@ -670,28 +689,34 @@ function codeRank(c) {
 }
 
 /* Иконки 4 периодов суток (как в Yr.no): ночь 00–06 · утро 06–12 · день 12–18 · вечер 18–24.
-   Иконка периода — типичное (самое частое) состояние из почасового; при равенстве — суровее. */
+   Иконка периода — типичное (самое частое) состояние из почасового; при равенстве — суровее.
+   Подсказка — честное название по сумме осадков периода. */
 function periodsHtml(d, date, fallbackCode) {
-  const fallback = `<div class="day-icon">${icon(fallbackCode, false)}</div>`;
+  const fallback = `<span class="dp-ico">${icon(fallbackCode, false)}</span>`;
   if (!d.hourly || !d.hourly.time) return fallback;
   const PERIODS = [[0, 6, true], [6, 12, false], [12, 18, false], [18, 24, true]];
   const cells = [];
   for (const [from, to, night] of PERIODS) {
     const codes = [];
+    let prSum = 0;
     for (let i = 0; i < d.hourly.time.length; i++) {
       const t = d.hourly.time[i];
       if (t.slice(0, 10) !== date) continue;
       const hh = parseInt(t.slice(11, 13), 10);
-      if (hh >= from && hh < to && d.hourly.code[i] != null) codes.push(d.hourly.code[i]);
+      if (hh >= from && hh < to) {
+        if (d.hourly.code[i] != null) codes.push(d.hourly.code[i]);
+        prSum += d.hourly.precip[i] || 0;
+      }
     }
     if (!codes.length) break;
     const freq = {};
     codes.forEach(c => { freq[c] = (freq[c] || 0) + 1; });
     const best = Object.keys(freq).map(Number)
       .sort((a, b) => freq[b] - freq[a] || codeRank(b) - codeRank(a))[0];
-    cells.push(`<span class="dp-ico" title="${esc(wmoLabel(best))}">${icon(best, night)}</span>`);
+    const pr = Math.round(prSum * 10) / 10;
+    cells.push(`<span class="dp-ico" title="${esc(precipLabel(best, pr))}">${icon(best, night)}</span>`);
   }
-  return cells.length === 4 ? `<div class="day-periods">${cells.join("")}</div>` : fallback;
+  return cells.length === 4 ? cells.join("") : fallback;
 }
 
 /* Почасовой прогноз на сутки date (из d.hourly, МЕСТНОЕ время точки) */
@@ -762,9 +787,9 @@ function authorGo() {
 
 function renderPanels() {
   const hp = document.getElementById("home-panels");
-  if (hp) hp.innerHTML = donateHtml() + communityHtml();
+  if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + автор
   const pp = document.getElementById("point-panels");
-  if (pp) pp.innerHTML = communityHtml() + donateHtml(); // на экране точки донат — под «Написать автору»
+  if (pp) pp.innerHTML = donateHtml(); // на экранах точек — только поддержка (СБП)
 }
 
 /* ---------- роутинг ---------- */

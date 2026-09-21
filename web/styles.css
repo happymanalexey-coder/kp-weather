@@ -31,7 +31,7 @@ body {
 .hero-mountains { display: block; width: 100%; height: 200px; }
 .hero-text {
   position: absolute; inset: 0; display: flex; flex-direction: column;
-  justify-content: space-between; padding: 14px 12px 8px; pointer-events: none;
+  justify-content: space-between; padding: 14px 12px 4px; pointer-events: none;
 }
 .hero-text .globe-btn { pointer-events: auto; }
 .hero-text h1 {
@@ -96,11 +96,11 @@ body {
 .badge.red { background: rgba(248,113,113,.14); color: var(--red); }
 .advice { margin-top: 10px; font-size: 14.5px; color: #cdd9ea; }
 
-.day-block { border-bottom: 1px solid var(--line); }
-.day-block:last-child { border-bottom: none; }
+.day-block { margin-bottom: 8px; }
+.day-block:last-child { margin-bottom: 0; }
 .day-row {
-  display: grid; grid-template-columns: 74px 30px 1fr auto; align-items: center;
-  gap: 8px; padding: 11px 2px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  background: var(--bg2); border-radius: 14px; padding: 10px 12px;
 }
 .chev { display: inline-block; margin-left: 4px; color: var(--muted); transition: transform .15s ease; }
 .day-row.open .chev { transform: rotate(180deg); }
@@ -118,9 +118,17 @@ body {
 .h-w { font-size: 10.5px; color: var(--muted); }
 .hours-legend { font-size: 10.5px; color: var(--muted); padding: 0 2px 8px; }
 .hours-empty { color: var(--muted); font-size: 13px; padding: 8px 2px 12px; }
-.day-date { font-weight: 700; font-size: 14px; }
-.day-date small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
-.day-icon { font-size: 22px; text-align: center; }
+.day-icon { text-align: center; }
+/* строка дня в стиле Yr.no: слева столбик (дата/т°/мм), центр — 4 иконки, справа ветер/облачность */
+.d-left { min-width: 88px; flex: 0 0 auto; }
+.d-date { font-weight: 800; font-size: 13.5px; }
+.d-temp { font-size: 16px; font-weight: 800; margin-top: 1px; }
+.d-max { color: #ef6a5a; }
+.d-min { color: #6aa9e0; }
+.d-pr { font-size: 12.5px; color: #5ea3f7; font-weight: 700; }
+.d-icons { flex: 1; display: flex; gap: 6px; justify-content: center; align-items: center; }
+.d-right { text-align: right; font-size: 12px; color: var(--muted); line-height: 1.6; white-space: nowrap; flex: 0 0 auto; }
+.d-right .wic { width: 13px; height: 13px; vertical-align: -2px; }
 
 /* ---------- SVG-иконки погоды (вместо эмодзи — одинаковые на любом устройстве) ---------- */
 .wic { display: inline-block; vertical-align: middle; }
@@ -136,16 +144,13 @@ body {
 .now-icon .wic { width: 54px; height: 54px; }
 .h-icon .wic { width: 20px; height: 20px; }
 .day-icon .wic { width: 24px; height: 24px; }
-.day-periods { display: flex; gap: 3px; align-items: center; justify-content: center; }
-.day-periods .wic { width: 16px; height: 16px; }
+.dp-ico .wic { width: 24px; height: 24px; }
+.wic .wnd { stroke: #9fb3c8; stroke-width: 1.8; stroke-linecap: round; fill: none; }
 [data-theme="light"] .wic .cld { fill: #8296ae; }
 [data-theme="light"] .wic .mn { fill: #7d92ac; }
 [data-theme="light"] .wic .snw { stroke: #7aa8d8; }
 [data-theme="light"] .wic .fg { stroke: #6e8199; }
-.day-temp { font-size: 14.5px; font-weight: 700; }
-.day-temp .spread { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; }
-.day-temp .night { color: var(--accent); }
-.day-stats { text-align: right; font-size: 12px; color: var(--muted); line-height: 1.5; white-space: nowrap; }
+[data-theme="light"] .wic .wnd { stroke: #6e8199; }
 .vdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 .vdot.green { background: var(--green); } .vdot.yellow { background: var(--yellow); } .vdot.red { background: var(--red); }
 
@@ -445,3 +450,11 @@ button.community-panel {
 .dp-sbp:active { background: rgba(99,214,208,.10); }
 .dp-sub-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .dp-thanks + .dp-change { margin-bottom: 12px; }
+
+/* ---------- защита вёрстки: без горизонтального сдвига и «слонов» ---------- */
+html, body { overflow-x: hidden; }
+body { touch-action: pan-y; }
+.hours-strip { touch-action: pan-x; }
+.p-name, .lib-name, .sticky-name, .d-date {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
