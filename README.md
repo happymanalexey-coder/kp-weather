@@ -24,9 +24,7 @@ app.js          — UI: роутинг (#point/id, #library, #about), библи
 weather.js      — движок: 5 источников → консенсус → кэш localStorage 30 мин
 data/points.json  — библиотека точек (52 шт., verified=true/false)
 data/pending.json — очередь модерации предложенных точек (НЕ публикуется)
-data/intake_state.json — offset getUpdates + снимок очереди для intake
 manifest.json, sw.js, icons/ — PWA (установка на рабочий стол)
-tools/intake_points.py — приём точек из бота (GitHub Actions, раз в сутки)
 tools/gen_icons.py — генератор иконок (чистый Python + zlib)
 server.py + web/ — dev-зеркало для локальной разработки (python3 server.py → :7100)
 ```
@@ -72,29 +70,22 @@ server.py + web/ — dev-зеркало для локальной разрабо
 | Константа | Сейчас | Назначение |
 |---|---|---|
 | `DONATE_URL` | `https://www.tbank.ru/cf/83mAzHJg3A` | кнопка «Поддержать проект» (сбор Т-Банк) |
-| `AUTHOR_TG` | `tg://resolve?domain=go_ride_bro` | кнопка «Написать автору» |
-| `FEEDBACK_TG` | `tg://resolve?domain=broKimibot` | бот приёма точек |
+| `AUTHOR_TG` | `https://t.me/go_ride_bro` | кнопка «Написать автору» — сразу личные сообщения |
+| `FORM_BOT` | `https://t.me/Pagoda_assistant_bot` | бот приёма точек (ассистент, 24/7) |
 | `SITE_URL` | `https://pogoda-pro.ru/` | сайт-визитка |
 | `COMMUNITY_URL` | placeholder | комьюнити (зарезервировано) |
 | `SBP_URL` | `PENDING_SBP` | (резерв) разовая поддержка СБП |
 
 Подписка от 0 ₽/мес временно скрыта — вернём с ЮKassa.
 
-## 5. Приём точек из бота (GitHub Actions)
+## 5. Приём точек
 
-- Раз в сутки (06:17 МСК) workflow `.github/workflows/points-intake.yml`
-  читает `getUpdates`, парсит «Точка: Название — lat, lon», валидирует и
-  складывает в `data/pending.json`. Сам ничего не публикует.
-- **Ответы пользователям:** невалидной заявке бот сразу отвечает причиной
-  («Не принято: …»), валидной — «Принято на модерацию». Если модератор
-  убрал запись из `pending.json`, не публикуя, — при следующем прогоне бот
-  напишет автору причину (поле `moderator_note` в записи, если модератор
-  его заполнил до удаления, иначе — стандартная формулировка).
-- Настройка: @BotFather → /mybots → API Token → GitHub → Settings →
-  Secrets and variables → Actions → secret `BOT_TOKEN`.
-- Одобрение: перенести запись из `data/pending.json` в `data/points.json`
-  (добавить `id`, `ele`, `region`, `verified: false`, сохранить
-  `submitted_by` — точка появится у автора во вкладке «Мои»).
+Точки принимает ассистент **@Pagoda_assistant_bot** — мгновенно, 24/7.
+Пользователь присылает боту «Название — lat, lon» (или пользуется формой
+«Предложить точку» в приложении: текст копируется и открывается чат бота).
+Модерация: перенести точку в `data/points.json` (добавить `id`, `ele`,
+`region`, `verified: false`, сохранить `submitted_by` — точка появится
+у автора во вкладке «Мои»).
 
 ## 6. Уведомления об отклонении прогноза — план (заготовка уже в коде)
 

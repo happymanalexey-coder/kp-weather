@@ -8,7 +8,7 @@ const SITE_URL = "https://pogoda-pro.ru/";                    // сайт-виз
 const DONATE_URL = "https://www.tbank.ru/cf/83mAzHJg3A";      // поддержка проекта (сбор Т-Банк)
 const AUTHOR_TG = "https://t.me/go_ride_bro";                 // «Написать автору» — сразу личные сообщения
 const COMMUNITY_URL = "https://example.com/community";        // комьюнити (зарезервировано)
-const FEEDBACK_TG = "tg://resolve?domain=broKimibot";         // чат бота для «Предложить точку»
+const FORM_BOT = "https://t.me/Pagoda_assistant_bot";         // «Предложить точку» — ассистент приёма точек 24/7
 const SBP_URL = "PENDING_SBP";                                // (резерв) разовая поддержка СБП
 const HOME_LIMIT = 24;                                        // максимум виджетов на главной
 
@@ -61,7 +61,32 @@ const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
 
 let POINTS = [];
 
-function icon(code) { return (WMO[code] || ["🌡", "—"])[0]; }
+/* ---------- SVG-иконки погоды: не зависят от шрифта устройства (в отличие от эмодзи) ---------- */
+const CLD = '<path class="cld" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>';
+const WIC = {
+  sun: `<svg class="wic" viewBox="0 0 24 24"><circle class="snf" cx="12" cy="12" r="4.4"/><g class="sn"><line x1="18.6" y1="12" x2="20.9" y2="12"/><line x1="5.4" y1="12" x2="3.1" y2="12"/><line x1="12" y1="5.4" x2="12" y2="3.1"/><line x1="12" y1="18.6" x2="12" y2="20.9"/><line x1="16.67" y1="7.33" x2="18.3" y2="5.7"/><line x1="7.33" y1="7.33" x2="5.7" y2="5.7"/><line x1="16.67" y1="16.67" x2="18.3" y2="18.3"/><line x1="7.33" y1="16.67" x2="5.7" y2="18.3"/></g></svg>`,
+  moon: `<svg class="wic" viewBox="0 0 24 24"><path class="mn" d="M20 14.5A8 8 0 1 1 9.5 4a9 9 0 0 0 10.5 10.5z"/></svg>`,
+  sunCloud: `<svg class="wic" viewBox="0 0 24 24"><circle class="snf" cx="7.6" cy="7.4" r="3.1"/><g class="sn"><line x1="7.6" y1="2.6" x2="7.6" y2="1"/><line x1="2.7" y1="7.4" x2="1.1" y2="7.4"/><line x1="4.1" y1="3.9" x2="3" y2="2.8"/><line x1="11.1" y1="3.9" x2="12.2" y2="2.8"/></g><g transform="translate(2.6 3.4) scale(0.82)">${CLD}</g></svg>`,
+  moonCloud: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(-1 -1) scale(0.62)"><path class="mn" d="M20 14.5A8 8 0 1 1 9.5 4a9 9 0 0 0 10.5 10.5z"/></g><g transform="translate(2.6 3.4) scale(0.82)">${CLD}</g></svg>`,
+  cloud: `<svg class="wic" viewBox="0 0 24 24">${CLD}</svg>`,
+  fog: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(0 -2.2)">${CLD}</g><g class="fg"><line x1="6.5" y1="19.6" x2="17.5" y2="19.6"/><line x1="8.5" y1="22" x2="15.5" y2="22"/></g></svg>`,
+  drizzle: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="drz"><line x1="8.8" y1="17.6" x2="8.3" y2="19.4"/><line x1="14.6" y1="17.6" x2="14.1" y2="19.4"/></g></svg>`,
+  rain: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="rn"><line x1="7.2" y1="17.4" x2="6.3" y2="20.3"/><line x1="12" y1="17.4" x2="11.1" y2="20.3"/><line x1="16.8" y1="17.4" x2="15.9" y2="20.3"/></g></svg>`,
+  snow: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="snw"><line x1="5.9" y1="19.2" x2="8.5" y2="19.2"/><line x1="6.52" y1="18.02" x2="7.88" y2="20.38"/><line x1="6.52" y1="20.38" x2="7.88" y2="18.02"/><line x1="10.7" y1="20.4" x2="13.3" y2="20.4"/><line x1="11.32" y1="19.22" x2="12.68" y2="21.58"/><line x1="11.32" y1="21.58" x2="12.68" y2="19.22"/><line x1="15.5" y1="19.2" x2="18.1" y2="19.2"/><line x1="16.12" y1="18.02" x2="17.48" y2="20.38"/><line x1="16.12" y1="20.38" x2="17.48" y2="18.02"/></g></svg>`,
+  thunder: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><path class="blt" d="M13.2 15.6 L9.9 20.3 L12 20.3 L10.8 23.4 L14.9 18.4 L12.5 18.4 L14.2 15.6 Z"/></svg>`,
+};
+function iconName(code, night) {
+  if (code === 0 || code === 1) return night ? "moon" : "sun";
+  if (code === 2) return night ? "moonCloud" : "sunCloud";
+  if (code === 3) return "cloud";
+  if (code === 45 || code === 48) return "fog";
+  if ([51, 53, 55, 56, 57].includes(code)) return "drizzle";
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
+  if ([95, 96, 99].includes(code)) return "thunder";
+  return "cloud";
+}
+function icon(code, night) { return WIC[iconName(code, night)] || WIC.cloud; }
 function wmoLabel(code) { return (WMO[code] || ["", "—"])[1]; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
@@ -449,11 +474,11 @@ function feedbackSubmit() {
   const openChat = () => {
     try {
       if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
-        Telegram.WebApp.openTelegramLink(FEEDBACK_TG);
+        Telegram.WebApp.openTelegramLink(FORM_BOT);
         return;
       }
     } catch (e) {}
-    window.open(FEEDBACK_TG, "_blank");
+    window.open(FORM_BOT, "_blank");
   };
   const done = () => { soonHint("Текст скопирован — вставьте его в чат бота 📋"); openChat(); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -523,12 +548,14 @@ async function loadPoint(id) {
   const p = d.point;
   const cur = d.current;
   const fetched = d.fetched_at ? d.fetched_at.slice(11, 16) : "";
+  const nowHLoc = d.tz_offset != null ? new Date(Date.now() + d.tz_offset * 1000).getUTCHours() : 12;
+  const nowNight = nowHLoc < 6 || nowHLoc >= 21;
 
   const nowHtml = cur ? `
     <div class="card">
       <h3>Погода сейчас · обновлено ${fetched} местн.</h3>
       <div class="now-main">
-        <div class="now-icon">${icon(cur.code)}</div>
+        <div class="now-icon">${icon(cur.code, nowNight)}</div>
         <div>
           <div class="now-t">${cur.t}°</div>
           <div class="now-desc">${wmoLabel(cur.code)} · ощущается ${cur.feels}°</div>
@@ -549,7 +576,7 @@ async function loadPoint(id) {
       <div class="day-block">
         <div class="day-row" onclick="toggleHours(this)">
           <div class="day-date">${label}<small><span class="vdot ${day.verdict}"></span>${day.precip ?? 0} мм${day.precip_spread && day.precip_spread[0] !== day.precip_spread[1] ? ` <span class="d-spread">${day.precip_spread[0]}–${day.precip_spread[1]}</span>` : ""}</small></div>
-          <div class="day-icon">${icon(day.code)}</div>
+          ${periodsHtml(d, day.date, day.code)}
           <div class="day-temp">${day.t_day ?? "—"}° <span class="night">/ ${day.t_night ?? "—"}°</span>${spread}</div>
           <div class="day-stats">💨 ${day.wind ?? "—"} м/с<br>☁️ ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
         </div>
@@ -628,6 +655,45 @@ function toggleMapChoice() {
   if (el) el.classList.toggle("hidden");
 }
 
+/* «Суровость» кода погоды — для выбора типичной иконки периода при равенстве частот */
+function codeRank(c) {
+  if (c == null) return 0;
+  if ([95, 96, 99].includes(c)) return 90;
+  if ([71, 73, 75, 77, 85, 86].includes(c)) return 80;
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(c)) return 70;
+  if ([51, 53, 55, 56, 57].includes(c)) return 60;
+  if ([45, 48].includes(c)) return 50;
+  if (c === 3) return 40;
+  if (c === 2) return 30;
+  if (c === 1) return 20;
+  return 10;
+}
+
+/* Иконки 4 периодов суток (как в Yr.no): ночь 00–06 · утро 06–12 · день 12–18 · вечер 18–24.
+   Иконка периода — типичное (самое частое) состояние из почасового; при равенстве — суровее. */
+function periodsHtml(d, date, fallbackCode) {
+  const fallback = `<div class="day-icon">${icon(fallbackCode, false)}</div>`;
+  if (!d.hourly || !d.hourly.time) return fallback;
+  const PERIODS = [[0, 6, true], [6, 12, false], [12, 18, false], [18, 24, true]];
+  const cells = [];
+  for (const [from, to, night] of PERIODS) {
+    const codes = [];
+    for (let i = 0; i < d.hourly.time.length; i++) {
+      const t = d.hourly.time[i];
+      if (t.slice(0, 10) !== date) continue;
+      const hh = parseInt(t.slice(11, 13), 10);
+      if (hh >= from && hh < to && d.hourly.code[i] != null) codes.push(d.hourly.code[i]);
+    }
+    if (!codes.length) break;
+    const freq = {};
+    codes.forEach(c => { freq[c] = (freq[c] || 0) + 1; });
+    const best = Object.keys(freq).map(Number)
+      .sort((a, b) => freq[b] - freq[a] || codeRank(b) - codeRank(a))[0];
+    cells.push(`<span class="dp-ico" title="${esc(wmoLabel(best))}">${icon(best, night)}</span>`);
+  }
+  return cells.length === 4 ? `<div class="day-periods">${cells.join("")}</div>` : fallback;
+}
+
 /* Почасовой прогноз на сутки date (из d.hourly, МЕСТНОЕ время точки) */
 function hoursHtml(d, date) {
   if (!d.hourly) return `<div class="hours-empty">Почасовые данные недоступны</div>`;
@@ -645,7 +711,7 @@ function hoursHtml(d, date) {
     cells += `
       <div class="h-cell${isNow ? " now" : ""}" data-h="${hh}">
         <div class="h-time">${isNow ? "сейчас" : String(hh).padStart(2, "0") + ":00"}</div>
-        <div class="h-icon">${icon(h.code[i])}</div>
+        <div class="h-icon">${icon(h.code[i], hh < 6 || hh >= 21)}</div>
         <div class="h-t">${h.t[i] ?? "—"}°</div>
         <div class="h-pr">${pr >= 0.1 ? pr.toFixed(1) : ""}</div>
         <div class="h-w">${h.wind[i] ?? "—"}</div>
@@ -669,8 +735,8 @@ function toggleHours(rowEl) {
 function donateHtml() {
   return `
     <div class="donate-panel">
-      <div class="dp-title">Мы делали лучшее для себя.<br>И этим хочется поделиться с каждым!</div>
-      <button class="dp-go" onclick="donateGo()">🙏 Поддержать проект (СБП)</button>
+      <div class="dp-title">Мы сделали лучшее приложение для себя.<br>И этим хочется поделиться с каждым!</div>
+      <button class="dp-go" onclick="donateGo()">Поддержать проект (СБП)</button>
     </div>`;
 }
 
@@ -698,7 +764,7 @@ function renderPanels() {
   const hp = document.getElementById("home-panels");
   if (hp) hp.innerHTML = donateHtml() + communityHtml();
   const pp = document.getElementById("point-panels");
-  if (pp) pp.innerHTML = donateHtml() + communityHtml();
+  if (pp) pp.innerHTML = communityHtml() + donateHtml(); // на экране точки донат — под «Написать автору»
 }
 
 /* ---------- роутинг ---------- */
