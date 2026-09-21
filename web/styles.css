@@ -402,6 +402,7 @@ button.community-panel {
   width: 100%; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
   text-align: center;
 }
+.tg-ico { width: 18px; height: 18px; fill: currentColor; vertical-align: -4px; margin-right: 7px; }
 
 /* ---------- v2.2: СБП / подписка ---------- */
 .dp-sbp {
