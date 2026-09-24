@@ -1,0 +1,19 @@
+{
+  "skins": [
+    {
+      "id": "base",
+      "name": "Базовый",
+      "author": "От разработчиков",
+      "file": "skins/base/skin.js",
+      "badge": "skins/base/badge.svg",
+      "preview": {
+        "sky0": "#101c30",
+        "sky1": "#0b1220",
+        "mt1": "#16243c",
+        "mt2": "#0f1930",
+        "mt3": "#0a1120",
+        "palette": ["#16223a", "#63d6d0", "#e07856", "#e8eef7"]
+      }
+    }
+  ]
+}

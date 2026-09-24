@@ -143,7 +143,7 @@ function applyTgColors() {
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   try { localStorage.setItem("kp_theme", theme); } catch (e) {}
-  applyTgColors();
+  applySkinTokens(); // перекладывает токены активного стиля под новую тему (+ applyTgColors внутри)
 }
 function toggleTheme() {
   const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
@@ -215,8 +215,7 @@ let editMode = false;
 function homeActionsHtml() {
   return `
     <div class="home-actions">
-      <button class="ha-btn" onclick="openLibrary()">🌍 Библиотека точек</button>
-      <button class="ha-btn" onclick="openFeedback()">+ Предложить точку</button>
+      <button class="ha-btn set-btn" onclick="openSettings()"><span class="sic">${ICONS.gear}</span>Настройки</button>
     </div>`;
 }
 
@@ -234,6 +233,7 @@ function renderHome() {
       if (!p) return "";
       return `
       <button class="point-btn" data-id="${p.id}">
+        ${badgeHtml(p)}
         <span class="p-name">${esc(p.name)}</span>
         <span class="p-ele">${p.ele} м</span>
         <span class="p-region">${esc(p.region)}</span>
@@ -400,7 +400,7 @@ function libTabsHtml() {
   const mine = tgUserId() !== null; // «Мои» — только внутри Telegram
   const tab = (key, label) =>
     `<button class="lib-tab${libTab === key ? " active" : ""}" onclick="setLibTab('${key}')">${label}</button>`;
-  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", "⭐ От разработчиков")}${mine ? tab("mine", "Мои") : ""}</div>`;
+  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", `<span class="badge-verified">${ICONS.badge}</span>От разработчиков`)}${mine ? tab("mine", "Мои") : ""}</div>`;
 }
 
 function renderLibrary(filter) {
@@ -424,6 +424,7 @@ function renderLibrary(filter) {
     const on = ids.includes(p.id);
     return `
       <div class="lib-row">
+        ${badgeHtml(p)}
         <div class="lib-info">
           <div class="lib-name">${esc(p.name)}</div>
           <div class="lib-sub">${esc(p.region)} · ${p.ele} м</div>
@@ -434,7 +435,7 @@ function renderLibrary(filter) {
       </div>`;
   });
   const emptyText = libTab === "mine"
-    ? "Пока пусто. Предложите свою точку кнопкой «Предложить точку» на главной — после модерации она появится здесь"
+    ? "Пока пусто. Добавьте свою точку: ⚙ Настройки → «Добавить точку» — после модерации она появится здесь"
     : "Ничего не найдено";
   const donate = '<button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>';
   box.innerHTML = (rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`) + donate;
@@ -552,7 +553,7 @@ const RUMBS = ["С", "ССВ", "СВ", "ВСВ", "В", "ВЮВ", "ЮВ", "ЮЮВ
 function rumb(deg) { return deg == null ? "—" : RUMBS[Math.round(deg / 22.5) % 16]; }
 
 function waveLine(w) {
-  return `🌊 ${w.height.toFixed(1)} м · период ${Math.round(w.period)} с · направление ${rumb(w.dir)}`;
+  return `${ICONS.wave} ${w.height.toFixed(1)} м · период ${Math.round(w.period)} с · направление ${rumb(w.dir)}`;
 }
 function wavesHtml(d) {
   if (!d.waves || !d.waves.length) return "";
@@ -644,7 +645,7 @@ async function loadPoint(id) {
 
   const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
-    <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">🌍</button></h2>
+    <h2 class="pt-title">${esc(p.name)} ${badgeHtml(p)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
     <div class="map-choice hidden" id="map-choice">
       <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
@@ -835,6 +836,140 @@ function donateCopy() {
 }
 
 const TG_ICON = `<svg class="tg-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`;
+
+/* ---------- единый SVG-реестр: погода (WIC) + интерфейс + бренд ----------
+   Слот badge-verified — отдельный файл skins/<id>/badge.svg: другой стиль
+   подменяет её своим символом. Ниже — встроенный запасной вариант (= base). */
+const BADGE_FALLBACK = `<svg viewBox="0 0 24 24"><defs><linearGradient id="bs-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f9be8"/></linearGradient></defs><path fill="url(#bs-g)" stroke="url(#bs-g)" stroke-width="1.4" stroke-linejoin="round" d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/><ellipse cx="9.3" cy="7.6" rx="2.1" ry="1.15" fill="#ffe58a" opacity=".9" transform="rotate(-28 9.3 7.6)"/></svg>`;
+const ICONS = Object.assign({}, WIC, {
+  gear: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
+  globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 21.2s-6.6-5.5-6.6-10.2a6.6 6.6 0 1 1 13.2 0c0 4.7-6.6 10.2-6.6 10.2z"/><circle cx="12" cy="10.6" r="2.3"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1 0 1.7-.7 1.7-1.6 0-.5-.18-.85-.45-1.13-.26-.29-.45-.64-.45-1.07 0-.9.73-1.6 1.6-1.6h1.9a3.7 3.7 0 0 0 3.7-3.7c0-3.9-4-6.5-8-6.5z"/><circle cx="7.4" cy="11" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.8" cy="7.8" r="1.15" fill="currentColor" stroke="none"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6l4.8 4.8L19.5 6.8"/></svg>`,
+  wave: `<svg class="wic wv-ico" viewBox="0 0 24 24"><g class="wnd"><path d="M2.5 9.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/><path d="M2.5 15.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/></g></svg>`,
+  badge: BADGE_FALLBACK,
+  telegram: TG_ICON,
+});
+function badgeHtml(p) {
+  return p.verified === false ? "" : `<span class="badge-verified" title="Точка от разработчиков">${ICONS.badge}</span>`;
+}
+
+/* ---------- стили (skins/): один файл на стиль + реестр skins.json ----------
+   Добавление нового стиля = новая папка skins/<id>/ (skin.js + badge.svg)
+   и одна строка в skins/skins.json — без правок остального кода. */
+const SKIN_KEY = "kp_skin";
+let SKINS_REG = null;
+let SKIN_ID = "base";
+let appliedTokenKeys = [];
+
+function currentSkinId() {
+  try { return localStorage.getItem(SKIN_KEY) || "base"; } catch (e) { return "base"; }
+}
+async function loadSkinsReg() {
+  if (SKINS_REG) return SKINS_REG;
+  try {
+    const r = await fetch("skins/skins.json");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    SKINS_REG = Array.isArray(j.skins) ? j.skins : [];
+  } catch (e) { SKINS_REG = []; }
+  if (!SKINS_REG.length) SKINS_REG = [{ id: "base", name: "Базовый", author: "От разработчиков" }];
+  return SKINS_REG;
+}
+function loadSkinFile(id) {
+  return new Promise(res => {
+    if (window.KP_SKINS && KP_SKINS[id]) return res(true);
+    const s = document.createElement("script");
+    s.src = "skins/" + id + "/skin.js";
+    s.onload = () => res(true);
+    s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+}
+async function loadBadge() {
+  try {
+    const r = await fetch("skins/" + SKIN_ID + "/badge.svg");
+    if (!r.ok) return false;
+    const t = await r.text();
+    if (t.includes("<svg")) {
+      const svg = t.replace(/\s*xmlns="[^"]*"/, "").trim();
+      if (svg !== ICONS.badge) { ICONS.badge = svg; return true; }
+    }
+  } catch (e) {}
+  return false;
+}
+function applySkinTokens() {
+  const root = document.documentElement;
+  appliedTokenKeys.forEach(k => root.style.removeProperty(k));
+  appliedTokenKeys = [];
+  const skin = window.KP_SKINS && KP_SKINS[SKIN_ID];
+  if (skin && skin.tokens && SKIN_ID !== "base") { // base = значения по умолчанию в styles.css
+    const theme = root.dataset.theme === "light" ? "light" : "dark";
+    const map = skin.tokens[theme] || {};
+    Object.keys(map).forEach(k => { root.style.setProperty(k, map[k]); appliedTokenKeys.push(k); });
+  }
+  applyTgColors();
+}
+function fillStaticIcons() {
+  document.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = ICONS[el.dataset.icon] || ""; });
+}
+function rerenderCurrent() {
+  const h = location.hash;
+  if (h === "#library") renderLibrary(document.getElementById("lib-search").value);
+  else if (h.indexOf("#point/") === 0) loadPoint(h.slice(7));
+  else if (h === "" || h === "#") renderHome();
+  fillStaticIcons();
+}
+async function initSkin() {
+  SKIN_ID = currentSkinId();
+  let changed = false;
+  if (SKIN_ID !== "base") { await loadSkinFile(SKIN_ID); changed = true; }
+  applySkinTokens();
+  if (await loadBadge()) changed = true;
+  if (changed) rerenderCurrent(); else fillStaticIcons();
+}
+async function applySkin(id) {
+  SKIN_ID = id;
+  try { localStorage.setItem(SKIN_KEY, id); } catch (e) {} // выбор сохраняется и восстанавливается после перезапуска
+  if (id !== "base") await loadSkinFile(id);
+  applySkinTokens(); // мгновенно, без шага предпросмотра
+  await loadBadge();
+  rerenderCurrent();
+  renderStyleList();
+  soonHint("Стиль применён");
+}
+async function renderStyleList() {
+  const box = document.getElementById("style-list");
+  if (!box) return;
+  const skins = await loadSkinsReg();
+  box.innerHTML = skins.map(s => {
+    const pv = s.preview || {};
+    const dots = (pv.palette || []).map(c => `<span class="st-dot" style="background:${esc(String(c))}"></span>`).join("");
+    const hero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+      `<defs><linearGradient id="psky-${esc(s.id)}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="${esc(pv.sky0 || "#101c30")}"/><stop offset="1" stop-color="${esc(pv.sky1 || "#0b1220")}"/></linearGradient></defs>` +
+      `<rect width="400" height="160" fill="url(#psky-${esc(s.id)})"/>` +
+      `<path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="${esc(pv.mt1 || "#16243c")}"/>` +
+      `<path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
+      `<path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="${esc(pv.mt3 || "#0a1120")}"/></svg>`;
+    const active = s.id === SKIN_ID;
+    return `<div class="style-card${active ? " active" : ""}">
+      <div class="st-prev">${hero}</div>
+      <div class="st-name">${esc(s.name || s.id)}</div>
+      <div class="st-author">${esc(s.author || "")}</div>
+      <div class="st-dots">${dots}</div>
+      <button class="st-apply${active ? " done" : ""}"${active ? "" : ` onclick="applySkin('${esc(s.id)}')"`}>${active ? "Применён ✓" : "Применить"}</button>
+    </div>`;
+  }).join("");
+}
+
+/* ---------- навигация: настройки / стили ---------- */
+function openSettings() { location.hash = "#settings"; }
+function closeSettings() { location.hash = ""; }
+function openStyle() { location.hash = "#style"; }
+function closeStyle() { location.hash = "#settings"; }
+
 function communityHtml() {
   return `<button class="community-panel" onclick="authorGo()">${TG_ICON}Написать автору</button>`;
 }
@@ -883,11 +1018,17 @@ function route() {
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");
   const about = document.getElementById("about-screen");
+  const settings = document.getElementById("settings-screen");
+  const style = document.getElementById("style-screen");
   const m = h.match(/^#point\/(.+)$/);
   if (lib) lib.classList.toggle("hidden", h !== "#library");
   if (about) about.classList.toggle("hidden", h !== "#about");
+  if (settings) settings.classList.toggle("hidden", h !== "#settings");
+  if (style) style.classList.toggle("hidden", h !== "#style");
   if (h === "#library") { renderLibrary(document.getElementById("lib-search").value); return; }
   if (h === "#about") return;
+  if (h === "#settings") return;
+  if (h === "#style") { renderStyleList(); return; }
   if (m) {
     home.classList.add("hidden");
     point.classList.remove("hidden");
@@ -918,12 +1059,15 @@ function route() {
     const t = e.target;
     if (t && t.closest && t.closest(".hours-wrap, input, textarea")) return; // горизонтальный скролл/ввод
     const h = location.hash;
-    if (h === "#library" || h === "#about" || h.indexOf("#point/") === 0) goHome();
+    if (h === "#style") { closeStyle(); return; } // свайп со стилей → назад в настройки
+    if (h === "#library" || h === "#about" || h === "#settings" || h.indexOf("#point/") === 0) goHome();
   }, { passive: true });
 })();
 
 window.addEventListener("hashchange", route);
 initTheme();
 bindHomeList();
+fillStaticIcons();
 route();
 loadHome();
+initSkin(); // стиль + бейдж из skins/; при смене перерисует текущий экран

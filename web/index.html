@@ -26,11 +26,11 @@
         <rect width="400" height="160" fill="url(#sky)"/>
         <g id="theme-toggle" class="theme-toggle" transform="translate(-8 8)" onclick="toggleTheme()" role="button" aria-label="Переключить тему">
           <g class="moon-g">
-            <path d="M302 48 A16 16 0 0 1 302 80 A17.14 17.14 0 0 0 302 48 Z" fill="#e8f4f8" opacity="0.92" transform="rotate(30 302 64)"/>
+            <path d="M302 48 A16 16 0 0 1 302 80 A17.14 17.14 0 0 0 302 48 Z" class="hmoon" opacity="0.92" transform="rotate(30 302 64)"/>
           </g>
           <g class="sun-g">
-            <circle cx="302" cy="64" r="10" fill="#ffd166"/>
-            <g stroke="#ffd166" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="302" cy="64" r="10" class="hsun-f"/>
+            <g class="hsun" stroke-width="2.2" stroke-linecap="round">
               <line x1="315" y1="64" x2="319.5" y2="64"/>
               <line x1="311.2" y1="73.2" x2="314.4" y2="76.4"/>
               <line x1="302" y1="77" x2="302" y2="81.5"/>
@@ -86,6 +86,31 @@
     <div id="lib-list" class="lib-list"></div>
   </div>
 
+  <div id="settings-screen" class="lib-overlay hidden">
+    <div class="lib-sticky">
+      <div class="lib-head">
+        <button class="lib-close" onclick="closeSettings()" aria-label="Назад">✕</button>
+        <span class="about-title">Настройки</span>
+      </div>
+    </div>
+    <div class="set-list">
+      <button class="set-row" onclick="openLibrary()"><span class="sic" data-icon="globe"></span>Библиотека точек</button>
+      <button class="set-row" onclick="openFeedback()"><span class="sic" data-icon="pin"></span>Добавить точку</button>
+      <button class="set-row" onclick="openStyle()"><span class="sic" data-icon="palette"></span>Сменить стиль</button>
+      <button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>
+    </div>
+  </div>
+
+  <div id="style-screen" class="lib-overlay hidden">
+    <div class="lib-sticky">
+      <div class="lib-head">
+        <button class="lib-close" onclick="closeStyle()" aria-label="Назад">✕</button>
+        <span class="about-title">Сменить стиль</span>
+      </div>
+    </div>
+    <div id="style-list" class="lib-list"></div>
+  </div>
+
   <div id="about-screen" class="lib-overlay hidden">
     <div class="lib-head">
       <button class="lib-close" onclick="closeAbout()" aria-label="Назад">✕</button>
@@ -105,7 +130,7 @@
   <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
     <div class="fb-card">
       <div id="fb-form">
-        <div class="fb-title">Предложить точку</div>
+        <div class="fb-title">Добавить точку</div>
         <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
         <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
         <div class="fb-err hidden" id="fb-err"></div>
@@ -115,7 +140,7 @@
         <button class="fb-cancel" onclick="closeFeedback(); donateGo()">Поддержать (СБП)</button>
       </div>
       <div id="fb-sent" class="hidden">
-        <div class="fb-title">Отправлено ✅</div>
+        <div class="fb-title">Отправлено <span class="sic" data-icon="check"></span></div>
         <div class="fb-text">Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~24 часов.</div>
         <button class="fb-go" onclick="fbGoBot()">Перейти в чат бота</button>
         <button class="fb-cancel" onclick="closeFeedback()">Закрыть</button>

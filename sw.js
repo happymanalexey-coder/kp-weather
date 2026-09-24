@@ -1,7 +1,7 @@
 /* Минимальный service worker «Погода в горах».
    Статика — cache-first, data/points.json — network-first,
    погодные API — всегда сеть (свежесть важнее, кэширует само приложение). */
-const CACHE = "kp-weather-v2.5";
+const CACHE = "kp-weather-v3.0";
 const STATIC = [
   "./",
   "index.html",
@@ -11,6 +11,9 @@ const STATIC = [
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",
+  "skins/skins.json",
+  "skins/base/skin.js",
+  "skins/base/badge.svg",
 ];
 
 self.addEventListener("install", e => {
