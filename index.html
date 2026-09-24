@@ -56,7 +56,11 @@
       <button class="info-btn hero-info" id="hero-info" onclick="openAbout()" aria-label="О проекте">i</button>
     </header>
     <main id="points-list" class="points-list">
-      <div class="loading">Загружаю точки…</div>
+      <div class="sk sk-card"></div>
+      <div class="sk sk-card"></div>
+      <div class="sk sk-card"></div>
+      <div class="sk sk-card"></div>
+      <div class="sk-spin" aria-label="Загрузка"></div>
     </main>
     <section id="home-panels" class="panels"></section>
     <footer class="foot">Данные: ECMWF · ICON · GFS · MET Norway · Marine API · кэш 30 мин</footer>
@@ -94,19 +98,38 @@
       <p>Нам важна любая обратная связь: напишите, что добавить или исправить.</p>
       <p>Всем — доброго дня, светлого неба, хорошей погоды, отличных волн и мягкого снега 🌤️</p>
       <p>Если у вас есть возможность поддержать проект, можете отправить любую сумму — СПАСИБО 🙏</p>
-      <button class="fb-go" onclick="closeAbout(); donateGo()">Поддержать проект (СБП)</button>
+      <button class="dp-sbp" onclick="closeAbout(); donateGo()">Поддержать (СБП)</button>
     </div>
   </div>
 
   <div id="fb-modal" class="fb-modal hidden" onclick="if(event.target===this)closeFeedback()">
     <div class="fb-card">
-      <div class="fb-title">Предложить точку</div>
-      <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
-      <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
-      <div class="fb-err hidden" id="fb-err"></div>
-      <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
-      <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
-      <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
+      <div id="fb-form">
+        <div class="fb-title">Предложить точку</div>
+        <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
+        <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
+        <div class="fb-err hidden" id="fb-err"></div>
+        <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
+        <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
+        <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
+        <button class="fb-cancel" onclick="closeFeedback(); donateGo()">Поддержать (СБП)</button>
+      </div>
+      <div id="fb-sent" class="hidden">
+        <div class="fb-title">Отправлено ✅</div>
+        <div class="fb-text">Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~24 часов.</div>
+        <button class="fb-go" onclick="fbGoBot()">Перейти в чат бота</button>
+        <button class="fb-cancel" onclick="closeFeedback()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dn-modal" class="fb-modal hidden" onclick="if(event.target===this)closeDonateFallback()">
+    <div class="fb-card">
+      <div class="fb-title">Поддержать проект</div>
+      <div class="fb-text">Не получилось открыть ссылку автоматически.<br>Скопируйте её и откройте в браузере:</div>
+      <div class="fb-text dn-link"><b>tbank.ru/cf/83mAzHJg3A</b></div>
+      <button class="fb-go" onclick="donateCopy()">Скопировать ссылку</button>
+      <button class="fb-cancel" onclick="closeDonateFallback()">Закрыть</button>
     </div>
   </div>
 </div>

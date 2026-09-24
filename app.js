@@ -242,17 +242,39 @@ function renderHome() {
     }).join("") + homeActionsHtml();
 }
 
+/* ---------- состояния: skeleton, ошибка сети (без технических деталей) ---------- */
+const SK_HOME = `<div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk-spin" aria-label="Загрузка"></div>`;
+const SK_POINT = `<div class="sk sk-now"></div><div class="sk sk-row"></div><div class="sk sk-row"></div><div class="sk sk-row"></div><div class="sk sk-row"></div><div class="sk sk-row"></div><div class="sk-spin" aria-label="Загрузка"></div>`;
+const ERR_ICON = `<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6.5 18a4 4 0 1 1 .42-7.98A5.5 5.5 0 0 1 17.6 8.8 4.2 4.2 0 0 1 17.5 18h-11z" opacity=".55"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/></svg>`;
+function errHtml(retryJs) {
+  return `<div class="error-box err-card"><div class="err-ico">${ERR_ICON}</div>` +
+    `<div class="err-text">Не удалось загрузить данные. Проверь соединение и попробуй ещё раз.</div>` +
+    `<button class="err-retry" onclick="${retryJs}">Повторить</button></div>`;
+}
+let homeFailed = false;
+function retryLib() {
+  const q = document.getElementById("lib-search");
+  loadHome().then(() => renderLibrary(q ? q.value : ""));
+}
+
 async function loadHome() {
   const list = document.getElementById("points-list");
+  list.innerHTML = SK_HOME;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const r = await fetch("data/points.json");
+    const r = await fetch("data/points.json", { signal: ctrl.signal });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     POINTS = data.points.slice().sort((a, b) =>
       a.name.toLowerCase().localeCompare(b.name.toLowerCase(), "ru"));
+    homeFailed = false;
     renderHome();
   } catch (e) {
-    list.innerHTML = `<div class="error-box">Не удалось загрузить точки: ${esc(e.message)}</div>`;
+    homeFailed = true;
+    list.innerHTML = errHtml("loadHome()");
+  } finally {
+    clearTimeout(t);
   }
   renderPanels();
 }
@@ -386,6 +408,10 @@ function renderLibrary(filter) {
   if (!box) return;
   const tabs = document.getElementById("lib-tabs-wrap");
   if (tabs) tabs.innerHTML = libTabsHtml();
+  if (!POINTS.length) { // точки не загрузились (нет сети) — ошибка с кнопкой «Повторить»
+    box.innerHTML = errHtml("retryLib()");
+    return;
+  }
   if (libTab === "mine" && tgUserId() === null) libTab = "all"; // на всякий случай
   const q = String(filter || "").trim().toLowerCase();
   const ids = homeBaseIds();
@@ -408,9 +434,10 @@ function renderLibrary(filter) {
       </div>`;
   });
   const emptyText = libTab === "mine"
-    ? "Пока пусто — предложенные вами точки появятся здесь после модерации"
+    ? "Пока пусто. Предложите свою точку кнопкой «Предложить точку» на главной — после модерации она появится здесь"
     : "Ничего не найдено";
-  box.innerHTML = rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`;
+  const donate = '<button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>';
+  box.innerHTML = (rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`) + donate;
   box.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => libAdd(b.dataset.add)));
   box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => libRemove(b.dataset.rm)));
 }
@@ -423,6 +450,10 @@ const FB_BAD_WORDS = ["хуй","хуя","хуе","хуи","пизд","бляд",
 function openFeedback() {
   const m = document.getElementById("fb-modal");
   if (m) m.classList.remove("hidden");
+  const form = document.getElementById("fb-form");
+  const sent = document.getElementById("fb-sent");
+  if (form) form.classList.remove("hidden"); // всегда открываем на форме, не на «Отправлено»
+  if (sent) sent.classList.add("hidden");
   fbShowError("");
 }
 function closeFeedback() {
@@ -488,20 +519,25 @@ function feedbackSubmit() {
   if (r.error) { fbShowError(r.error); return; }
   const text = `Точка: ${r.name} — ${r.lat}, ${r.lon}`;
   try { localStorage.setItem("kp_suggest_ts", String(Date.now())); } catch (e) {}
-  closeFeedback();
-  const openChat = () => {
-    try {
-      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
-        Telegram.WebApp.openTelegramLink(FORM_BOT);
-        return;
-      }
-    } catch (e) {}
-    window.open(FORM_BOT, "_blank");
+  const showSent = () => {
+    const form = document.getElementById("fb-form");
+    const sent = document.getElementById("fb-sent");
+    if (form) form.classList.add("hidden");
+    if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
   };
-  const done = () => { soonHint("Текст скопирован — вставьте его в чат бота 📋"); openChat(); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done, () => { fallbackCopy(text, () => {}); done(); });
-  } else { fallbackCopy(text, () => {}); done(); }
+    navigator.clipboard.writeText(text).then(showSent, () => { fallbackCopy(text, () => {}); showSent(); });
+  } else { fallbackCopy(text, () => {}); showSent(); }
+}
+
+function fbGoBot() {
+  try {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
+      Telegram.WebApp.openTelegramLink(FORM_BOT);
+      return;
+    }
+  } catch (e) {}
+  window.open(FORM_BOT, "_blank");
 }
 
 /* ---------- ссылки ручной перепроверки ---------- */
@@ -550,14 +586,17 @@ async function loadPoint(id) {
     box.innerHTML = `<div class="error-box">Точка не найдена.</div>`;
     return;
   }
-  box.innerHTML = `<div class="loading">Собираю сводку из источников…</div>`;
+  box.innerHTML = SK_POINT;
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = ""; // панели покажем только после загрузки — без мелькания
   let d;
   try {
-    d = await getWeather(point);
+    d = await Promise.race([
+      getWeather(point),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000))
+    ]);
   } catch (e) {
-    box.innerHTML = `<div class="error-box">Не удалось получить погоду: ${esc(e.message)}<br><br>Попробуйте ещё раз через минуту.</div>`;
+    box.innerHTML = errHtml("loadPoint('" + id + "')");
     return;
   }
   lastPayload = d;
@@ -767,8 +806,32 @@ function donateHtml() {
 
 function donateGo() {
   if (isPlaceholder(DONATE_URL)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
-  window.open(DONATE_URL, "_blank", "noopener");
-  setTimeout(() => soonHint("СПАСИБО 🙏"), 400);
+  let opened = false;
+  try { // в Telegram mini-app — во внешний браузер, чтобы сработал переход в приложение Т-Банка
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+      Telegram.WebApp.openLink(DONATE_URL);
+      opened = true;
+    }
+  } catch (e) {}
+  if (!opened) { // на сайте — прямое открытие в новой вкладке
+    try { opened = !!window.open(DONATE_URL, "_blank", "noopener"); } catch (e) {}
+  }
+  if (opened) setTimeout(() => soonHint("СПАСИБО 🙏"), 400);
+  else showDonateFallback(); // окно со ссылкой — только если программно открыть не удалось
+}
+function showDonateFallback() {
+  const m = document.getElementById("dn-modal");
+  if (m) m.classList.remove("hidden");
+}
+function closeDonateFallback() {
+  const m = document.getElementById("dn-modal");
+  if (m) m.classList.add("hidden");
+}
+function donateCopy() {
+  const done = () => { soonHint("Ссылка скопирована 📋"); closeDonateFallback(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(DONATE_URL).then(done, () => { fallbackCopy(DONATE_URL, () => {}); done(); });
+  } else { fallbackCopy(DONATE_URL, () => {}); done(); }
 }
 
 const TG_ICON = `<svg class="tg-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`;
@@ -787,9 +850,9 @@ function authorGo() {
 
 function renderPanels() {
   const hp = document.getElementById("home-panels");
-  if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + автор
+  if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
-  if (pp) pp.innerHTML = donateHtml(); // на экранах точек — только поддержка (СБП)
+  if (pp) pp.innerHTML = '<button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>'; // вторичный экран — спокойная кнопка
 }
 
 /* ---------- роутинг ---------- */
