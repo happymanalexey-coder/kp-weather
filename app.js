@@ -793,6 +793,24 @@ function renderPanels() {
 }
 
 /* ---------- роутинг ---------- */
+/* ⓘ на крайней правой горе хиро: позиция от viewBox с учётом slice-кропа */
+function placeHeroInfo() {
+  const btn = document.getElementById("hero-info");
+  const svg = document.querySelector(".hero-mountains");
+  if (!btn || !svg) return;
+  const W = svg.clientWidth, H = svg.clientHeight;
+  if (!W) return;
+  const scale = Math.max(W / 400, H / 160);
+  const offX = (400 - W / scale) / 2;  /* xMid: левая граница видимого окна (юниты viewBox) */
+  const offY = 160 - H / scale;        /* YMax: верхняя граница */
+  const half = 23;                     /* половина кнопки 46px */
+  const cx = Math.max(half + 4, Math.min((340 - offX) * scale, W - half - 4));
+  const cy = Math.max(half + 4, Math.min((132 - offY) * scale, H - half - 4));
+  btn.style.left = cx + "px";
+  btn.style.top = cy + "px";
+}
+window.addEventListener("resize", placeHeroInfo);
+
 function goPoint(id) { location.hash = "#point/" + id; }
 function goHome() { location.hash = ""; }
 
@@ -815,6 +833,7 @@ function route() {
   } else {
     point.classList.add("hidden");
     home.classList.remove("hidden");
+    placeHeroInfo();
   }
 }
 

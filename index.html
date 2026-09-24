@@ -51,8 +51,9 @@
       </svg>
       <div class="hero-text">
         <h1>Погода в горах, на море и дома</h1>
-        <p>Лучшее приложение погоды по версии моей мамы&nbsp;&nbsp;<button class="info-btn info-btn-sm" onclick="openAbout()" aria-label="О проекте">i</button></p>
+        <p>Лучшее приложение погоды по версии моей мамы</p>
       </div>
+      <button class="info-btn hero-info" id="hero-info" onclick="openAbout()" aria-label="О проекте">i</button>
     </header>
     <main id="points-list" class="points-list">
       <div class="loading">Загружаю точки…</div>
@@ -71,11 +72,13 @@
   </div>
 
   <div id="lib-screen" class="lib-overlay hidden">
-    <div class="lib-head">
-      <button class="lib-close" onclick="closeLibrary()" aria-label="Назад">✕</button>
-      <input id="lib-search" class="lib-search" placeholder="Поиск точки…" oninput="renderLibrary(this.value)">
+    <div class="lib-sticky">
+      <div class="lib-head">
+        <button class="lib-close" onclick="closeLibrary()" aria-label="Назад">✕</button>
+        <input id="lib-search" class="lib-search" placeholder="Поиск точки…" oninput="renderLibrary(this.value)">
+      </div>
+      <div id="lib-tabs-wrap"></div>
     </div>
-    <div id="lib-tabs-wrap"></div>
     <div id="lib-list" class="lib-list"></div>
   </div>
 
