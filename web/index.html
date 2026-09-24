@@ -44,7 +44,7 @@
           <circle cx="302" cy="64" r="26" fill="transparent"/>
         </g>
         <path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" class="mt1"/>
-        <path d="M150 52 L168 74 L158 70 L150 80 L141 68 L134 74 Z" class="snow"/>
+        <path d="M150 52 L168.5 79.5 L160 72 L154 78 L147 70 L140 76 L133 75 L128 80 Z" class="snow"/>
         <path d="M60 84 L74.4 101.6 L66.4 98.4 L60 106.4 L52.8 96.8 L47.2 101.6 Z" class="snow snow2"/>
         <path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" class="mt2"/>
         <path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" class="mt3"/>
@@ -69,7 +69,7 @@
   <div id="point-screen" class="hidden">
     <div class="sticky-head">
       <button class="back-btn" onclick="goHome()">← Все точки</button>
-      <span class="sticky-name" id="sticky-name"></span>
+      <span class="sticky-name" id="sticky-name"></span><span id="sticky-badge" class="badge-verified"></span>
     </div>
     <div id="point-content"></div>
     <section id="point-panels" class="panels"></section>
@@ -97,7 +97,7 @@
       <button class="set-row" onclick="openLibrary()"><span class="sic" data-icon="globe"></span>Библиотека точек</button>
       <button class="set-row" onclick="openFeedback()"><span class="sic" data-icon="pin"></span>Добавить точку</button>
       <button class="set-row" onclick="openStyle()"><span class="sic" data-icon="palette"></span>Сменить стиль</button>
-      <button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>
+      <button class="dp-sbp" onclick="donateGo()">Поддержать проект (СБП)</button>
     </div>
   </div>
 
@@ -123,7 +123,7 @@
       <p>Нам важна любая обратная связь: напишите, что добавить или исправить.</p>
       <p>Всем — доброго дня, светлого неба, хорошей погоды, отличных волн и мягкого снега 🌤️</p>
       <p>Если у вас есть возможность поддержать проект, можете отправить любую сумму — СПАСИБО 🙏</p>
-      <button class="dp-sbp" onclick="closeAbout(); donateGo()">Поддержать (СБП)</button>
+      <button class="dp-sbp" onclick="closeAbout(); donateGo()">Поддержать проект (СБП)</button>
     </div>
   </div>
 
@@ -132,12 +132,12 @@
       <div id="fb-form">
         <div class="fb-title">Добавить точку</div>
         <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
-        <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" inputmode="decimal" autocomplete="off">
+        <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" autocomplete="off">
         <div class="fb-err hidden" id="fb-err"></div>
         <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
         <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
         <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
-        <button class="fb-cancel" onclick="closeFeedback(); donateGo()">Поддержать (СБП)</button>
+        <button class="dp-sbp" onclick="closeFeedback(); donateGo()">Поддержать проект (СБП)</button>
       </div>
       <div id="fb-sent" class="hidden">
         <div class="fb-title">Отправлено <span class="sic" data-icon="check"></span></div>

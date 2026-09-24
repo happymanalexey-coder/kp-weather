@@ -35,14 +35,15 @@ const ok = (cond, msg) => { console.log((cond ? "  ✅ " : "  ❌ ") + msg); if 
 
 /* --- иконки: ни одного эмодзи, валидный svg, ночные варианты --- */
 console.log("== Иконки (1.2 / 2.1) ==");
-const codes = [0, 1, 2, 3, 45, 51, 61, 63, 71, 80, 85, 95, 99];
+const codes = [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67,
+               71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99];
 let allOk = true;
 for (const c of codes) for (const night of [false, true]) {
   const s = F.icon(c, night);
   if (!s.startsWith("<svg") || !s.endsWith("</svg>") || EMOJI.test(s)) allOk = false;
 }
-ok(allOk, "13 кодов × день/ночь → SVG без эмодзи");
-ok(F.icon(0, false).includes("snf") && F.icon(0, true).includes("mn"), "ясно: день=солнце, ночь=луна");
+ok(allOk, codes.length + " кодов × день/ночь → SVG без эмодзи");
+ok(F.icon(0, false).includes("wg-sun") && F.icon(0, true).includes("wg-moon"), "ясно: день=солнце, ночь=луна");
 ok(F.icon(2, true) !== F.icon(2, false), "переменная облачность: день/ночь различаются");
 
 /* --- данные по 3 точкам --- */

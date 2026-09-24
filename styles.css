@@ -474,11 +474,11 @@ button.community-panel {
 
 /* ---------- v2.2: СБП / подписка ---------- */
 .dp-sbp {
-  width: 100%; background: var(--bg2); border: 1px solid var(--accent); color: var(--accent);
+  width: 100%; background: var(--accent); border: none; color: var(--on-accent2);
   border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
   margin-bottom: 12px;
 }
-.dp-sbp:active { background: var(--accent-soft); }
+.dp-sbp:active { filter: brightness(1.12); }
 .dp-sub-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .dp-thanks + .dp-change { margin-bottom: 12px; }
 
@@ -526,10 +526,8 @@ body { touch-action: pan-y; }
 .badge-verified svg { width: 100%; height: 100%; display: block; }
 .point-btn .badge-verified { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; }
 .points-list.editing .point-btn .badge-verified { display: none; }
-.lib-row { position: relative; }
-.lib-row .badge-verified { position: absolute; top: 6px; right: 8px; width: 13px; height: 13px; }
-.pt-title .badge-verified { width: 20px; height: 20px; vertical-align: -3px; }
-.lib-tab .badge-verified { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
+.lib-name .badge-verified { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; }
+#sticky-badge { width: 15px; height: 15px; flex: 0 0 auto; }
 /* кнопка «Настройки» на главной */
 .set-btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .set-btn .sic { width: 18px; height: 18px; }

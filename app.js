@@ -61,33 +61,74 @@ const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
 
 let POINTS = [];
 
-/* ---------- SVG-иконки погоды: не зависят от шрифта устройства (в отличие от эмодзи) ---------- */
-const CLD = '<path class="cld" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>';
+/* ---------- SVG-иконки погоды: цветной набор в духе Meteocons (открытая лицензия) ----------
+   Слоты базового скина: skins/<id>/skin.js может подменить любую через { icons: { <slot>: "<svg…>" } }. */
+const WCLD = "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z";
+const WMOON = "M20 14.5A8 8 0 1 1 9.5 4a9 9 0 0 0 10.5 10.5z";
+const WBOLT = "M13.2 15.6 L9.9 20.3 L12 20.3 L10.8 23.4 L14.9 18.4 L12.5 18.4 L14.2 15.6 Z";
+const WG_DEFS = "<defs>" +
+  '<linearGradient id="wg-cld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c3d0e0"/></linearGradient>' +
+  '<linearGradient id="wg-cld2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#8fa3bb"/></linearGradient>' +
+  '<linearGradient id="wg-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde047"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>' +
+  '<linearGradient id="wg-moon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fef3c7"/><stop offset="1" stop-color="#fcd34d"/></linearGradient>' +
+  '<linearGradient id="wg-bolt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde047"/><stop offset="1" stop-color="#eab308"/></linearGradient>' +
+  "</defs>";
+const wCloud = (fill, tx, ty, sc) => `<g transform="translate(${tx} ${ty}) scale(${sc})"><path d="${WCLD}" fill="${fill}"/></g>`;
+const wSunRays = (cx, cy, r1, r2, w) => {
+  let s = `<g stroke="#fbbf24" stroke-width="${w}" stroke-linecap="round">`;
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4, c = Math.cos(a), n = Math.sin(a);
+    s += `<line x1="${(cx + c * r1).toFixed(2)}" y1="${(cy + n * r1).toFixed(2)}" x2="${(cx + c * r2).toFixed(2)}" y2="${(cy + n * r2).toFixed(2)}"/>`;
+  }
+  return s + "</g>";
+};
+const wDrop = (x, y, s) => `<path d="M${x} ${y}c${(-1.2 * s).toFixed(2)} ${(1.6 * s).toFixed(2)} ${(-1.8 * s).toFixed(2)} ${(2.6 * s).toFixed(2)} ${(-1.8 * s).toFixed(2)} ${(3.5 * s).toFixed(2)}a${(1.8 * s).toFixed(2)} ${(1.8 * s).toFixed(2)} 0 0 0 ${(3.6 * s).toFixed(2)} 0c0 ${(-0.9 * s).toFixed(2)} ${(-0.6 * s).toFixed(2)} ${(-1.9 * s).toFixed(2)} ${(-1.8 * s).toFixed(2)} ${(-3.5 * s).toFixed(2)}z" fill="#38bdf8"/>`;
+const wFlake = (x, y, r) => {
+  const hx = (r * 0.5).toFixed(2), hy = (r * 0.866).toFixed(2);
+  return `<g stroke="#7dd3fc" stroke-width="1.3" stroke-linecap="round" fill="none">` +
+    `<line x1="${x - r}" y1="${y}" x2="${x + r}" y2="${y}"/>` +
+    `<line x1="${(x - r * 0.5).toFixed(2)}" y1="${(y - r * 0.866).toFixed(2)}" x2="${(x + r * 0.5).toFixed(2)}" y2="${(y + r * 0.866).toFixed(2)}"/>` +
+    `<line x1="${(x - r * 0.5).toFixed(2)}" y1="${(y + r * 0.866).toFixed(2)}" x2="${(x + r * 0.5).toFixed(2)}" y2="${(y - r * 0.866).toFixed(2)}"/></g>`;
+};
+const wMoonSmall = `<g transform="translate(0.4 0.2) scale(0.6)"><path d="${WMOON}" fill="url(#wg-moon)"/></g>`;
 const WIC = {
-  sun: `<svg class="wic" viewBox="0 0 24 24"><circle class="snf" cx="12" cy="12" r="4.4"/><g class="sn"><line x1="18.6" y1="12" x2="20.9" y2="12"/><line x1="5.4" y1="12" x2="3.1" y2="12"/><line x1="12" y1="5.4" x2="12" y2="3.1"/><line x1="12" y1="18.6" x2="12" y2="20.9"/><line x1="16.67" y1="7.33" x2="18.3" y2="5.7"/><line x1="7.33" y1="7.33" x2="5.7" y2="5.7"/><line x1="16.67" y1="16.67" x2="18.3" y2="18.3"/><line x1="7.33" y1="16.67" x2="5.7" y2="18.3"/></g></svg>`,
-  moon: `<svg class="wic" viewBox="0 0 24 24"><path class="mn" d="M20 14.5A8 8 0 1 1 9.5 4a9 9 0 0 0 10.5 10.5z"/></svg>`,
-  sunCloud: `<svg class="wic" viewBox="0 0 24 24"><circle class="snf" cx="7.6" cy="7.4" r="3.1"/><g class="sn"><line x1="7.6" y1="2.6" x2="7.6" y2="1"/><line x1="2.7" y1="7.4" x2="1.1" y2="7.4"/><line x1="4.1" y1="3.9" x2="3" y2="2.8"/><line x1="11.1" y1="3.9" x2="12.2" y2="2.8"/></g><g transform="translate(2.6 3.4) scale(0.82)">${CLD}</g></svg>`,
-  moonCloud: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(-1 -1) scale(0.62)"><path class="mn" d="M20 14.5A8 8 0 1 1 9.5 4a9 9 0 0 0 10.5 10.5z"/></g><g transform="translate(2.6 3.4) scale(0.82)">${CLD}</g></svg>`,
-  cloud: `<svg class="wic" viewBox="0 0 24 24">${CLD}</svg>`,
-  fog: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(0 -2.2)">${CLD}</g><g class="fg"><line x1="6.5" y1="19.6" x2="17.5" y2="19.6"/><line x1="8.5" y1="22" x2="15.5" y2="22"/></g></svg>`,
-  drizzle: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="drz"><line x1="8.8" y1="17.6" x2="8.3" y2="19.4"/><line x1="14.6" y1="17.6" x2="14.1" y2="19.4"/></g></svg>`,
-  rain: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="rn"><line x1="7.2" y1="17.4" x2="6.3" y2="20.3"/><line x1="12" y1="17.4" x2="11.1" y2="20.3"/><line x1="16.8" y1="17.4" x2="15.9" y2="20.3"/></g></svg>`,
-  snow: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><g class="snw"><line x1="5.9" y1="19.2" x2="8.5" y2="19.2"/><line x1="6.52" y1="18.02" x2="7.88" y2="20.38"/><line x1="6.52" y1="20.38" x2="7.88" y2="18.02"/><line x1="10.7" y1="20.4" x2="13.3" y2="20.4"/><line x1="11.32" y1="19.22" x2="12.68" y2="21.58"/><line x1="11.32" y1="21.58" x2="12.68" y2="19.22"/><line x1="15.5" y1="19.2" x2="18.1" y2="19.2"/><line x1="16.12" y1="18.02" x2="17.48" y2="20.38"/><line x1="16.12" y1="20.38" x2="17.48" y2="18.02"/></g></svg>`,
-  thunder: `<svg class="wic" viewBox="0 0 24 24"><g transform="translate(1.8 -0.6) scale(0.86)">${CLD}</g><path class="blt" d="M13.2 15.6 L9.9 20.3 L12 20.3 L10.8 23.4 L14.9 18.4 L12.5 18.4 L14.2 15.6 Z"/></svg>`,
-  wind: `<svg class="wic" viewBox="0 0 24 24"><g class="wnd"><path d="M3 8h9.5a3 3 0 1 0-3-3.2"/><path d="M3 12.5h14a3 3 0 1 1-3 3.2"/><path d="M3 17h7"/></g></svg>`,
+  sun: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}<circle cx="12" cy="12" r="5" fill="url(#wg-sun)"/>${wSunRays(12, 12, 7, 9.3, 1.8)}</svg>`,
+  moon: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}<path d="${WMOON}" fill="url(#wg-moon)"/></svg>`,
+  sunCloud: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}<circle cx="8" cy="8" r="3.4" fill="url(#wg-sun)"/>${wSunRays(8, 8, 4.7, 6.2, 1.5)}${wCloud("url(#wg-cld)", 2.6, 4.4, 0.8)}</svg>`,
+  moonCloud: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wMoonSmall}${wCloud("url(#wg-cld)", 2.6, 4.4, 0.8)}</svg>`,
+  cloud: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 0.5, 1, 0.96)}</svg>`,
+  overcast: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld2)", -1.2, -3, 0.72)}${wCloud("url(#wg-cld)", 1.4, 1.4, 0.86)}</svg>`,
+  fog: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 0, -2.4, 0.9)}<g stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><line x1="6.5" y1="19.4" x2="17.5" y2="19.4"/><line x1="8.5" y1="22" x2="15.5" y2="22"/></g></svg>`,
+  drizzle: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2, 0.86)}${wDrop(9, 17.8, 0.7)}${wDrop(14.6, 17.8, 0.7)}</svg>`,
+  rain: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}${wDrop(7.6, 17.6, 0.9)}${wDrop(12, 18.6, 0.9)}${wDrop(16.4, 17.6, 0.9)}</svg>`,
+  rainShowers: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}${wDrop(7.4, 17.4, 1.15)}${wDrop(12, 18.6, 1.15)}${wDrop(16.6, 17.4, 1.15)}</svg>`,
+  rainSnow: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}${wDrop(8.4, 17.8, 0.9)}${wFlake(15, 19.8, 2)}</svg>`,
+  snow: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}${wFlake(6.8, 19.4, 2)}${wFlake(12, 20.6, 2)}${wFlake(17.2, 19.4, 2)}</svg>`,
+  blizzard: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}${wFlake(7, 19.2, 1.8)}<g stroke="#7dd3fc" stroke-width="1.6" stroke-linecap="round" fill="none"><path d="M11.5 20.6h7a2 2 0 1 0-2-2.1"/><path d="M12.5 23h4.5"/></g></svg>`,
+  hail: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}<g fill="#7dd3fc"><circle cx="7.5" cy="19.2" r="1.5"/><circle cx="12" cy="20.8" r="1.5"/><circle cx="16.5" cy="19.2" r="1.5"/></g></svg>`,
+  thunder: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}<path d="${WBOLT}" fill="url(#wg-bolt)"/></svg>`,
+  thunderHail: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wCloud("url(#wg-cld)", 1, -2.2, 0.86)}<g transform="translate(-2.4 -1) scale(0.88)"><path d="${WBOLT}" fill="url(#wg-bolt)"/></g><circle cx="16.6" cy="20.6" r="1.4" fill="#7dd3fc"/></svg>`,
+  moonRain: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wMoonSmall}${wCloud("url(#wg-cld)", 2.6, 3.6, 0.8)}${wDrop(9, 17.8, 0.8)}${wDrop(14.6, 17.8, 0.8)}</svg>`,
+  moonSnow: `<svg class="wic" viewBox="0 0 24 24">${WG_DEFS}${wMoonSmall}${wCloud("url(#wg-cld)", 2.6, 3.6, 0.8)}${wFlake(9, 19.4, 1.8)}${wFlake(14.6, 20.4, 1.8)}</svg>`,
+  wind: `<svg class="wic" viewBox="0 0 24 24"><g stroke="#94a3b8" stroke-width="2" stroke-linecap="round" fill="none"><path d="M3.5 8.5h9a2.8 2.8 0 1 0-2.8-3"/><path d="M3.5 12.7h13.5a2.8 2.8 0 1 1-2.8 3"/><path d="M3.5 16.9h6.5"/></g></svg>`,
 };
 function iconName(code, night) {
-  if (code === 0 || code === 1) return night ? "moon" : "sun";
-  if (code === 2) return night ? "moonCloud" : "sunCloud";
-  if (code === 3) return "cloud";
-  if (code === 45 || code === 48) return "fog";
-  if ([51, 53, 55, 56, 57].includes(code)) return "drizzle";
-  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
-  if ([95, 96, 99].includes(code)) return "thunder";
+  if (code === 0 || code === 1) return night ? "moon" : "sun"; // ясно день/ночь
+  if (code === 2) return night ? "moonCloud" : "sunCloud";      // переменная облачность
+  if (code === 3) return "overcast";                            // пасмурно
+  if (code === 45 || code === 48) return "fog";                 // туман
+  if ([51, 53, 55, 56, 57].includes(code)) return "drizzle";    // морось (в т.ч. ледяная)
+  if (code === 61 || code === 63) return night ? "moonRain" : "rain";
+  if ([65, 80, 81, 82].includes(code)) return night ? "moonRain" : "rainShowers"; // сильный дождь/ливень
+  if (code === 66 || code === 67) return "rainSnow";            // дождь со снегом
+  if ([71, 73, 75].includes(code)) return night ? "moonSnow" : "snow";
+  if (code === 77) return "hail";                               // снежная крупа/град
+  if (code === 85 || code === 86) return "blizzard";            // снежные ливни/метель
+  if (code === 95) return "thunder";                            // гроза
+  if (code === 96 || code === 99) return "thunderHail";         // гроза с градом
   return "cloud";
 }
-function icon(code, night) { return WIC[iconName(code, night)] || WIC.cloud; }
+function icon(code, night) { const R = (typeof ICONS !== "undefined" && ICONS) || WIC; return R[iconName(code, night)] || R.cloud; }
 function wmoLabel(code) { return (WMO[code] || ["", "—"])[1]; }
 /* Честное название осадков по ФАКТИЧЕСКОЙ интенсивности (мм), а не только по коду WMO:
    0.3 мм — это «небольшой дождь», а не «ливень». Гроза остаётся грозой независимо от мм. */
@@ -164,10 +205,14 @@ function initTheme() {
 }
 
 /* ---------- набор и порядок виджетов на главной (localStorage) ---------- */
+/* Стартовые 8 карточек для нового пользователя. Состав — в одном месте, меняется здесь. */
+const STARTER_POINTS = ["rosa-pik", "rosa-dolina", "achishkho-glavnaya", "aibga",
+                        "ritsa", "mamdzyshkha", "fisht", "oshten"];
 function homeBaseIds() {
   let ids = null;
   try { ids = JSON.parse(localStorage.getItem("kp_home_ids") || "null"); } catch (e) {}
-  if (!Array.isArray(ids)) ids = POINTS.slice(0, 16).map(p => p.id); // стартовые 16 по алфавиту
+  if (!Array.isArray(ids)) ids = STARTER_POINTS.slice(); // новый пользователь — стартовые 8
+  // если ключ уже есть (даже пустой массив) — это выбор пользователя, дефолт не навязываем
   return ids.filter(id => POINTS.some(p => p.id === id));
 }
 function saveHomeIds(ids) {
@@ -270,6 +315,8 @@ async function loadHome() {
       a.name.toLowerCase().localeCompare(b.name.toLowerCase(), "ru"));
     homeFailed = false;
     renderHome();
+    const hm = location.hash.match(/^#point\/(.+)$/);
+    if (hm) loadPoint(hm[1]); // каталог догрузился — повторяем открытие точки с прямой ссылки
   } catch (e) {
     homeFailed = true;
     list.innerHTML = errHtml("loadHome()");
@@ -400,7 +447,7 @@ function libTabsHtml() {
   const mine = tgUserId() !== null; // «Мои» — только внутри Telegram
   const tab = (key, label) =>
     `<button class="lib-tab${libTab === key ? " active" : ""}" onclick="setLibTab('${key}')">${label}</button>`;
-  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", `<span class="badge-verified">${ICONS.badge}</span>От разработчиков`)}${mine ? tab("mine", "Мои") : ""}</div>`;
+  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", "От разработчиков")}${mine ? tab("mine", "Мои") : ""}</div>`;
 }
 
 function renderLibrary(filter) {
@@ -424,9 +471,8 @@ function renderLibrary(filter) {
     const on = ids.includes(p.id);
     return `
       <div class="lib-row">
-        ${badgeHtml(p)}
         <div class="lib-info">
-          <div class="lib-name">${esc(p.name)}</div>
+          <div class="lib-name">${esc(p.name)}${badgeHtml(p)}</div>
           <div class="lib-sub">${esc(p.region)} · ${p.ele} м</div>
         </div>
         ${on
@@ -437,7 +483,7 @@ function renderLibrary(filter) {
   const emptyText = libTab === "mine"
     ? "Пока пусто. Добавьте свою точку: ⚙ Настройки → «Добавить точку» — после модерации она появится здесь"
     : "Ничего не найдено";
-  const donate = '<button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>';
+  const donate = donateBtnHtml();
   box.innerHTML = (rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`) + donate;
   box.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => libAdd(b.dataset.add)));
   box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => libRemove(b.dataset.rm)));
@@ -483,6 +529,9 @@ function fallbackCopy(text, done) {
 /* Возвращает {name, lat, lon} или {error} — те же правила, что на бэкенде (tools/intake_points.py) */
 function validateSuggestion(nameRaw, coordsRaw) {
   const name = String(nameRaw || "").trim().replace(/\s+/g, " ");
+  const coordsStr = String(coordsRaw || "").trim();
+  if (!name) return { error: "Укажи название точки" };
+  if (!coordsStr) return { error: "Укажи координаты, например 43.472, 40.534" };
   if (name.length < 3 || name.length > 40)
     return { error: "Название: от 3 до 40 символов" };
   if (!FB_NAME_RE.test(name))
@@ -582,7 +631,13 @@ function windRange(cur) {
 async function loadPoint(id) {
   const box = document.getElementById("point-content");
   const point = POINTS.find(p => p.id === id);
+  if (!point && !POINTS.length && !homeFailed) { // холодный вход по прямой ссылке: каталог ещё грузится
+    box.innerHTML = SK_POINT;
+    return;
+  }
   document.getElementById("sticky-name").textContent = point ? point.name : "";
+  const sb = document.getElementById("sticky-badge");
+  if (sb) sb.innerHTML = point && point.verified !== false ? ICONS.badge : "";
   if (!point) {
     box.innerHTML = `<div class="error-box">Точка не найдена.</div>`;
     return;
@@ -645,7 +700,7 @@ async function loadPoint(id) {
 
   const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
-    <h2 class="pt-title">${esc(p.name)} ${badgeHtml(p)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
+    <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
     <div class="map-choice hidden" id="map-choice">
       <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
@@ -904,6 +959,8 @@ function applySkinTokens() {
   appliedTokenKeys.forEach(k => root.style.removeProperty(k));
   appliedTokenKeys = [];
   const skin = window.KP_SKINS && KP_SKINS[SKIN_ID];
+  const ov = (skin && skin.icons) || {}; // погодные иконки — слоты: скин может подменить любую
+  Object.keys(WIC).forEach(k => { ICONS[k] = ov[k] || WIC[k]; });
   if (skin && skin.tokens && SKIN_ID !== "base") { // base = значения по умолчанию в styles.css
     const theme = root.dataset.theme === "light" ? "light" : "dark";
     const map = skin.tokens[theme] || {};
@@ -961,7 +1018,7 @@ async function renderStyleList() {
       <div class="st-dots">${dots}</div>
       <button class="st-apply${active ? " done" : ""}"${active ? "" : ` onclick="applySkin('${esc(s.id)}')"`}>${active ? "Применён ✓" : "Применить"}</button>
     </div>`;
-  }).join("");
+  }).join("") + donateBtnHtml();
 }
 
 /* ---------- навигация: настройки / стили ---------- */
@@ -983,11 +1040,16 @@ function authorGo() {
   window.open(AUTHOR_TG, "_blank");
 }
 
+/* Единый компонент доната: один текст и один стиль (залитая кнопка) на всех экранах */
+function donateBtnHtml(pre) {
+  return `<button class="dp-sbp" onclick="${pre || ""}donateGo()">Поддержать проект (СБП)</button>`;
+}
+
 function renderPanels() {
   const hp = document.getElementById("home-panels");
   if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
-  if (pp) pp.innerHTML = '<button class="dp-sbp" onclick="donateGo()">Поддержать (СБП)</button>'; // вторичный экран — спокойная кнопка
+  if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
 }
 
 /* ---------- роутинг ---------- */
@@ -1014,6 +1076,8 @@ function goHome() { location.hash = ""; }
 
 function route() {
   const h = location.hash;
+  // защита от горизонтального смещения страницы после закрытия оверлеев
+  try { window.scrollTo({ left: 0 }); document.documentElement.scrollLeft = 0; if (document.body) document.body.scrollLeft = 0; } catch (e) {}
   const home = document.getElementById("home-screen");
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");
