@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Диагностика: какой бот за токеном (временный шаг)
+      - name: "Диагностика — какой бот за токеном (временный шаг)"
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
