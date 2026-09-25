@@ -44,8 +44,25 @@ def save(path, obj):
 def api(method, **params):
     import urllib.parse
     url = f"{API}/{method}?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=20) as r:
-        return json.loads(r.read().decode("utf-8"))
+    last = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code == 409:
+                # другой поллер (например, коннектор в Kimi) держит getUpdates —
+                # подождём его таймаут и повторим
+                print(f"409 Conflict на {method}, попытка {attempt + 1}/4 — жду 8с")
+                time.sleep(8)
+                continue
+            raise
+        except Exception as e:
+            last = e
+            print(f"{type(e).__name__} на {method}, попытка {attempt + 1}/4 — жду 5с")
+            time.sleep(5)
+    raise last
 
 
 def validate(name, lat, lon, existing_names):
@@ -128,7 +145,13 @@ def main():
     existing = {p["name"].strip().lower() for p in points.get("points", [])}
     existing |= {p["name"].strip().lower() for p in pending.get("pending", [])}
 
-    resp = api("getUpdates", offset=state.get("offset", 0), timeout=10)
+    try:
+        resp = api("getUpdates", offset=state.get("offset", 0), timeout=10)
+    except urllib.error.HTTPError as e:
+        if e.code == 409:
+            print("409 Conflict после ретраев — пропускаем цикл, следующий запуск через 15 мин")
+            return
+        raise
     if not resp.get("ok"):
         print("getUpdates failed:", resp)
         sys.exit(1)
