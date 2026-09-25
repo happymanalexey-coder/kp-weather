@@ -494,19 +494,6 @@
    "region": "Бали, Индонезия",
    "verified": false,
    "marine": true
-  },
-  {
-   "id": "testovaya-sopka",
-   "name": "Тестовая Сопка",
-   "lat": 43.6,
-   "lon": 40.25,
-   "ele": 1230,
-   "region": "Красная Поляна",
-   "verified": false,
-   "added_by": "web:8c08d98882afdd47",
-   "added_by_username": null,
-   "added_ts": 1790345995,
-   "via": "web"
   }
  ]
 }
