@@ -183,7 +183,8 @@
    "lon": 40.344687,
    "ele": 10,
    "region": "Абхазия",
-   "verified": true
+   "verified": true,
+   "marine": true
   },
   {
    "id": "laura-pichtovy",
@@ -246,7 +247,8 @@
    "lon": 39.948687,
    "ele": 2,
    "region": "Сочи",
-   "verified": true
+   "verified": true,
+   "marine": true
   },
   {
    "id": "chistaya-laba",
@@ -300,7 +302,8 @@
    "lon": 115.0843,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "padang-padang",
@@ -309,7 +312,8 @@
    "lon": 115.1039,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "bingin",
@@ -318,7 +322,8 @@
    "lon": 115.1136,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "balangan",
@@ -327,7 +332,8 @@
    "lon": 115.1233,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "dreamland",
@@ -336,7 +342,8 @@
    "lon": 115.1176,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "green-bowl",
@@ -345,7 +352,8 @@
    "lon": 115.1597,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "nyang-nyang",
@@ -354,7 +362,8 @@
    "lon": 115.1253,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "thomas-beach",
@@ -363,7 +372,8 @@
    "lon": 115.1194,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "suluban",
@@ -372,7 +382,8 @@
    "lon": 115.0889,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "batu-bolong",
@@ -381,7 +392,8 @@
    "lon": 115.1303,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "echo-beach",
@@ -390,7 +402,8 @@
    "lon": 115.1372,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "berawa",
@@ -399,7 +412,8 @@
    "lon": 115.1511,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "kuta-beach",
@@ -408,7 +422,8 @@
    "lon": 115.1686,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "kuta-reef",
@@ -417,7 +432,8 @@
    "lon": 115.1642,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "seminyak",
@@ -426,7 +442,8 @@
    "lon": 115.1614,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "legian",
@@ -435,7 +452,8 @@
    "lon": 115.1607,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "double-six",
@@ -444,7 +462,8 @@
    "lon": 115.1575,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "nusa-dua",
@@ -453,7 +472,8 @@
    "lon": 115.2336,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "keramas",
@@ -462,7 +482,8 @@
    "lon": 115.3264,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   },
   {
    "id": "medewi",
@@ -471,7 +492,8 @@
    "lon": 114.6339,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false
+   "verified": false,
+   "marine": true
   }
  ]
 }

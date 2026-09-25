@@ -484,7 +484,8 @@ class Handler(SimpleHTTPRequestHandler):
         with open(POINTS_FILE, encoding="utf-8") as f:
             data = json.load(f)
         pts = sorted(data["points"], key=lambda p: p["name"].lower())
-        return {"points": [{k: p[k] for k in ("id", "name", "ele", "region")} for p in pts]}
+        return {"points": [{**{k: p[k] for k in ("id", "name", "ele", "region")},
+                            **({"marine": True} if p.get("marine") else {})} for p in pts]}
 
     def weather_payload(self, pid):
         with open(POINTS_FILE, encoding="utf-8") as f:

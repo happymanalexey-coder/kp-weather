@@ -509,9 +509,13 @@ function openFeedback() {
   if (sent) sent.classList.add("hidden");
   fbShowError("");
 }
+function resetScrollX() { // анти-«залипание»: страница никогда не должна стоять со сдвигом вбок
+  try { window.scrollTo({ left: 0 }); document.documentElement.scrollLeft = 0; if (document.body) document.body.scrollLeft = 0; } catch (e) {}
+}
 function closeFeedback() {
   const m = document.getElementById("fb-modal");
   if (m) m.classList.add("hidden");
+  resetScrollX();
 }
 function fbShowError(text) {
   const el = document.getElementById("fb-err");
@@ -568,19 +572,40 @@ function validateSuggestion(nameRaw, coordsRaw) {
   return { name, lat: Math.round(lat * 10000) / 10000, lon: Math.round(lon * 10000) / 10000 };
 }
 
+function showFbSent(auto) {
+  const form = document.getElementById("fb-form");
+  const sent = document.getElementById("fb-sent");
+  if (form) form.classList.add("hidden");
+  if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
+  const t = document.getElementById("fb-sent-text");
+  const b = document.getElementById("fb-sent-bot");
+  if (auto) { // молчаливая отправка боту из Telegram mini-app — без переходов
+    if (t) t.innerHTML = "Отправлено! Точка появится в библиотеке после проверки ⛅";
+    if (b) b.classList.add("hidden");
+  } else {
+    if (t) t.innerHTML = "Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~24 часов.";
+    if (b) b.classList.remove("hidden");
+  }
+}
+
 function feedbackSubmit() {
   const nameEl = document.getElementById("fb-name");
   const coordsEl = document.getElementById("fb-coords");
   const r = validateSuggestion(nameEl && nameEl.value, coordsEl && coordsEl.value);
   if (r.error) { fbShowError(r.error); return; }
-  const text = `Точка: ${r.name} — ${r.lat}, ${r.lon}`;
   try { localStorage.setItem("kp_suggest_ts", String(Date.now())); } catch (e) {}
-  const showSent = () => {
-    const form = document.getElementById("fb-form");
-    const sent = document.getElementById("fb-sent");
-    if (form) form.classList.add("hidden");
-    if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
-  };
+  // Telegram mini-app: молчаливая отправка боту (работает при открытии по keyboard-кнопке в чате бота)
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg && typeof tg.sendData === "function" && tg.initData) {
+    try {
+      tg.sendData(JSON.stringify({ type: "add_point", name: r.name, lat: r.lat, lon: r.lon }));
+      showFbSent(true);
+      return;
+    } catch (e) { /* sendData недоступен — уходим в fallback ниже */ }
+  }
+  // fallback (web-версия или sendData недоступен): буфер + переход к боту
+  const text = `Точка: ${r.name} — ${r.lat}, ${r.lon}`;
+  const showSent = () => showFbSent(false);
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(showSent, () => { fallbackCopy(text, () => {}); showSent(); });
   } else { fallbackCopy(text, () => {}); showSent(); }
@@ -610,7 +635,8 @@ function rumb(deg) { return deg == null ? "—" : RUMBS[Math.round(deg / 22.5) %
 function waveLine(w) {
   return `${ICONS.wave} ${w.height.toFixed(1)} м · период ${Math.round(w.period)} с · направление ${rumb(w.dir)}`;
 }
-function wavesHtml(d) {
+function wavesHtml(d, p) {
+  if (!p || p.marine !== true) return ""; // блок «Волны» — только у морских точек
   if (!d.waves || !d.waves.length) return "";
   const today = d.waves[0];
   const rows = d.waves.slice(1, 6).map((w, i) =>
@@ -631,7 +657,7 @@ function windRange(cur) {
   const vals = [cur.wind, cur.metno_wind].filter(v => v != null);
   if (!vals.length) return "—";
   const mn = Math.min(...vals), mx = Math.max(...vals);
-  return mn !== mx ? `от ${mn} до ${mx} м/с` : `${mn} м/с`;
+  return mn !== mx ? `от ${mn} до ${mx}  м/с` : `${mn}  м/с`;
 }
 
 async function loadPoint(id) {
@@ -698,7 +724,7 @@ async function loadPoint(id) {
             <div class="d-pr">${day.precip != null ? day.precip + " мм" : "—"}</div>
           </div>
           <div class="d-icons">${periodsHtml(d, day.date, day.code)}</div>
-          <div class="d-right">${WIC.wind} ${day.wind ?? "—"} м/с<br>${WIC.cloud} ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
+          <div class="d-right">${WIC.wind} ${day.wind ?? "—"}  м/с<br>${WIC.cloud} ${day.cloud ?? "—"}% <span class="chev">▾</span></div>
         </div>
         <div class="hours-wrap hidden">${hoursHtml(d, day.date)}</div>
       </div>`;
@@ -713,7 +739,7 @@ async function loadPoint(id) {
       <a class="link-btn" href="${yamapsLink(p)}" target="_blank" rel="noopener">Яндекс Карты</a>
     </div>
     ${nowHtml}
-    ${wavesHtml(d)}
+    ${wavesHtml(d, point)}
     ${SHOW_EXT_LINKS ? `<div class="links-row">
       <a class="link-btn" href="${windyLink(p)}" target="_blank" rel="noopener">Windy</a>
       <a class="link-btn" href="${yrLink(p)}" target="_blank" rel="noopener">Yr.no</a>
@@ -749,7 +775,7 @@ function diffForecast(prev, next) {
     if ((od.precip || 0) < 1 && (nd.precip || 0) >= 1)
       out.push(`${nd.date}: появились осадки (${nd.precip} мм)`);
     if ((od.wind || 0) < 10 && (nd.wind || 0) >= 10)
-      out.push(`${nd.date}: ветер усилился до ${nd.wind} м/с`);
+      out.push(`${nd.date}: ветер усилился до ${nd.wind}  м/с`);
     if (od.t_day_spread && nd.t_day != null &&
         (nd.t_day < od.t_day_spread[0] - 2 || nd.t_day > od.t_day_spread[1] + 2))
       out.push(`${nd.date}: температура ${nd.t_day}° вышла за прежний разброс ${od.t_day_spread[0]}…${od.t_day_spread[1]}°`);
@@ -843,7 +869,7 @@ function hoursHtml(d, date) {
         <div class="h-w">${h.wind[i] ?? "—"}</div>
       </div>`;
   }
-  return `<div class="hours-strip">${cells}</div><div class="hours-legend">осадки, мм · ветер, м/с</div>`;
+  return `<div class="hours-strip">${cells}</div><div class="hours-legend">осадки, мм · ветер,  м/с</div>`;
 }
 
 function toggleHours(rowEl) {
@@ -888,6 +914,7 @@ function showDonateFallback() {
 function closeDonateFallback() {
   const m = document.getElementById("dn-modal");
   if (m) m.classList.add("hidden");
+  resetScrollX();
 }
 function donateCopy() {
   const done = () => { soonHint("Ссылка скопирована 📋"); closeDonateFallback(); };
@@ -1083,7 +1110,7 @@ function goHome() { location.hash = ""; }
 function route() {
   const h = location.hash;
   // защита от горизонтального смещения страницы после закрытия оверлеев
-  try { window.scrollTo({ left: 0 }); document.documentElement.scrollLeft = 0; if (document.body) document.body.scrollLeft = 0; } catch (e) {}
+  resetScrollX();
   const home = document.getElementById("home-screen");
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");
@@ -1135,6 +1162,14 @@ function route() {
 })();
 
 window.addEventListener("hashchange", route);
+// iOS/Telegram: после закрытия клавиатуры viewport иногда остаётся сдвинутым — возвращаем на место
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", () => {
+    const ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return; // не мешаем центрированию поля ввода
+    if (window.scrollX > 0 || visualViewport.offsetLeft > 0) resetScrollX();
+  });
+}
 initTheme();
 bindHomeList();
 fillStaticIcons();

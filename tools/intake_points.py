@@ -66,6 +66,22 @@ def validate(name, lat, lon, existing_names):
     return name, None
 
 
+def quota_ok(state, uid, now):
+    """Не больше 5 заявок в сутки на пользователя (защита от спама через mini-app)."""
+    if not uid:
+        return False
+    quota = state.setdefault("quota", {})
+    key = str(uid)
+    day_ago = now - 86400
+    recent = [t for t in quota.get(key, []) if t > day_ago]
+    if len(recent) >= 5:
+        quota[key] = recent
+        return False
+    recent.append(now)
+    quota[key] = recent
+    return True
+
+
 def notify(chat_id, text):
     """Ответ пользователю в Telegram. Тихо пропускаем ошибки (бот мог быть заблокирован)."""
     if not chat_id:
@@ -121,6 +137,56 @@ def main():
     for upd in resp.get("result", []):
         state["offset"] = max(state.get("offset", 0), upd["update_id"] + 1)
         msg = upd.get("message") or upd.get("channel_post") or {}
+
+        # Заявка из mini-app: Telegram.WebApp.sendData({type:"add_point",...})
+        wad = (msg.get("web_app_data") or {}).get("data")
+        if wad:
+            user = (msg.get("from") or {})
+            chat_id = (msg.get("chat") or {}).get("id") or user.get("id")
+            try:
+                payload = json.loads(wad)
+            except Exception:
+                payload = {}
+            if payload.get("type") != "add_point":
+                continue
+            name_raw = " ".join(str(payload.get("name") or "").split())
+            try:
+                lat, lon = float(payload.get("lat")), float(payload.get("lon"))
+            except (TypeError, ValueError):
+                lat = lon = None
+            if lat is None:
+                skipped += 1
+                notify(chat_id, "Не принято: координаты не распознаны")
+                print(f"skip web_app_data: bad coords from @{user.get('username') or user.get('id')}")
+                continue
+            now = int(time.time())
+            if not quota_ok(state, user.get("id"), now):
+                skipped += 1
+                notify(chat_id, "Не принято: можно предложить не больше 5 точек в сутки")
+                print(f"skip web_app_data: quota @{user.get('username') or user.get('id')}")
+                continue
+            name, err = validate(name_raw, lat, lon, existing)
+            if err:
+                skipped += 1
+                notify(chat_id, f"Не принято: «{name_raw}» — {err}")
+                print(f"skip web_app_data: {name_raw!r} — {err}")
+                continue
+            entry = {
+                "name": name,
+                "lat": round(lat, 4),
+                "lon": round(lon, 4),
+                "submitted_by": user.get("id"),
+                "submitted_by_username": user.get("username"),
+                "ts": now,
+                "via": "mini_app",
+            }
+            pending["pending"].append(entry)
+            existing.add(name.lower())
+            added += 1
+            notify(chat_id, "Принято! Точка появится в библиотеке после проверки ⛅")
+            print(f"ok web_app_data: {name} — {lat}, {lon} от @{user.get('username') or user.get('id')}")
+            continue
+
         text = msg.get("text") or ""
         m = MSG_RE.match(text)
         if not m:
