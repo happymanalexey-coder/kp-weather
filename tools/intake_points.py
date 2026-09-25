@@ -1,30 +1,53 @@
 #!/usr/bin/env python3
-"""Приём предложенных точек из Telegram-бота @broKimibot.
+"""Автоприём точек из Telegram-бота @broKimibot и mini-app (web_app_data).
 
-Запускается из GitHub Actions раз в сутки. Читает getUpdates (BOT_TOKEN из
-Secrets), парсит сообщения вида «Точка: Название — 43.472, 40.534», валидирует
-теми же правилами, что клиентская форма (app.js → validateSuggestion), и складывает
-валидные заявки в data/pending.json — очередь модерации. Само ничего не публикует:
-одобрение = ручной перенос записи из pending.json в data/points.json (см. README).
+Запускается из GitHub Actions каждые 15 минут. Читает getUpdates (BOT_TOKEN из
+Secrets), принимает заявки двумя путями:
+  • текст «Точка: Название — 43.472, 40.534»;
+  • mini-app: Telegram.WebApp.sendData({type:"add_point", name, lat, lon}).
+Валидные точки публикуются СРАЗУ в data/points.json (GitHub Pages подхватывает
+сам, в приложении точка появляется после пересборки и кэша SW — до ~30 минут).
 
-Offset хранится в data/intake_state.json, чтобы не читать старые сообщения.
+Правила:
+  • имена уникальны без учёта регистра; при совпадении бот предлагает «Имя 1»;
+  • фильтр мата и негативных названий (BAD_WORDS);
+  • не больше 5 заявок в сутки на пользователя;
+  • высота определяется через Open-Meteo Elevation API, регион — по координатам,
+    marine-флаг — пробой Marine API;
+  • админы (data/admins.json) могут удалить любую точку сообщением
+    «Удалить: Название» — удаление мгновенное и без подтверждений.
+
+Offset и квоты хранятся в data/intake_state.json.
 """
-import json, os, re, sys, time, urllib.request
+import json, os, re, sys, time, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
 
 API = "https://api.telegram.org/bot" + TOKEN
 POINTS_PATH = "data/points.json"
-PENDING_PATH = "data/pending.json"
 STATE_PATH = "data/intake_state.json"
+ADMINS_PATH = "data/admins.json"
 
 NAME_RE = re.compile(r"^[А-Яа-яЁёA-Za-z0-9 \-]+$")
 MSG_RE = re.compile(
     r"^\s*Точка\s*:\s*(.+?)\s*[—-]\s*(-?\d+(?:[.,]\d+)?)\s*[,\s]\s*(-?\d+(?:[.,]\d+)?)\s*$",
     re.IGNORECASE)
+DEL_RE = re.compile(r"^\s*Удалить\s*:\s*(.+?)\s*$", re.IGNORECASE)
 BAD_WORDS = ["хуй", "хуя", "хуе", "хуи", "пизд", "бляд", "блят", "ебан", "ебал", "ёбан",
              "ебуч", "мудак", "мудил", "сука", "пидор", "пидар", "гандон", "шлюх",
-             "залуп", "манда"]
+             "залуп", "манда",
+             # негативный смысл и туалетная лексика
+             "какашк", "пиписьк", "говн", "дерьм", "жоп", "срал", "срет", "пердн",
+             "пёрд", "фекал", "шалав", "проститут",
+             # секс/политика/наркотики
+             "секс", "порн", "гитлер", "нацист", "наркот"]
+
+TRANSLIT = str.maketrans({
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo",
+    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch",
+    "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya"})
 
 
 def load(path, default):
@@ -42,7 +65,6 @@ def save(path, obj):
 
 
 def api(method, **params):
-    import urllib.parse
     url = f"{API}/{method}?{urllib.parse.urlencode(params)}"
     last = None
     for attempt in range(4):
@@ -52,8 +74,7 @@ def api(method, **params):
         except urllib.error.HTTPError as e:
             last = e
             if e.code == 409:
-                # другой поллер (например, коннектор в Kimi) держит getUpdates —
-                # подождём его таймаут и повторим
+                # параллельный поллер держит getUpdates — ждём и повторяем
                 print(f"409 Conflict на {method}, попытка {attempt + 1}/4 — жду 8с")
                 time.sleep(8)
                 continue
@@ -65,26 +86,8 @@ def api(method, **params):
     raise last
 
 
-def validate(name, lat, lon, existing_names):
-    name = " ".join(name.split())
-    if not (3 <= len(name) <= 40):
-        return None, "название 3–40 символов"
-    if not NAME_RE.match(name):
-        return None, "недопустимые символы в названии"
-    low = " " + re.sub(r"[^а-яa-z0-9]+", " ", name.lower()) + " "
-    if any(w in low for w in BAD_WORDS):
-        return None, "не пройдёт модерацию"
-    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-        return None, "координаты вне диапазона"
-    if abs(lat) < 0.0001 and abs(lon) < 0.0001:
-        return None, "координаты 0,0"
-    if name.lower() in existing_names:
-        return None, "дубликат"
-    return name, None
-
-
 def quota_ok(state, uid, now):
-    """Не больше 5 заявок в сутки на пользователя (защита от спама через mini-app)."""
+    """Не больше 5 заявок в сутки на пользователя."""
     if not uid:
         return False
     quota = state.setdefault("quota", {})
@@ -99,6 +102,84 @@ def quota_ok(state, uid, now):
     return True
 
 
+def validate(name, lat, lon, existing_names):
+    name = " ".join(name.split())
+    if not (3 <= len(name) <= 40):
+        return None, "название 3–40 символов"
+    if not NAME_RE.match(name):
+        return None, "недопустимые символы в названии (можно буквы, цифры, пробел и дефис)"
+    low = " " + re.sub(r"[^а-яa-z0-9]+", " ", name.lower()) + " "
+    if any(w in low for w in BAD_WORDS):
+        return None, "название не пройдёт модерацию, придумайте другое"
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None, "координаты вне диапазона"
+    if abs(lat) < 0.0001 and abs(lon) < 0.0001:
+        return None, "координаты 0,0"
+    if name.lower() in existing_names:
+        return None, "duplicate"
+    return name, None
+
+
+def suggest_name(base, existing_names):
+    for i in range(1, 100):
+        cand = f"{base} {i}"
+        if cand.lower() not in existing_names and len(cand) <= 40:
+            return cand
+    return None
+
+
+def slugify(name, existing_ids):
+    s = name.lower().translate(TRANSLIT)
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-") or "point"
+    slug, i = s, 2
+    while slug in existing_ids:
+        slug = f"{s}-{i}"
+        i += 1
+    return slug
+
+
+def fetch_elevation(lat, lon):
+    """Высота через Open-Meteo Elevation API. None — если сервис недоступен."""
+    try:
+        url = "https://api.open-meteo.com/v1/elevation?" + urllib.parse.urlencode(
+            {"latitude": lat, "longitude": lon})
+        with urllib.request.urlopen(url, timeout=15) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        ele = (d.get("elevation") or [None])[0]
+        return int(round(ele)) if ele is not None else None
+    except Exception as e:
+        print(f"elevation failed: {type(e).__name__}")
+        return None
+
+
+def probe_marine(lat, lon):
+    """Точка морская, если Marine API отдаёт высоту волны."""
+    try:
+        url = "https://marine-api.open-meteo.com/v1/marine?" + urllib.parse.urlencode(
+            {"latitude": lat, "longitude": lon, "hourly": "wave_height",
+             "forecast_days": 1, "timezone": "UTC"})
+        with urllib.request.urlopen(url, timeout=15) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        return any(v is not None for v in (d.get("hourly", {}).get("wave_height") or []))
+    except Exception as e:
+        print(f"marine probe failed: {type(e).__name__}")
+        return False
+
+
+def classify_region(lat, lon):
+    if 43.85 <= lat <= 44.35 and 39.7 <= lon <= 40.6:
+        return "Адыгея"
+    if 43.55 <= lat <= 43.85 and 39.95 <= lon <= 40.55:
+        return "Красная Поляна"
+    if 43.35 <= lat <= 43.75 and 39.55 <= lon <= 39.95:
+        return "Сочи"
+    if 42.9 <= lat <= 43.6 and 40.0 <= lon <= 41.6:
+        return "Абхазия"
+    if -9.0 <= lat <= -8.2 and 114.3 <= lon <= 115.8:
+        return "Бали"
+    return "Пользовательская точка"
+
+
 def notify(chat_id, text):
     """Ответ пользователю в Telegram. Тихо пропускаем ошибки (бот мог быть заблокирован)."""
     if not chat_id:
@@ -109,29 +190,52 @@ def notify(chat_id, text):
         print(f"notify {chat_id} failed: {type(e).__name__}")
 
 
-def entry_key(e):
-    return f"{e.get('name', '').strip().lower()}|{e.get('lat')}|{e.get('lon')}"
+def accept_point(points, state, name_raw, lat, lon, user, via, now):
+    """Полный цикл одной заявки. Возвращает (ok, reply_text)."""
+    existing_names = {p["name"].strip().lower() for p in points.get("points", [])}
+    existing_ids = {p["id"] for p in points.get("points", [])}
+    name, err = validate(name_raw, lat, lon, existing_names)
+    if err == "duplicate":
+        sug = suggest_name(" ".join(str(name_raw).split()), existing_names)
+        extra = f" Например: «{sug}»" if sug else ""
+        return False, f"Имя «{' '.join(str(name_raw).split())}» уже занято, придумайте другое.{extra}"
+    if err:
+        return False, f"Не принято: «{' '.join(str(name_raw).split())}» — {err}"
+    if not quota_ok(state, user.get("id"), now):
+        return False, "Не принято: можно предложить не больше 5 точек в сутки"
+    ele = fetch_elevation(lat, lon)
+    if ele is None:
+        return False, "Не получилось определить высоту точки (сервис высот недоступен). Попробуйте ещё раз через полчаса."
+    entry = {
+        "id": slugify(name, existing_ids),
+        "name": name,
+        "lat": round(lat, 4),
+        "lon": round(lon, 4),
+        "ele": ele,
+        "region": classify_region(lat, lon),
+        "verified": False,
+        "added_by": user.get("id"),
+        "added_by_username": user.get("username"),
+        "added_ts": now,
+        "via": via,
+    }
+    if probe_marine(lat, lon):
+        entry["marine"] = True
+    points["points"].append(entry)
+    print(f"ok {via}: {name} — {lat}, {lon} — {ele} м, {entry['region']}, "
+          f"marine={entry.get('marine', False)} от @{user.get('username') or user.get('id')}")
+    return True, f"Готово! «{name}» добавлена и появится в приложении в течение ~30 минут 🏔"
 
 
-def process_rejections(points, pending, state):
-    """Модератор убрал запись из pending.json = отклонил. Пишем автору причину
-    (moderator_note из последнего снимка записи или причину по умолчанию)."""
-    known = state.get("known", {})
-    current = {entry_key(e): e for e in pending.get("pending", [])}
-    published = {p["name"].strip().lower() for p in points.get("points", [])}
-    sent = 0
-    for key, old in known.items():
-        if key in current:
-            continue  # ещё на модерации
-        if (old.get("name") or "").strip().lower() in published:
-            continue  # одобрена и опубликована — молчим
-        uid = old.get("submitted_by")
-        reason = old.get("moderator_note") or "точка не прошла модерацию (проверьте название и координаты)"
-        notify(uid, f"Не принято: «{old.get('name')}» — {reason}")
-        print(f"rejected notify: {old.get('name')} → {uid} ({reason})")
-        sent += 1
-    state["known"] = current
-    return sent
+def delete_point(points, name_raw):
+    """Удаление точки админом. Возвращает (ok, reply_text)."""
+    target = " ".join(name_raw.split()).strip().lower()
+    for i, p in enumerate(points.get("points", [])):
+        if p["name"].strip().lower() == target:
+            removed = points["points"].pop(i)
+            print(f"deleted by admin: {removed['name']} ({removed['id']})")
+            return True, f"Удалено: «{removed['name']}» — пропадёт из приложения в течение ~30 минут ✅"
+    return False, f"Точку «{' '.join(name_raw.split())}» не нашёл — проверьте точное название"
 
 
 def main():
@@ -139,11 +243,8 @@ def main():
         print("BOT_TOKEN не задан — выходим (задайте в GitHub Secrets)")
         return
     points = load(POINTS_PATH, {"points": []})
-    pending = load(PENDING_PATH, {"meta": {"note": "очередь модерации, не публикуется"}, "pending": []})
-    state = load(STATE_PATH, {"offset": 0, "known": {}})
-
-    existing = {p["name"].strip().lower() for p in points.get("points", [])}
-    existing |= {p["name"].strip().lower() for p in pending.get("pending", [])}
+    state = load(STATE_PATH, {"offset": 0})
+    admins = set(load(ADMINS_PATH, {"admins": []}).get("admins", []))
 
     try:
         resp = api("getUpdates", offset=state.get("offset", 0), timeout=10)
@@ -156,96 +257,66 @@ def main():
         print("getUpdates failed:", resp)
         sys.exit(1)
 
-    added, skipped = 0, 0
+    added, skipped, deleted = 0, 0, 0
     for upd in resp.get("result", []):
         state["offset"] = max(state.get("offset", 0), upd["update_id"] + 1)
         msg = upd.get("message") or upd.get("channel_post") or {}
+        user = (msg.get("from") or {})
+        chat_id = (msg.get("chat") or {}).get("id") or user.get("id")
+        now = int(time.time())
+        text = msg.get("text") or ""
 
-        # Заявка из mini-app: Telegram.WebApp.sendData({type:"add_point",...})
+        # команда админа: «Удалить: Название»
+        m_del = DEL_RE.match(text)
+        if m_del:
+            if user.get("id") in admins:
+                ok, reply = delete_point(points, m_del.group(1))
+                deleted += 1 if ok else 0
+            else:
+                reply = "Удалять точки может только администратор"
+            notify(chat_id, reply)
+            continue
+
+        # заявка из mini-app: Telegram.WebApp.sendData({type:"add_point",...})
         wad = (msg.get("web_app_data") or {}).get("data")
         if wad:
-            user = (msg.get("from") or {})
-            chat_id = (msg.get("chat") or {}).get("id") or user.get("id")
             try:
                 payload = json.loads(wad)
             except Exception:
                 payload = {}
             if payload.get("type") != "add_point":
                 continue
-            name_raw = " ".join(str(payload.get("name") or "").split())
+            name_raw = str(payload.get("name") or "")
             try:
                 lat, lon = float(payload.get("lat")), float(payload.get("lon"))
             except (TypeError, ValueError):
-                lat = lon = None
-            if lat is None:
-                skipped += 1
                 notify(chat_id, "Не принято: координаты не распознаны")
-                print(f"skip web_app_data: bad coords from @{user.get('username') or user.get('id')}")
-                continue
-            now = int(time.time())
-            if not quota_ok(state, user.get("id"), now):
                 skipped += 1
-                notify(chat_id, "Не принято: можно предложить не больше 5 точек в сутки")
-                print(f"skip web_app_data: quota @{user.get('username') or user.get('id')}")
                 continue
-            name, err = validate(name_raw, lat, lon, existing)
-            if err:
-                skipped += 1
-                notify(chat_id, f"Не принято: «{name_raw}» — {err}")
-                print(f"skip web_app_data: {name_raw!r} — {err}")
-                continue
-            entry = {
-                "name": name,
-                "lat": round(lat, 4),
-                "lon": round(lon, 4),
-                "submitted_by": user.get("id"),
-                "submitted_by_username": user.get("username"),
-                "ts": now,
-                "via": "mini_app",
-            }
-            pending["pending"].append(entry)
-            existing.add(name.lower())
-            added += 1
-            notify(chat_id, "Принято! Точка появится в библиотеке после проверки ⛅")
-            print(f"ok web_app_data: {name} — {lat}, {lon} от @{user.get('username') or user.get('id')}")
+            ok, reply = accept_point(points, state, name_raw, lat, lon, user, "mini_app", now)
+            added += 1 if ok else 0
+            skipped += 0 if ok else 1
+            notify(chat_id, reply)
             continue
 
-        text = msg.get("text") or ""
+        # заявка текстом: «Точка: Название — 43.472, 40.534»
         m = MSG_RE.match(text)
         if not m:
             continue
         name_raw, lat_s, lon_s = m.group(1), m.group(2), m.group(3)
         lat = float(lat_s.replace(",", "."))
         lon = float(lon_s.replace(",", "."))
-        user = (msg.get("from") or {})
-        chat_id = (msg.get("chat") or {}).get("id") or user.get("id")
-        name, err = validate(name_raw, lat, lon, existing)
-        if err:
-            skipped += 1
-            notify(chat_id, f"Не принято: «{' '.join(str(name_raw).split())}» — {err}. "
-                            f"Формат: Точка: Название — 43.472, 40.534")
-            print(f"skip: {name_raw!r} ({lat}, {lon}) — {err}")
-            continue
-        entry = {
-            "name": name,
-            "lat": round(lat, 4),
-            "lon": round(lon, 4),
-            "submitted_by": user.get("id"),
-            "submitted_by_username": user.get("username"),
-            "ts": int(time.time()),
-        }
-        pending["pending"].append(entry)
-        existing.add(name.lower())
-        added += 1
-        notify(chat_id, f"Принято на модерацию: «{name}» — появится в библиотеке в течение ~24 часов после проверки 🙌")
-        print(f"ok: {name} — {lat}, {lon} от @{user.get('username') or user.get('id')}")
+        ok, reply = accept_point(points, state, name_raw, lat, lon, user, "text", now)
+        if not ok and not reply.startswith("Имя"):
+            reply += "\nФормат: Точка: Название — 43.472, 40.534"
+        added += 1 if ok else 0
+        skipped += 0 if ok else 1
+        notify(chat_id, reply)
 
-    rejected = process_rejections(points, pending, state)
-
-    save(PENDING_PATH, pending)
+    save(POINTS_PATH, points)
     save(STATE_PATH, state)
-    print(f"готово: добавлено {added}, отклонено на входе {skipped}, "
-          f"уведомлений об отклонении {rejected}, всего в очереди {len(pending['pending'])}")
+    print(f"готово: добавлено {added}, не принято {skipped}, удалено админом {deleted}, "
+          f"всего точек {len(points['points'])}")
 
 
 if __name__ == "__main__":

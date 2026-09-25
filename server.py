@@ -418,7 +418,7 @@ def aggregate(point):
             overall = "yellow"
 
     return {
-        "point": {k: point[k] for k in ("id", "name", "lat", "lon", "ele", "region")},
+        "point": {k: point.get(k) for k in ("id", "name", "lat", "lon", "ele", "region")},
         "fetched_at": datetime.now(tz).isoformat(timespec="seconds"),
         "tz_offset": tz_off,
         "sources": sources, "errors": errors,

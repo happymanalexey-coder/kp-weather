@@ -134,14 +134,14 @@
         <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
         <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" autocomplete="off">
         <div class="fb-err hidden" id="fb-err"></div>
-        <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~24 часов.</div>
+        <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~30 минут.</div>
         <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
         <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
         <button class="dp-sbp" onclick="closeFeedback(); donateGo()">Поддержать проект (СБП)</button>
       </div>
       <div id="fb-sent" class="hidden">
         <div class="fb-title">Отправлено <span class="sic" data-icon="check"></span></div>
-        <div class="fb-text" id="fb-sent-text">Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~24 часов.</div>
+        <div class="fb-text" id="fb-sent-text">Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~30 минут.</div>
         <button class="fb-go" id="fb-sent-bot" onclick="fbGoBot()">Перейти в чат бота</button>
         <button class="fb-cancel" onclick="closeFeedback()">Закрыть</button>
       </div>

@@ -286,7 +286,7 @@ function renderHome() {
       <button class="point-btn" data-id="${p.id}">
         ${badgeHtml(p)}
         <span class="p-name">${esc(p.name)}</span>
-        <span class="p-ele">${p.ele} м</span>
+        <span class="p-ele">${p.ele != null ? p.ele + " м" : ""}</span>
         <span class="p-region">${esc(p.region)}</span>
         <span class="p-remove" data-rm="${p.id}" title="Убрать с главной">✕</span>
       </button>`;
@@ -479,7 +479,7 @@ function renderLibrary(filter) {
       <div class="lib-row">
         <div class="lib-info">
           <div class="lib-name">${esc(p.name)}${badgeHtml(p)}</div>
-          <div class="lib-sub">${esc(p.region)} · ${p.ele} м</div>
+          <div class="lib-sub">${esc(p.region)}${p.ele != null ? " · " + p.ele + " м" : ""}</div>
         </div>
         ${on
           ? `<button class="lib-on" data-rm="${p.id}">на главной ✓</button>`
@@ -580,10 +580,10 @@ function showFbSent(auto) {
   const t = document.getElementById("fb-sent-text");
   const b = document.getElementById("fb-sent-bot");
   if (auto) { // молчаливая отправка боту из Telegram mini-app — без переходов
-    if (t) t.innerHTML = "Отправлено! Точка появится в библиотеке после проверки ⛅";
+    if (t) t.innerHTML = "Отправлено! Точка появится в библиотеке в течение ~30 минут ⛰";
     if (b) b.classList.add("hidden");
   } else {
-    if (t) t.innerHTML = "Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~24 часов.";
+    if (t) t.innerHTML = "Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~30 минут.";
     if (b) b.classList.remove("hidden");
   }
 }
@@ -733,7 +733,7 @@ async function loadPoint(id) {
   const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
     <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
-    <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon} · высота ${p.ele} м</div>
+    <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon}${p.ele != null ? " · высота " + p.ele + " м" : ""}</div>
     <div class="map-choice hidden" id="map-choice">
       <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
       <a class="link-btn" href="${yamapsLink(p)}" target="_blank" rel="noopener">Яндекс Карты</a>
