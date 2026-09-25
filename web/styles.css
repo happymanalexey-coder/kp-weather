@@ -45,7 +45,7 @@
   --i-cloud: #8296ae; --i-moon: #7d92ac; --i-snow: #7aa8d8; --i-fog: #6e8199; --i-wind: #6e8199;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
 body {
   background: var(--bg);
   color: var(--text);
@@ -58,6 +58,10 @@ body {
 .hidden { display: none !important; }
 
 /* ---------- главный экран ---------- */
+/* safe-area: hero никогда не залезает под системную строку; где отступ не нужен, env=0 */
+#home-screen {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--tg-viewport-safe-area-inset-top, 0px));
+}
 .hero { position: relative; overflow: hidden; border-radius: 0 0 var(--r-hero) var(--r-hero); }
 .hero-mountains { display: block; width: 100%; height: 200px; }
 .hero-text {
