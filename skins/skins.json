@@ -14,6 +14,36 @@
         "mt3": "#0a1120",
         "palette": ["#16223a", "#63d6d0", "#e07856", "#e8eef7"]
       }
+    },
+    {
+      "id": "minimalism",
+      "name": "Минимализм",
+      "author": "Алексей × Kimi",
+      "file": "skins/minimalism/skin.js",
+      "badge": "skins/minimalism/badge.svg",
+      "preview": {
+        "sky0": "#000000",
+        "sky1": "#0a0a0a",
+        "mt1": "#1e1e1e",
+        "mt2": "#161616",
+        "mt3": "#0e0e0e",
+        "palette": ["#121212", "#f2f2f2", "#8c8c8c", "#d4714f"]
+      }
+    },
+    {
+      "id": "bali",
+      "name": "Бали",
+      "author": "Алексей × Kimi",
+      "file": "skins/bali/skin.js",
+      "badge": "skins/bali/badge.svg",
+      "preview": {
+        "sky0": "#3a1f5d",
+        "sky1": "#120c28",
+        "mt1": "#33205e",
+        "mt2": "#241646",
+        "mt3": "#180d30",
+        "palette": ["#241a4d", "#ff8a5c", "#4fc3cf", "#ffe9d2"]
+      }
     }
   ]
 }

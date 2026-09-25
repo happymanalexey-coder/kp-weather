@@ -1008,7 +1008,33 @@ async function renderStyleList() {
   const box = document.getElementById("style-list");
   if (!box) return;
   const skins = await loadSkinsReg();
-  box.innerHTML = skins.map(s => {
+  /* композитная карточка «Закажи свой скин»: три вертикальные трети — хиро каждого скина */
+  const MT = [
+    "M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z",
+    "M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z",
+    "M0 160 L120 132 L220 160 L320 138 L400 160 Z"
+  ];
+  const trio = skins.slice(0, 3);
+  const thirdW = 400 / 3;
+  const orderHero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+    trio.map((s, i) => {
+      const pv = s.preview || {}, x = (i * thirdW).toFixed(2);
+      return `<defs><linearGradient id="osky-${esc(s.id)}" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="${esc(pv.sky0 || "#101c30")}"/><stop offset="1" stop-color="${esc(pv.sky1 || "#0b1220")}"/></linearGradient>` +
+        `<clipPath id="oclip-${i}"><rect x="${x}" y="0" width="${thirdW.toFixed(2)}" height="160"/></clipPath></defs>` +
+        `<g clip-path="url(#oclip-${i})"><rect width="400" height="160" fill="url(#osky-${esc(s.id)})"/>` +
+        `<path d="${MT[0]}" fill="${esc(pv.mt1 || "#16243c")}"/>` +
+        `<path d="${MT[1]}" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
+        `<path d="${MT[2]}" fill="${esc(pv.mt3 || "#0a1120")}"/></g>` +
+        (i > 0 ? `<line x1="${x}" y1="0" x2="${x}" y2="160" stroke="rgba(255,255,255,.25)" stroke-width="1"/>` : "");
+    }).join("") + `</svg>`;
+  const orderCard = `<div class="style-card style-order">
+      <div class="st-prev">${orderHero}</div>
+      <div class="st-name">Закажи свой скин</div>
+      <div class="st-author">Сделаем стиль под тебя — как эти, только твой</div>
+      <button class="st-apply" onclick="openAbout()">Написать автору</button>
+    </div>`;
+  box.innerHTML = orderCard + skins.map(s => {
     const pv = s.preview || {};
     const dots = (pv.palette || []).map(c => `<span class="st-dot" style="background:${esc(String(c))}"></span>`).join("");
     const hero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
