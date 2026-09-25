@@ -8,7 +8,7 @@ const SITE_URL = "https://pogoda-pro.ru/";                    // сайт-виз
 const DONATE_URL = "https://www.tbank.ru/cf/83mAzHJg3A";      // поддержка проекта (сбор Т-Банк)
 const AUTHOR_TG = "https://t.me/go_ride_bro";                 // «Написать автору» — сразу личные сообщения
 const COMMUNITY_URL = "https://example.com/community";        // комьюнити (зарезервировано)
-const INTAKE_API = ""; // URL приёмника точек (Cloudflare Worker) — POST {name, lat, lon}; заполняется после деплоя
+const INTAKE_API = "https://pogoda-intake.happymanalexey.workers.dev"; // приёмник точек (Cloudflare Worker) — POST {name, lat, lon}
 const SBP_URL = "PENDING_SBP";                                // (резерв) разовая поддержка СБП
 const HOME_LIMIT = 24;                                        // максимум виджетов на главной
 
