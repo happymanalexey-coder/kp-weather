@@ -1,0 +1,6 @@
+{
+ "meta": {
+  "note": "Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."
+ },
+ "inbox": []
+}

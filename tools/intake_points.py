@@ -27,6 +27,7 @@ API = "https://api.telegram.org/bot" + TOKEN
 POINTS_PATH = "data/points.json"
 STATE_PATH = "data/intake_state.json"
 ADMINS_PATH = "data/admins.json"
+INBOX_PATH = "data/web_inbox.json"  # заявки с сайта/mini-app через Cloudflare Worker
 
 NAME_RE = re.compile(r"^[А-Яа-яЁёA-Za-z0-9 \-]+$")
 MSG_RE = re.compile(
@@ -238,23 +239,61 @@ def delete_point(points, name_raw):
     return False, f"Точку «{' '.join(name_raw.split())}» не нашёл — проверьте точное название"
 
 
+def process_inbox(points, state, now):
+    """Заявки с сайта/mini-app (их кладёт Cloudflare Worker в data/web_inbox.json).
+    uid — хеш IP от воркера, уведомлять некому: ответ уже показан в приложении."""
+    inbox = load(INBOX_PATH, {"inbox": []})
+    items = inbox.get("inbox", [])
+    if not items:
+        return 0, 0
+    added = skipped = 0
+    for item in items:
+        name_raw = str(item.get("name") or "")
+        try:
+            lat, lon = float(item.get("lat")), float(item.get("lon"))
+        except (TypeError, ValueError):
+            print(f"inbox skip: bad coords {name_raw!r}")
+            skipped += 1
+            continue
+        user = {"id": "web:" + str(item.get("uid") or "anon"), "username": None}
+        ok, reply = accept_point(points, state, name_raw, lat, lon, user, "web", now)
+        added += 1 if ok else 0
+        skipped += 0 if ok else 1
+        print(f"inbox {'ok' if ok else 'skip'}: {name_raw!r} — {reply.split(chr(10))[0]}")
+    save(INBOX_PATH, {**inbox, "inbox": []})  # meta с пояснением сохраняем
+    return added, skipped
+
+
 def main():
-    if not TOKEN:
-        print("BOT_TOKEN не задан — выходим (задайте в GitHub Secrets)")
-        return
     points = load(POINTS_PATH, {"points": []})
     state = load(STATE_PATH, {"offset": 0})
     admins = set(load(ADMINS_PATH, {"admins": []}).get("admins", []))
+    now0 = int(time.time())
+
+    # 1) заявки с сайта/mini-app — не зависят от бота
+    web_added, web_skipped = process_inbox(points, state, now0)
+
+    # 2) очередь бота — только если задан токен
+    if not TOKEN:
+        print("BOT_TOKEN не задан — обработан только web_inbox")
+        save(POINTS_PATH, points)
+        save(STATE_PATH, state)
+        print(f"готово: web добавлено {web_added}, web не принято {web_skipped}")
+        return
 
     try:
         resp = api("getUpdates", offset=state.get("offset", 0), timeout=10)
     except urllib.error.HTTPError as e:
         if e.code == 409:
-            print("409 Conflict после ретраев — пропускаем цикл, следующий запуск через 15 мин")
+            print("409 Conflict после ретраев — бота пропускаем, web-заявки сохраняем")
+            save(POINTS_PATH, points)
+            save(STATE_PATH, state)
             return
         raise
     if not resp.get("ok"):
         print("getUpdates failed:", resp)
+        save(POINTS_PATH, points)  # web-заявки не теряем даже при проблемах с ботом
+        save(STATE_PATH, state)
         sys.exit(1)
 
     added, skipped, deleted = 0, 0, 0
@@ -315,7 +354,8 @@ def main():
 
     save(POINTS_PATH, points)
     save(STATE_PATH, state)
-    print(f"готово: добавлено {added}, не принято {skipped}, удалено админом {deleted}, "
+    print(f"готово: добавлено {added + web_added} (из них web {web_added}), "
+          f"не принято {skipped + web_skipped}, удалено админом {deleted}, "
           f"всего точек {len(points['points'])}")
 
 

@@ -7,7 +7,7 @@ const SITE_URL = "https://pogoda-pro.ru/";                    // сайт-виз
 const DONATE_URL = "https://www.tbank.ru/cf/83mAzHJg3A";      // поддержка проекта (сбор Т-Банк)
 const AUTHOR_TG = "https://t.me/go_ride_bro";                 // «Написать автору» — сразу личные сообщения
 const COMMUNITY_URL = "https://example.com/community";        // комьюнити (зарезервировано)
-const FORM_BOT = "https://t.me/Pagoda_assistant_bot";         // «Предложить точку» — ассистент приёма точек 24/7
+const INTAKE_API = ""; // URL приёмника точек (Cloudflare Worker) — POST {name, lat, lon}; заполняется после деплоя
 const SBP_URL = "PENDING_SBP";                                // (резерв) разовая поддержка СБП
 const HOME_LIMIT = 24;                                        // максимум виджетов на главной
 
@@ -562,63 +562,38 @@ function validateSuggestion(nameRaw, coordsRaw) {
   const dup = POINTS.some(p => p.name.trim().toLowerCase() === name.toLowerCase());
   if (dup) return { error: "Такая точка уже есть в библиотеке" };
 
-  let last = 0;
-  try { last = parseInt(localStorage.getItem("kp_suggest_ts") || "0", 10); } catch (e) {}
-  const leftMs = last + 24 * 3600 * 1000 - Date.now();
-  if (leftMs > 0) {
-    const h = Math.ceil(leftMs / 3600000);
-    return { error: `С этого устройства точку можно предложить раз в сутки — подождите ещё ~${h} ч` };
-  }
+  // лимит 5 заявок в сутки — на стороне приёмника (tools/intake_points.py), здесь не дублируем
   return { name, lat: Math.round(lat * 10000) / 10000, lon: Math.round(lon * 10000) / 10000 };
 }
 
-function showFbSent(auto) {
+function showFbSent() {
   const form = document.getElementById("fb-form");
   const sent = document.getElementById("fb-sent");
   if (form) form.classList.add("hidden");
   if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
   const t = document.getElementById("fb-sent-text");
-  const b = document.getElementById("fb-sent-bot");
-  if (auto) { // молчаливая отправка боту из Telegram mini-app — без переходов
-    if (t) t.innerHTML = "Отправлено! Точка появится в библиотеке в течение ~30 минут ⛰";
-    if (b) b.classList.add("hidden");
-  } else {
-    if (t) t.innerHTML = "Текст заявки скопирован в буфер.<br>Вставьте его в чат бота — точка появится в библиотеке в течение ~30 минут.";
-    if (b) b.classList.remove("hidden");
-  }
+  if (t) t.innerHTML = "Отправлено! Точка появится в библиотеке в течение ~30 минут ⛰";
 }
 
-function feedbackSubmit() {
+async function feedbackSubmit() {
   const nameEl = document.getElementById("fb-name");
   const coordsEl = document.getElementById("fb-coords");
   const r = validateSuggestion(nameEl && nameEl.value, coordsEl && coordsEl.value);
   if (r.error) { fbShowError(r.error); return; }
-  try { localStorage.setItem("kp_suggest_ts", String(Date.now())); } catch (e) {}
-  // Telegram mini-app: молчаливая отправка боту (работает при открытии по keyboard-кнопке в чате бота)
-  const tg = window.Telegram && window.Telegram.WebApp;
-  if (tg && typeof tg.sendData === "function" && tg.initData) {
-    try {
-      tg.sendData(JSON.stringify({ type: "add_point", name: r.name, lat: r.lat, lon: r.lon }));
-      showFbSent(true);
-      return;
-    } catch (e) { /* sendData недоступен — уходим в fallback ниже */ }
-  }
-  // fallback (web-версия или sendData недоступен): буфер + переход к боту
-  const text = `Точка: ${r.name} — ${r.lat}, ${r.lon}`;
-  const showSent = () => showFbSent(false);
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(showSent, () => { fallbackCopy(text, () => {}); showSent(); });
-  } else { fallbackCopy(text, () => {}); showSent(); }
-}
-
-function fbGoBot() {
+  // единый канал для сайта и mini-app: POST на приёмник, никаких переходов в чат бота
+  if (!INTAKE_API) { fbShowError("Сервис приёма точек перезапускается — попробуйте через пару минут"); return; }
   try {
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
-      Telegram.WebApp.openTelegramLink(FORM_BOT);
-      return;
-    }
-  } catch (e) {}
-  window.open(FORM_BOT, "_blank");
+    const resp = await fetch(INTAKE_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: r.name, lat: r.lat, lon: r.lon }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) { fbShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); return; }
+    showFbSent();
+  } catch (e) {
+    fbShowError("Не получилось отправить — проверьте соединение и попробуйте ещё раз");
+  }
 }
 
 /* ---------- ссылки ручной перепроверки ---------- */
