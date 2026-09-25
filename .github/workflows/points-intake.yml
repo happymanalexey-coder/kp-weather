@@ -18,7 +18,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Читаем сообщения бота и обновляем pending.json
+      - name: Диагностика: какой бот за токеном (временный шаг)
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          python3 -c "
+          import json, os, urllib.request
+          r = json.loads(urllib.request.urlopen('https://api.telegram.org/bot'+os.environ['BOT_TOKEN']+'/getMe', timeout=15).read())
+          b = r.get('result', {})
+          print('BOT IS:', b.get('username'), '|', b.get('first_name'), '| id', b.get('id'))
+          "
+
+      - name: Читаем сообщения бота и обновляем points.json
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: python3 tools/intake_points.py
