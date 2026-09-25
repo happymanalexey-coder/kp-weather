@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Автоприём точек из Telegram-бота @broKimibot и mini-app (web_app_data).
+"""Автоприём точек из Telegram-бота @Pagoda_assistant_bot и mini-app (web_app_data).
 
 Запускается из GitHub Actions каждые 15 минут. Читает getUpdates (BOT_TOKEN из
 Secrets), принимает заявки двумя путями:
