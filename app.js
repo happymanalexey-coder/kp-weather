@@ -988,38 +988,44 @@ function donateHtml() {
     <div class="donate-panel">
       <div class="dp-title">Мы сделали лучшее приложение для себя.<br>И этим хочется поделиться с каждым!</div>
       <button class="dp-go" onclick="donateGo()">Поддержать проект (СБП)</button>
-      <div class="dp-sbp-req" hidden></div>
     </div>`;
 }
 
-/* Реквизиты СБП — из env воркера (GET /api/donate-config); при недоступности просто не показываем */
-async function loadDonateConfig() {
-  const els = document.querySelectorAll(".dp-sbp-req");
-  if (!els.length) return;
-  try {
-    const r = await fetch(INTAKE_API + "/api/donate-config");
-    if (!r.ok) return;
-    const j = await r.json();
-    if (j && j.sbp) els.forEach(el => { el.textContent = "СБП: " + j.sbp; el.hidden = false; });
-  } catch (e) {}
+/* donate_url — из воркера (GET /api/donate-config); при недоступности — константа DONATE_URL */
+let donateUrlCached = null;
+async function loadDonateUrl() {
+  if (!donateUrlCached) {
+    try {
+      const r = await fetch(INTAKE_API + "/api/donate-config");
+      if (r.ok) {
+        const j = await r.json();
+        if (j && j.donate_url) donateUrlCached = String(j.donate_url);
+      }
+    } catch (e) {}
+  }
+  const url = donateUrlCached || DONATE_URL;
+  const el = document.getElementById("dn-link-text"); // фолбэк-модалка показывает актуальную ссылку
+  if (el) el.textContent = String(url).replace(/^https?:\/\/(www\.)?/, "");
+  return url;
 }
 
 function donateGo() {
   if (window.KP_ANALYTICS) KP_ANALYTICS.track("donate_open", { channel_hint: (window.Telegram && Telegram.WebApp) ? "tg" : "web" });
-  loadDonateConfig(); // реквизиты СБП подтянем и в фолбэк-модалку
-  if (isPlaceholder(DONATE_URL)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
-  let opened = false;
-  try { // в Telegram mini-app — во внешний браузер, чтобы сработал переход в приложение Т-Банка
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
-      Telegram.WebApp.openLink(DONATE_URL);
-      opened = true;
+  loadDonateUrl().then(url => {
+    if (isPlaceholder(url)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
+    let opened = false;
+    try { // в Telegram mini-app — во внешний браузер, чтобы сработал переход в приложение Т-Банка
+      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+        Telegram.WebApp.openLink(url);
+        opened = true;
+      }
+    } catch (e) {}
+    if (!opened) { // на сайте — прямое открытие в новой вкладке
+      try { opened = !!window.open(url, "_blank", "noopener"); } catch (e) {}
     }
-  } catch (e) {}
-  if (!opened) { // на сайте — прямое открытие в новой вкладке
-    try { opened = !!window.open(DONATE_URL, "_blank", "noopener"); } catch (e) {}
-  }
-  if (opened) setTimeout(() => soonHint("СПАСИБО 🙏"), 400);
-  else showDonateFallback(); // окно со ссылкой — только если программно открыть не удалось
+    if (opened) setTimeout(() => soonHint("СПАСИБО 🙏"), 400);
+    else showDonateFallback(); // окно со ссылкой — только если программно открыть не удалось
+  });
 }
 function showDonateFallback() {
   const m = document.getElementById("dn-modal");
@@ -1031,10 +1037,12 @@ function closeDonateFallback() {
   resetScrollX();
 }
 function donateCopy() {
-  const done = () => { soonHint("Ссылка скопирована 📋"); closeDonateFallback(); };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(DONATE_URL).then(done, () => { fallbackCopy(DONATE_URL, () => {}); done(); });
-  } else { fallbackCopy(DONATE_URL, () => {}); done(); }
+  loadDonateUrl().then(url => {
+    const done = () => { soonHint("Ссылка скопирована 📋"); closeDonateFallback(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, () => { fallbackCopy(url, () => {}); done(); });
+    } else { fallbackCopy(url, () => {}); done(); }
+  });
 }
 
 const TG_ICON = `<svg class="tg-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`;
@@ -1416,7 +1424,7 @@ function renderPanels() {
   if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
-  loadDonateConfig(); // реквизиты СБП из env воркера (тихо; при недоступности — не показываем)
+  loadDonateUrl(); // прогреем donate_url из конфига воркера (тихо, фолбэк — константа)
 }
 
 /* ---------- роутинг ---------- */

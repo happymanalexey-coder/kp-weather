@@ -626,4 +626,3 @@ body { touch-action: pan-y; }
 }
 .promo-banner .pb-title { display: block; font-size: 14.5px; font-weight: var(--fw-bold); color: var(--accent); }
 .promo-banner .pb-text { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
-.dp-sbp-req { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.45; word-break: break-word; }
