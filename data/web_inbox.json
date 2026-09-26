@@ -1,1 +1,6 @@
-{"meta":{"note":"Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."},"inbox":[{"name":"Роза Хутор 1100м","lat":43.6584,"lon":40.3194,"uid":"14a9ff70f27c7d0a","ts":1790453621}]}
+{
+ "meta": {
+  "note": "Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."
+ },
+ "inbox": []
+}

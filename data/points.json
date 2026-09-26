@@ -494,6 +494,19 @@
    "region": "Бали, Индонезия",
    "verified": false,
    "marine": true
+  },
+  {
+   "id": "roza-khutor-1100m",
+   "name": "Роза Хутор 1100м",
+   "lat": 43.6584,
+   "lon": 40.3194,
+   "ele": 1153,
+   "region": "Красная Поляна",
+   "verified": false,
+   "added_by": "web:14a9ff70f27c7d0a",
+   "added_by_username": null,
+   "added_ts": 1790453897,
+   "via": "web"
   }
  ]
 }
