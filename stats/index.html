@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Цифры — Погода в горах, на море и дома</title>
+<style>
+:root { color-scheme: dark; --bg:#0b1220; --card:#16223a; --text:#e8eef7; --muted:#8fa3bf; --accent:#63d6d0; --line:#24334f; --terra:#e07856; }
+@media (prefers-color-scheme: light) {
+  :root { color-scheme: light; --bg:#eef2f7; --card:#ffffff; --text:#182a44; --muted:#5d6f88; --accent:#0f9a8e; --line:#d4dfec; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; font-size: 15.5px; line-height: 1.5; }
+main { max-width: 620px; margin: 0 auto; padding: 28px 18px 60px; }
+h1 { font-size: 22px; margin-bottom: 4px; }
+.sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+a { color: var(--accent); }
+.back { display: inline-block; margin-bottom: 16px; text-decoration: none; font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 10px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; text-align: center; }
+.stat .v { font-size: 22px; font-weight: 800; }
+.stat .l { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 12px; }
+.panel h2 { font-size: 15px; margin-bottom: 10px; color: var(--accent); }
+.src-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.src-row:last-child { border-bottom: none; }
+.src-row .n { color: var(--muted); }
+.note { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
+svg.chart { width: 100%; height: auto; display: block; }
+.ch-lbl { font-size: 9px; fill: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">← К погоде</a>
+  <h1>Цифры проекта</h1>
+  <div class="sub">Живая обезличенная статистика · обновляется автоматически</div>
+  <div id="content"><div class="note">Загружаю…</div></div>
+</main>
+<script>
+const API = "https://pogoda-intake.happymanalexey.workers.dev";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function stat(v, l) { return `<div class="stat"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`; }
+function chart(days) {
+  if (!days || !days.length) return "";
+  const W = 560, H = 140, P = 24, max = Math.max(1, ...days.map(d => d.users));
+  const bw = (W - P * 2) / days.length;
+  let bars = "";
+  days.forEach((d, i) => {
+    const h = Math.max(2, (d.users / max) * (H - P - 18));
+    const x = P + i * bw + 1.5;
+    bars += `<rect x="${x.toFixed(1)}" y="${(H - P - h).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".85"/>`;
+    if (i % Math.ceil(days.length / 7) === 0 || i === days.length - 1)
+      bars += `<text class="ch-lbl" x="${(x + (bw - 3) / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(d.day.slice(5))}</text>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+fetch(API + "/api/stats/public").then(r => r.json()).then(d => {
+  if (!d || d.ok === false) throw new Error("api");
+  const t = d.totals || {};
+  let html = `<div class="grid">
+    ${stat(t.today ?? "—", "сегодня")}
+    ${stat(t.week ?? "—", "7 дней")}
+    ${stat(t.month ?? "—", "30 дней")}
+  </div>
+  <div class="grid">
+    ${stat(t.site_month ?? "—", "сайт · 30 дн")}
+    ${stat(t.miniapp_month ?? "—", "mini-app · 30 дн")}
+    ${stat((t.returning_pct ?? "—") + (t.returning_pct != null ? "%" : ""), "возвращаются")}
+  </div>`;
+  if (d.days && d.days.length) html += `<div class="panel"><h2>Рост · пользователи по дням</h2>${chart(d.days)}</div>`;
+  if (d.sources && d.sources.length)
+    html += `<div class="panel"><h2>Откуда приходят</h2>` +
+      d.sources.map(s => `<div class="src-row"><span>${esc(s.source)}</span><span class="n">${esc(s.users)}</span></div>`).join("") + `</div>`;
+  document.getElementById("content").innerHTML = html;
+}).catch(() => {
+  document.getElementById("content").innerHTML =
+    `<div class="note">Статистика только собирается — цифры появятся совсем скоро ⛰</div>`;
+});
+</script>
+</body>
+</html>

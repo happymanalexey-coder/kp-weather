@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Конфиденциальность — Погода в горах, на море и дома</title>
+<style>
+:root { color-scheme: dark; --bg:#0b1220; --card:#16223a; --text:#e8eef7; --muted:#8fa3bf; --accent:#63d6d0; --line:#24334f; }
+@media (prefers-color-scheme: light) {
+  :root { color-scheme: light; --bg:#eef2f7; --card:#ffffff; --text:#182a44; --muted:#5d6f88; --accent:#0f9a8e; --line:#d4dfec; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; font-size: 15.5px; line-height: 1.55; }
+main { max-width: 620px; margin: 0 auto; padding: 28px 18px 60px; }
+h1 { font-size: 22px; margin-bottom: 4px; }
+h2 { font-size: 16.5px; margin: 22px 0 6px; color: var(--accent); }
+p, li { color: var(--text); }
+ul { padding-left: 20px; } li { margin-bottom: 4px; }
+.sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+a { color: var(--accent); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 10px; }
+.back { display: inline-block; margin-bottom: 16px; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">← К погоде</a>
+  <h1>Конфиденциальность</h1>
+  <div class="sub">Проект «Погода в горах, на море и дома» (pogoda-pro.ru) · редакция от 26.09.2026</div>
+
+  <p>Мы — маленький бесплатный погодный проект. Собираем минимум данных, ровно столько, сколько нужно, чтобы понимать, чем пользуются, и делать приложение лучше. Здесь честно описано всё.</p>
+
+  <h2>Что мы собираем автоматически</h2>
+  <div class="card"><ul>
+    <li><b>Обезличенные события</b>: открытие приложения, выбор точки, применение стиля, клик «Поддержать» и т.п. — без содержимого экранов и без личных данных.</li>
+    <li><b>Анонимный идентификатор</b>: на сайте — случайный UUID в cookie (срок 1 год); в Telegram mini-app — хэш SHA-256 от вашего Telegram ID с серверной солью. Сам Telegram ID мы не храним.</li>
+    <li><b>Страна</b> по IP-адресу (только страна; сам IP-адрес не записывается и не хранится).</li>
+    <li><b>Источник первого перехода</b> (utm-метки из ссылки), чтобы понимать, откуда приходят люди.</li>
+  </ul></div>
+
+  <h2>Яндекс.Метрика</h2>
+  <p>Счётчик Яндекс.Метрики (вебвизор, карта кликов) включается <b>только после вашего согласия</b> в cookie-баннере. Отказаться можно в любой момент, очистив cookie сайта — баннер появится снова.</p>
+
+  <h2>Что вы отправляете добровольно</h2>
+  <div class="card"><ul>
+    <li><b>Предложение точки</b> (название и координаты) — публикуется в библиотеке после проверки.</li>
+    <li><b>Ник Telegram</b> — только если вы сами укажете его в форме и отметите галку согласия. Используется исключительно для ответа по вашей заявке.</li>
+  </ul></div>
+
+  <h2>Чего мы НЕ делаем</h2>
+  <div class="card"><ul>
+    <li>Не продаём и не передаём данные третьим лицам.</li>
+    <li>Не храним IP-адреса, точную геолокацию, содержимое переписки.</li>
+    <li>Не используем данные для навязчивой рекламы.</li>
+  </ul></div>
+
+  <h2>Ваши права (152-ФЗ)</h2>
+  <p>Вы можете запросить удаление своих данных или задать вопрос — напишите нам в Telegram через кнопку «Написать автору» на экране «О проекте». Обезличенные события, привязанные к анонимному идентификатору, удалим по запросу с указанием идентификатора из cookie.</p>
+
+  <h2>Куки</h2>
+  <p>Используем технические cookie (выбор темы и стиля, анонимный идентификатор, факт согласия с этой политикой). Без cookie приложение работает, но не запоминает ваши настройки.</p>
+</main>
+</body>
+</html>

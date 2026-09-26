@@ -581,3 +581,22 @@ body { touch-action: pan-y; }
 .pt-globe svg { width: 1.15em; height: 1.15em; display: inline-block; vertical-align: -0.16em; }
 .wv-ico { width: 15px; height: 15px; vertical-align: -2px; }
 .fb-title .sic { width: 20px; height: 20px; vertical-align: -3px; color: var(--green); }
+
+/* ---------- этап 1: аналитика — cookie-баннер, ссылки подвала ---------- */
+.foot-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.foot-link:active { color: var(--accent); }
+#consent-banner {
+  position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%);
+  width: min(520px, calc(100vw - 24px)); z-index: 900;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: 0 8px 30px var(--shadow); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  font-size: 13px; line-height: 1.45; color: var(--text);
+}
+#consent-banner a { color: var(--accent); }
+.cb-btns { display: flex; gap: 8px; }
+.cb-yes, .cb-no {
+  flex: 1; border-radius: var(--r-xs); padding: 9px 0; font-size: 14px; font-weight: 700; cursor: pointer; border: none;
+}
+.cb-yes { background: var(--accent); color: var(--on-accent); }
+.cb-no { background: var(--bg2); color: var(--muted); border: 1px solid var(--line); }

@@ -1,23 +1,27 @@
 /**
- * Приёмник точек pogoda-pro.ru — Cloudflare Worker (бесплатный тариф).
+ * pogoda-intake — Cloudflare Worker (бесплатный тариф).
  *
- * Что делает: принимает POST {name, lat, lon} с сайта и Telegram mini-app,
- * валидирует (те же правила, что tools/intake_points.py), и дописывает заявку
- * в data/web_inbox.json в репозитории через GitHub API. Дальше GitHub Actions
- * (каждые 15 минут) публикует точку в points.json.
+ * Две функции:
+ *  1. POST /            — приём точек {name, lat, lon} → data/web_inbox.json (GitHub API),
+ *                         дальше GitHub Actions публикует в points.json (каждые 15 мин).
+ *  2. Аналитика (этап 1):
+ *     POST /api/event           — событие {event, channel, user_key, utm, meta, ts} → D1.
+ *     GET  /api/stats/public    — обезличенные агрегаты для страницы /stats.
+ *     GET  /admin/stats         — приватная HTML-админка (Basic Auth) + форма доната.
+ *     POST /api/admin/donation  — ручной ввод доната {amount, date, note} (Basic Auth).
  *
- * Деплой (5 минут):
- *   1. dash.cloudflare.com → регистрация (бесплатно, карта не нужна).
- *   2. Workers & Pages → Create Worker → назвать pogoda-intake → Deploy.
- *   3. Edit code → заменить всё содержимое на этот файл → Deploy.
- *   4. Settings → Variables and Secrets → добавить два Secret:
- *        GITHUB_TOKEN = <токен GitHub со scope repo> (тот же ghp_Wp8n…)
- *        IP_SALT      = любая длинная случайная строка (для хеша IP)
- *   5. URL вида https://pogoda-intake.<account>.workers.dev — прислать мне,
- *      я впишу его в INTAKE_API в app.js.
+ * Приватность (152-ФЗ):
+ *  - IP нигде не сохраняется: только sha256(IP + IP_SALT) для квоты заявок;
+ *  - geo = ТОЛЬКО страна из request.cf.country (даёт Cloudflare, IP нам не нужен);
+ *  - Telegram ID не хранится: клиент шлёт "tg:<id>", мы храним sha256(id + ANALYTICS_SALT).
  *
- * Приватность: IP пользователя нигде не сохраняется — только sha256-хеш
- * (IP + IP_SALT), нужен для лимита 5 заявок в сутки.
+ * Переменные/секреты (Settings → Variables and Secrets):
+ *   GITHUB_TOKEN (Secret)  — запись в репо (для приёма точек)
+ *   IP_SALT (Secret)       — хэш IP для квоты
+ *   ANALYTICS_SALT (Secret)— хэш Telegram ID для user_key
+ *   ADMIN_USER, ADMIN_PASS (Secret) — вход в /admin/stats
+ * Привязка: D1 database → имя переменной DB (Settings → Bindings).
+ * Без привязанной D1 воркер работает как раньше (события принимает, но не пишет: ok, stored:false).
  */
 
 const REPO = "happymanalexey-coder/kp-weather";
@@ -35,22 +39,33 @@ const BAD_WORDS = ["хуй","хуя","хуе","хуи","пизд","бляд","б
   "какашк","пиписьк","говн","дерьм","жоп","срал","срет","пердн","пёрд","фекал",
   "шалав","проститут","секс","порн","гитлер","нацист","наркот"];
 
+const KNOWN_EVENTS = new Set([
+  "app_open", "return_visit", "point_select", "point_add", "point_suggest",
+  "skin_view", "skin_apply", "skin_request_submit", "share_click",
+  "donate_open", "subscribe_interest", "banner_promo_click",
+]);
+
 function corsHeaders(origin) {
   const ok = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": ok,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
-
 function jsonResp(obj, code, origin) {
   return new Response(JSON.stringify(obj), {
     status: code,
     headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(origin) },
   });
 }
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+const dayStr = ts => new Date(ts).toISOString().slice(0, 10);
 
+/* ---------- 1. приём точек (как было) ---------- */
 function validate(name, lat, lon) {
   name = name.trim().replace(/\s+/g, " ");
   if (name.length < 3 || name.length > 40)
@@ -67,12 +82,6 @@ function validate(name, lat, lon) {
     return { error: "Координаты 0,0" };
   return { name };
 }
-
-async function sha256hex(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 async function githubGetSha(token) {
   const r = await fetch(
     `https://api.github.com/repos/${REPO}/contents/${INBOX_PATH}?ref=main`,
@@ -84,7 +93,6 @@ async function githubGetSha(token) {
     Uint8Array.from(atob(d.content.replace(/\n/g, "")), c => c.charCodeAt(0))));
   return { sha: d.sha, content };
 }
-
 async function githubPutSha(token, sha, content) {
   const body = {
     message: "inbox: заявка с сайта/mini-app",
@@ -100,47 +108,232 @@ async function githubPutSha(token, sha, content) {
       body: JSON.stringify(body) });
   if (!r.ok) throw new Error("github put " + r.status);
 }
+async function handleIntake(request, env, origin) {
+  let payload;
+  try { payload = await request.json(); }
+  catch { return jsonResp({ error: "Некорректный JSON" }, 400, origin); }
+  const v = validate(String(payload.name || ""), payload.lat, payload.lon);
+  if (v.error) return jsonResp({ error: v.error }, 400, origin);
+  const ip = request.headers.get("CF-Connecting-IP") || "anon";
+  const uid = (await sha256hex(ip + (env.IP_SALT || "pogoda"))).slice(0, 16);
+  const entry = {
+    name: v.name,
+    lat: Math.round(payload.lat * 10000) / 10000,
+    lon: Math.round(payload.lon * 10000) / 10000,
+    uid,
+    ts: Math.floor(Date.now() / 1000),
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { sha, content } = await githubGetSha(env.GITHUB_TOKEN);
+      content.inbox = Array.isArray(content.inbox) ? content.inbox : [];
+      content.inbox.push(entry);
+      await githubPutSha(env.GITHUB_TOKEN, sha, content);
+      return jsonResp({ ok: true }, 200, origin);
+    } catch (e) {
+      if (attempt === 2) {
+        console.error("inbox write failed:", e.message);
+        return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
+      }
+      await new Promise(r => setTimeout(r, 700));
+    }
+  }
+}
 
+/* ---------- 2. аналитика ---------- */
+async function handleEvent(request, env, origin) {
+  let p;
+  try { p = await request.json(); }
+  catch { return jsonResp({ error: "Некорректный JSON" }, 400, origin); }
+
+  const event = String(p.event || "").slice(0, 40);
+  if (!KNOWN_EVENTS.has(event)) return jsonResp({ error: "unknown event" }, 400, origin);
+
+  const channel = p.channel === "miniapp" ? "miniapp" : "site";
+
+  // user_key: "tg:<id>" → хэш с солью (сам id не храним); "web:<uuid>" → как есть
+  let uk = String(p.user_key || "").slice(0, 80);
+  if (uk.startsWith("tg:")) {
+    uk = "t_" + (await sha256hex(uk.slice(3) + (env.ANALYTICS_SALT || "pogoda"))).slice(0, 24);
+  } else if (uk.startsWith("web:")) {
+    uk = "w_" + uk.slice(4).replace(/[^a-f0-9\-]/gi, "").slice(0, 40);
+  } else {
+    uk = "anon";
+  }
+
+  const country = (request.cf && request.cf.country) || null; // только страна, IP не пишем
+  const utm = p.utm && typeof p.utm === "object" ? p.utm : {};
+  const ts = Number(p.ts) || Date.now();
+  const meta = p.meta ? JSON.stringify(p.meta).slice(0, 500) : null;
+
+  if (!env.DB) return jsonResp({ ok: true, stored: false }, 200, origin); // D1 ещё не привязана — не мешаем приложению
+  try {
+    await env.DB.prepare(
+      "INSERT INTO events (ts, day, event, channel, user_key, utm_source, utm_medium, utm_campaign, country, meta) VALUES (?,?,?,?,?,?,?,?,?,?)"
+    ).bind(
+      Math.floor(ts / 1000), dayStr(ts), event, channel, uk,
+      String(utm.utm_source || "").slice(0, 120) || null,
+      String(utm.utm_medium || "").slice(0, 120) || null,
+      String(utm.utm_campaign || "").slice(0, 120) || null,
+      country, meta
+    ).run();
+    return jsonResp({ ok: true, stored: true }, 200, origin);
+  } catch (e) {
+    console.error("event insert failed:", e.message);
+    return jsonResp({ ok: true, stored: false }, 200, origin); // аналитика не должна ломать приложение
+  }
+}
+
+async function statsData(env) {
+  const q = (sql, ...b) => env.DB.prepare(sql).bind(...b).all().then(r => r.results);
+  const one = async (sql, ...b) => (await env.DB.prepare(sql).bind(...b).first()) || {};
+  const today = dayStr(Date.now());
+  const d7 = dayStr(Date.now() - 7 * 864e5);
+  const d30 = dayStr(Date.now() - 30 * 864e5);
+
+  const users = async (from) =>
+    (await one("SELECT COUNT(DISTINCT user_key) n, COUNT(DISTINCT CASE WHEN channel='site' THEN user_key END) site, COUNT(DISTINCT CASE WHEN channel='miniapp' THEN user_key END) mini FROM events WHERE day >= ?", from));
+
+  const tToday = await users(today), tWeek = await users(d7), tMonth = await users(d30);
+
+  const returning = await one(`SELECT COUNT(*) n FROM (
+      SELECT user_key FROM events WHERE day >= ? GROUP BY user_key HAVING COUNT(DISTINCT day) > 1)`, d30);
+  const returningPct = tMonth.n ? Math.round((returning.n / tMonth.n) * 100) : null;
+
+  const days = await q(`SELECT day, COUNT(DISTINCT user_key) users FROM events
+      WHERE day >= ? GROUP BY day ORDER BY day`, dayStr(Date.now() - 13 * 864e5));
+
+  const sources = await q(`SELECT COALESCE(utm_source,'(прямые заходы)') source, COUNT(DISTINCT user_key) users
+      FROM events WHERE day >= ? GROUP BY COALESCE(utm_source,'(прямые заходы)') ORDER BY users DESC LIMIT 10`, d30);
+
+  return {
+    totals: {
+      today: tToday.n, week: tWeek.n, month: tMonth.n,
+      site_month: tMonth.site, miniapp_month: tMonth.mini,
+      returning_pct: returningPct,
+    },
+    days, sources,
+  };
+}
+
+async function handlePublicStats(env, origin) {
+  if (!env.DB) return jsonResp({ ok: false, error: "db not bound" }, 503, origin);
+  try { return jsonResp(await statsData(env), 200, origin); }
+  catch (e) { return jsonResp({ ok: false, error: "stats failed" }, 500, origin); }
+}
+
+/* ---------- админка ---------- */
+function checkAdmin(request, env) {
+  const h = request.headers.get("Authorization") || "";
+  if (!h.startsWith("Basic ")) return false;
+  let u = "", p = "";
+  try { [u, p] = atob(h.slice(6)).split(":"); } catch { return false; }
+  return !!env.ADMIN_USER && u === env.ADMIN_USER && p === (env.ADMIN_PASS || "");
+}
+const needAuth = origin => new Response("Auth required", {
+  status: 401,
+  headers: { "WWW-Authenticate": 'Basic realm="pogoda-admin"', ...corsHeaders(origin) },
+});
+
+async function handleAdminStats(env, origin) {
+  if (!env.DB) return new Response("D1 не привязана (Settings → Bindings → DB)", { status: 503, headers: corsHeaders(origin) });
+  const pub = await statsData(env);
+  const one = async (sql, ...b) => (await env.DB.prepare(sql).bind(...b).first()) || {};
+  const all = (sql, ...b) => env.DB.prepare(sql).bind(...b).all().then(r => r.results);
+  const d30 = dayStr(Date.now() - 30 * 864e5);
+
+  const geo = await all("SELECT COALESCE(country,'—') c, COUNT(DISTINCT user_key) u FROM events WHERE day >= ? GROUP BY c ORDER BY u DESC LIMIT 15", d30);
+  const evs = await all("SELECT event, COUNT(*) n, COUNT(DISTINCT user_key) u FROM events WHERE day >= ? GROUP BY event ORDER BY n DESC", d30);
+  const dons = await all("SELECT date, amount, note FROM donations ORDER BY date DESC LIMIT 30");
+  const donSum = await one("SELECT COALESCE(SUM(amount),0) s, COUNT(*) n FROM donations");
+  const donateOpens = await one("SELECT COUNT(*) n FROM events WHERE event='donate_open' AND day >= ?", d30);
+  const recent = await all("SELECT day, event, channel, country, COALESCE(utm_source,'') s FROM events ORDER BY ts DESC LIMIT 25");
+
+  const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const rows = (arr, fn) => arr.map(fn).join("");
+  const conv = donateOpens.n && donSum.n ? ((donSum.n / donateOpens.n) * 100).toFixed(1) + "%" : "—";
+
+  const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Админка · Погода</title><style>
+body{background:#0b1220;color:#e8eef7;font:14px/1.5 -apple-system,Arial,sans-serif;max-width:820px;margin:0 auto;padding:24px 16px}
+h1{font-size:20px}h2{font-size:15px;color:#63d6d0;margin:20px 0 8px}
+table{width:100%;border-collapse:collapse;background:#16223a;border-radius:10px;overflow:hidden}
+td,th{padding:6px 10px;border-bottom:1px solid #24334f;text-align:left;font-size:13px}
+th{color:#8fa3bf;font-weight:600}.big{font-size:26px;font-weight:800}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.c{background:#16223a;border-radius:10px;padding:10px;text-align:center}
+.c span{display:block;color:#8fa3bf;font-size:11px;margin-top:2px}
+form{background:#16223a;border-radius:10px;padding:12px;margin-top:8px}
+input,button{padding:8px;border-radius:8px;border:1px solid #24334f;background:#0b1220;color:#e8eef7}
+button{background:#63d6d0;color:#04202b;font-weight:700;border:none;cursor:pointer}
+</style></head><body>
+<h1>Админка · аналитика</h1>
+<div class="cards">
+<div class="c"><div class="big">${pub.totals.today}</div><span>сегодня</span></div>
+<div class="c"><div class="big">${pub.totals.week}</div><span>7 дней</span></div>
+<div class="c"><div class="big">${pub.totals.month}</div><span>30 дней</span></div>
+<div class="c"><div class="big">${pub.totals.returning_pct ?? "—"}%</div><span>возвращаются</span></div>
+</div>
+<h2>События (30 дней)</h2><table><tr><th>Событие</th><th>Всего</th><th>Уникальных</th></tr>
+${rows(evs, e => `<tr><td>${esc(e.event)}</td><td>${e.n}</td><td>${e.u}</td></tr>`)}</table>
+<h2>Гео (страны, 30 дней)</h2><table><tr><th>Страна</th><th>Пользователей</th></tr>
+${rows(geo, g => `<tr><td>${esc(g.c)}</td><td>${g.u}</td></tr>`)}</table>
+<h2>Источники</h2><table><tr><th>Источник</th><th>Пользователей</th></tr>
+${rows(pub.sources, s => `<tr><td>${esc(s.source)}</td><td>${s.users}</td></tr>`)}</table>
+<h2>Донаты</h2>
+<p>Кликов «Поддержать» (30 дн): <b>${donateOpens.n}</b> · Донатов: <b>${donSum.n}</b> на <b>${donSum.s} ₽</b> · Конверсия: <b>${conv}</b></p>
+<form method="POST" action="/api/admin/donation" onsubmit="return fd(this)">
+<input name="amount" type="number" min="1" placeholder="Сумма ₽" required>
+<input name="date" type="date" required>
+<input name="note" placeholder="Комментарий" size="18">
+<button>Добавить донат</button></form>
+<table><tr><th>Дата</th><th>Сумма</th><th>Комментарий</th></tr>
+${rows(dons, d => `<tr><td>${esc(d.date)}</td><td>${d.amount} ₽</td><td>${esc(d.note)}</td></tr>`)}</table>
+<h2>Последние события</h2><table><tr><th>День</th><th>Событие</th><th>Канал</th><th>Страна</th><th>Источник</th></tr>
+${rows(recent, r => `<tr><td>${r.day}</td><td>${esc(r.event)}</td><td>${r.channel}</td><td>${esc(r.country || "—")}</td><td>${esc(r.s)}</td></tr>`)}</table>
+<script>function fd(f){fetch('/api/admin/donation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:+f.amount.value,date:f.date.value,note:f.note.value})}).then(()=>location.reload());return false}</script>
+</body></html>`;
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", ...corsHeaders(origin) } });
+}
+
+async function handleDonation(request, env, origin) {
+  let p;
+  const ct = request.headers.get("Content-Type") || "";
+  if (ct.includes("json")) { try { p = await request.json(); } catch { p = null; } }
+  else {
+    const f = await request.formData().catch(() => null);
+    p = f ? { amount: f.get("amount"), date: f.get("date"), note: f.get("note") } : null;
+  }
+  const amount = Math.round(Number(p && p.amount));
+  const date = String((p && p.date) || "").slice(0, 10);
+  const note = String((p && p.note) || "").slice(0, 200);
+  if (!amount || amount < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return jsonResp({ error: "amount>=1 и date YYYY-MM-DD обязательны" }, 400, origin);
+  if (!env.DB) return jsonResp({ error: "db not bound" }, 503, origin);
+  await env.DB.prepare("INSERT INTO donations (date, amount, note, ts) VALUES (?,?,?,?)")
+    .bind(date, amount, note || null, Math.floor(Date.now() / 1000)).run();
+  if (!ct.includes("json")) return Response.redirect(new URL("/admin/stats", request.url).toString(), 303);
+  return jsonResp({ ok: true }, 200, origin);
+}
+
+/* ---------- роутер ---------- */
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
     if (request.method === "OPTIONS")
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    if (request.method !== "POST")
-      return jsonResp({ error: "Только POST" }, 405, origin);
 
-    let payload;
-    try { payload = await request.json(); }
-    catch { return jsonResp({ error: "Некорректный JSON" }, 400, origin); }
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, "") || "/";
 
-    const v = validate(String(payload.name || ""), payload.lat, payload.lon);
-    if (v.error) return jsonResp({ error: v.error }, 400, origin);
-
-    const ip = request.headers.get("CF-Connecting-IP") || "anon";
-    const uid = (await sha256hex(ip + (env.IP_SALT || "pogoda"))).slice(0, 16);
-    const entry = {
-      name: v.name,
-      lat: Math.round(payload.lat * 10000) / 10000,
-      lon: Math.round(payload.lon * 10000) / 10000,
-      uid,
-      ts: Math.floor(Date.now() / 1000),
-    };
-
-    // до 3 попыток: между чтением и записью inbox мог измениться (sha-конфликт)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const { sha, content } = await githubGetSha(env.GITHUB_TOKEN);
-        content.inbox = Array.isArray(content.inbox) ? content.inbox : [];
-        content.inbox.push(entry);
-        await githubPutSha(env.GITHUB_TOKEN, sha, content);
-        return jsonResp({ ok: true }, 200, origin);
-      } catch (e) {
-        if (attempt === 2) {
-          console.error("inbox write failed:", e.message);
-          return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
-        }
-        await new Promise(r => setTimeout(r, 700));
-      }
+    if (request.method === "POST" && path === "") return handleIntake(request, env, origin);
+    if (request.method === "POST" && path === "/api/event") return handleEvent(request, env, origin);
+    if (request.method === "GET" && path === "/api/stats/public") return handlePublicStats(env, origin);
+    if (path === "/admin/stats" || path === "/api/admin/donation") {
+      if (!checkAdmin(request, env)) return needAuth(origin);
+      if (path === "/admin/stats" && request.method === "GET") return handleAdminStats(env, origin);
+      if (path === "/api/admin/donation" && request.method === "POST") return handleDonation(request, env, origin);
     }
+    if (request.method === "POST" && path === "/") return handleIntake(request, env, origin);
+    return jsonResp({ error: "not found" }, 404, origin);
   },
 };

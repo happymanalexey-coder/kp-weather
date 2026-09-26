@@ -1,12 +1,13 @@
 /* Минимальный service worker «Погода в горах».
    Статика — cache-first, data/points.json — network-first,
    погодные API — всегда сеть (свежесть важнее, кэширует само приложение). */
-const CACHE = "kp-weather-v3.6";
+const CACHE = "kp-weather-v3.7";
 const STATIC = [
   "./",
   "index.html",
   "styles.css",
   "app.js",
+  "analytics.js",
   "weather.js",
   "manifest.json",
   "icons/icon-192.png",

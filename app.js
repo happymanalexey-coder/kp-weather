@@ -584,6 +584,7 @@ async function feedbackSubmit() {
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) { fbShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); return; }
+    if (window.KP_ANALYTICS) KP_ANALYTICS.track("point_suggest", { name: r.name });
     showFbSent();
   } catch (e) {
     fbShowError("Не получилось отправить — проверьте соединение и попробуйте ещё раз");
@@ -632,6 +633,7 @@ function windRange(cur) {
 async function loadPoint(id) {
   const box = document.getElementById("point-content");
   const point = POINTS.find(p => p.id === id);
+  if (point && window.KP_ANALYTICS) KP_ANALYTICS.track("point_select", { id: point.id, name: point.name });
   if (!point && !POINTS.length && !homeFailed) { // холодный вход по прямой ссылке: каталог ещё грузится
     box.innerHTML = SK_POINT;
     return;
@@ -862,6 +864,7 @@ function donateHtml() {
 }
 
 function donateGo() {
+  if (window.KP_ANALYTICS) KP_ANALYTICS.track("donate_open", { channel_hint: (window.Telegram && Telegram.WebApp) ? "tg" : "web" });
   if (isPlaceholder(DONATE_URL)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
   let opened = false;
   try { // в Telegram mini-app — во внешний браузер, чтобы сработал переход в приложение Т-Банка
@@ -991,6 +994,7 @@ async function initSkin() {
 async function applySkin(id) {
   SKIN_ID = id;
   try { localStorage.setItem(SKIN_KEY, id); } catch (e) {} // выбор сохраняется и восстанавливается после перезапуска
+  if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_apply", { skin: id });
   if (id !== "base") await loadSkinFile(id);
   applySkinTokens(); // мгновенно, без шага предпросмотра
   await loadBadge();
@@ -1120,7 +1124,7 @@ function route() {
   if (h === "#library") { renderLibrary(document.getElementById("lib-search").value); return; }
   if (h === "#about") return;
   if (h === "#settings") return;
-  if (h === "#style") { renderStyleList(); return; }
+  if (h === "#style") { if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_view"); renderStyleList(); return; }
   if (m) {
     home.classList.add("hidden");
     point.classList.remove("hidden");
