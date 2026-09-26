@@ -1,0 +1,12 @@
+# Деплой воркера pogoda-intake (Cloudflare Workers).
+# Исходник: tools/cloudflare-worker.js. Секреты (GITHUB_TOKEN, BOT_TOKEN, IP_SALT,
+# ANALYTICS_SALT, ADMIN_USER, ADMIN_PASS) хранятся в дашборде / через `wrangler secret put` —
+# в этот файл НЕ писать. Локальный превью не используется (dev-зеркало — server.py).
+name = "pogoda-intake"
+main = "tools/cloudflare-worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pogoda-analytics"
+database_id = "1f3f28cf-7417-43ae-9b25-df390d5b0e8b"
