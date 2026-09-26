@@ -39,6 +39,7 @@ const MF_MAP = {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         applyTgColors();
+        syncFromCloud(); // CloudStorage: подтянуть тему/стиль, выбранные на других устройствах
       }
     } catch (e) {}
   };
@@ -184,6 +185,7 @@ function applyTgColors() {
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   try { localStorage.setItem("kp_theme", theme); } catch (e) {}
+  cloudSet("kp_theme", theme); // дублируем в облако Telegram (тихо, если вне mini-app)
   applySkinTokens(); // перекладывает токены активного стиля под новую тему (+ applyTgColors внутри)
 }
 function toggleTheme() {
@@ -202,6 +204,55 @@ function initTheme() {
     const t = document.getElementById("theme-toggle");
     if (t) t.classList.add("hint-glow");
   }
+}
+
+/* ---------- Telegram CloudStorage (этап 2): выбор темы/стиля живёт между устройствами ----------
+   Пишем поверх localStorage только внутри mini-app; сайт ↔ mini-app не синхронизируем (осознанно).
+   Всё тихо деградирует: нет SDK/CloudStorage — работает как обычный localStorage. */
+function tgCloud() {
+  try { return (window.Telegram && Telegram.WebApp && Telegram.WebApp.CloudStorage) || null; }
+  catch (e) { return null; }
+}
+function cloudSet(key, value) {
+  const c = tgCloud();
+  if (!c || !c.setItem) return;
+  try { c.setItem(key, String(value), function () {}); } catch (e) {}
+}
+function cloudGet(keys) { // → Promise {key: value|null}
+  return new Promise(resolve => {
+    const c = tgCloud();
+    const out = {};
+    if (!c) return resolve(out);
+    if (c.getItems) {
+      try {
+        c.getItems(keys, function (err, vals) {
+          if (!err && vals) keys.forEach(k => { out[k] = vals[k] != null ? String(vals[k]) : null; });
+          resolve(out);
+        });
+        return;
+      } catch (e) {}
+    }
+    let i = 0; // запасной путь: по одному ключу
+    const next = () => {
+      if (i >= keys.length) return resolve(out);
+      const k = keys[i++];
+      try {
+        c.getItem(k, function (err, v) { out[k] = (!err && v != null) ? String(v) : null; next(); });
+      } catch (e) { out[k] = null; next(); }
+    };
+    next();
+  });
+}
+async function syncFromCloud() {
+  if (!tgCloud()) return;
+  const v = await cloudGet(["kp_theme", "kp_skin"]);
+  try {
+    if (v.kp_theme === "light" || v.kp_theme === "dark") {
+      if (localStorage.getItem("kp_theme") !== v.kp_theme) applyTheme(v.kp_theme);
+    }
+    // режим просмотра по ссылке важнее облачной синхронизации — не перебиваем его
+    if (!skinPreview && v.kp_skin && v.kp_skin !== currentSkinId()) await applySkinQuiet(v.kp_skin);
+  } catch (e) {}
 }
 
 /* ---------- набор и порядок виджетов на главной (localStorage) ---------- */
@@ -993,7 +1044,9 @@ async function initSkin() {
 }
 async function applySkin(id) {
   SKIN_ID = id;
+  skinPreview = false; // явный выбор отменяет режим просмотра по ссылке
   try { localStorage.setItem(SKIN_KEY, id); } catch (e) {} // выбор сохраняется и восстанавливается после перезапуска
+  cloudSet("kp_skin", id); // дублируем в облако Telegram (тихо, если вне mini-app)
   if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_apply", { skin: id });
   if (id !== "base") await loadSkinFile(id);
   applySkinTokens(); // мгновенно, без шага предпросмотра
@@ -1002,10 +1055,38 @@ async function applySkin(id) {
   renderStyleList();
   soonHint("Стиль применён");
 }
+let styleTab = "all";
+let skinPreview = false; // просмотр по ссылке: скин показан, но выбор НЕ сохранён
+
+function setStyleTab(tab) {
+  styleTab = tab;
+  renderStyleList();
+}
+function styleTabsHtml() {
+  const tab = (key, label) =>
+    `<button class="lib-tab${styleTab === key ? " active" : ""}" onclick="setStyleTab('${key}')">${label}</button>`;
+  return `<div class="lib-tabs">${tab("all", "Все")}${tab("official", "От разработчиков")}${tab("author", "Авторский стиль")}</div>`;
+}
+/* Бейджи по полю badge реестра: partner → «Партнёрский», ad → «Реклама · erid: …» (маркировка) */
+function skinBadgeHtml(s) {
+  if (s.badge === "partner")
+    return `<span class="st-chip st-chip-partner">Партнёрский</span>`;
+  if (s.badge === "ad") {
+    const erid = String(s.erid || "").trim();
+    return `<span class="st-chip st-chip-ad">Реклама${erid ? " · erid: " + esc(erid) : ""}</span>`;
+  }
+  return "";
+}
 async function renderStyleList() {
   const box = document.getElementById("style-list");
   if (!box) return;
-  const skins = await loadSkinsReg();
+  const tabs = document.getElementById("style-tabs-wrap");
+  if (tabs) tabs.innerHTML = styleTabsHtml();
+  /* draft-скины нигде не показываем; активные — по вкладкам */
+  const skins = (await loadSkinsReg()).filter(s => (s.status || "active") !== "draft");
+  const inTab = s =>
+    styleTab === "official" ? s.type === "official" :
+    styleTab === "author" ? (s.type === "author" || s.type === "partner") : true;
   /* композитная карточка «Закажи свой скин»: три вертикальные трети — хиро каждого скина */
   const MT = [
     "M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z",
@@ -1030,9 +1111,10 @@ async function renderStyleList() {
       <div class="st-prev">${orderHero}</div>
       <div class="st-name">Закажи свой скин</div>
       <div class="st-author">Сделаем стиль под тебя — как эти, только твой</div>
-      <button class="st-apply" onclick="openAbout()">Написать автору</button>
+      <button class="st-apply" onclick="openSkinRequest()">Заказать стиль</button>
     </div>`;
-  box.innerHTML = orderCard + skins.map(s => {
+  const savedId = currentSkinId();
+  const cards = skins.filter(inTab).map(s => {
     const pv = s.preview || {};
     const dots = (pv.palette || []).map(c => `<span class="st-dot" style="background:${esc(String(c))}"></span>`).join("");
     const hero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
@@ -1042,15 +1124,128 @@ async function renderStyleList() {
       `<path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="${esc(pv.mt1 || "#16243c")}"/>` +
       `<path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
       `<path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="${esc(pv.mt3 || "#0a1120")}"/></svg>`;
-    const active = s.id === SKIN_ID;
-    return `<div class="style-card${active ? " active" : ""}">
+    const isSaved = s.id === savedId;
+    const isPreview = skinPreview && s.id === SKIN_ID && !isSaved;
+    return `<div class="style-card${isSaved || isPreview ? " active" : ""}">
       <div class="st-prev">${hero}</div>
-      <div class="st-name">${esc(s.name || s.id)}</div>
+      <div class="st-name">${esc(s.name || s.id)}${skinBadgeHtml(s)}</div>
       <div class="st-author">${esc(s.author || "")}</div>
       <div class="st-dots">${dots}</div>
-      <button class="st-apply${active ? " done" : ""}"${active ? "" : ` onclick="applySkin('${esc(s.id)}')"`}>${active ? "Применён ✓" : "Применить"}</button>
+      ${isSaved
+        ? `<button class="st-apply done">Применён ✓</button>`
+        : `<button class="st-apply" onclick="applySkin('${esc(s.id)}')">${isPreview ? "Оставить этот стиль" : "Применить"}</button>`}
     </div>`;
-  }).join("") + donateBtnHtml();
+  }).join("");
+  const emptyText = styleTab === "author"
+    ? "Пока только официальные стили. Свой можно заказать — вкладка «Все», первая карточка"
+    : "Здесь появятся новые стили";
+  box.innerHTML = (styleTab === "all" ? orderCard : "") +
+    (cards || `<div class="lib-empty">${emptyText}</div>`) + donateBtnHtml();
+}
+
+/* ---------- форма заявки на свой скин (карточка «Закажи свой стиль») ---------- */
+function openSkinRequest() {
+  const m = document.getElementById("sk-modal");
+  if (!m) return;
+  m.classList.remove("hidden");
+  const form = document.getElementById("sk-form");
+  const sent = document.getElementById("sk-sent");
+  if (form) form.classList.remove("hidden"); // всегда открываем на форме, не на «Отправлено»
+  if (sent) sent.classList.add("hidden");
+  skShowError("");
+}
+function closeSkinRequest() {
+  const m = document.getElementById("sk-modal");
+  if (m) m.classList.add("hidden");
+  resetScrollX();
+}
+function skShowError(text) {
+  const el = document.getElementById("sk-err");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("hidden", !text);
+}
+async function skinRequestSubmit() {
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ""; };
+  const name = String(val("sk-name") || "").trim().replace(/\s+/g, " ");
+  const description = String(val("sk-desc") || "").trim();
+  const contact = String(val("sk-contact") || "").trim();
+  const hp = String(val("sk-site") || ""); // honeypot: люди его не видят
+  const agree = !!(document.getElementById("sk-agree") || {}).checked;
+
+  if (name.length < 3) { skShowError("Название: минимум 3 символа"); return; }
+  if (name.length > 60) { skShowError("Название: максимум 60 символов"); return; }
+  if (description.length > 1000) { skShowError("Описание: максимум 1000 символов"); return; }
+  if (contact.length > 80) { skShowError("Контакт: максимум 80 символов"); return; }
+  if (!agree) { skShowError("Отметьте согласие на обработку данных"); return; }
+
+  try {
+    const resp = await fetch(INTAKE_API + "/api/skin-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name, description, contact,
+        consent: true,
+        hp,
+        channel: window.KP_ANALYTICS ? KP_ANALYTICS.channel() : "site",
+        user_key: window.KP_ANALYTICS ? KP_ANALYTICS.userKey() : "anon",
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) { skShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); return; }
+    if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_request_submit", { name });
+    const form = document.getElementById("sk-form");
+    const sent = document.getElementById("sk-sent");
+    if (form) form.classList.add("hidden");
+    if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
+  } catch (e) {
+    skShowError("Не получилось отправить — проверьте соединение и попробуйте ещё раз");
+  }
+}
+
+/* ---------- deep link на скин: ?skin=<id> / startapp=skin_<id> — просмотр БЕЗ сохранения ---------- */
+function requestedSkinId() {
+  try {
+    const q = new URLSearchParams(location.search);
+    let p = q.get("skin");
+    if (!p) {
+      let sp = null;
+      try { sp = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param; } catch (e) {}
+      if (!sp) sp = q.get("startapp") || q.get("tgWebAppStartParam");
+      if (sp) String(sp).split("__").forEach(part => {
+        if (part.indexOf("skin_") === 0) p = part.slice(5);
+      });
+    }
+    return p ? String(p).slice(0, 60) : null;
+  } catch (e) { return null; }
+}
+async function previewSkin(id) {
+  const skins = await loadSkinsReg();
+  if (!skins.some(s => s.id === id && (s.status || "active") !== "draft")) return;
+  if (id !== "base") await loadSkinFile(id);
+  SKIN_ID = id;
+  skinPreview = true; // выбор НЕ пишем: localStorage и облако остаются как были
+  applySkinTokens();
+  await loadBadge();
+  rerenderCurrent();
+  if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_apply", { skin: id, preview: true });
+  soonHint("Просмотр стиля — нажми «Оставить этот стиль», чтобы сохранить");
+}
+async function applySkinQuiet(id) { // применение без тоста/события (облачная синхронизация)
+  const skins = await loadSkinsReg();
+  if (!skins.some(s => s.id === id && (s.status || "active") !== "draft")) return;
+  SKIN_ID = id;
+  try { localStorage.setItem(SKIN_KEY, id); } catch (e) {}
+  if (id !== "base") await loadSkinFile(id);
+  applySkinTokens();
+  await loadBadge();
+  rerenderCurrent();
+  renderStyleList();
+}
+async function initSkinLinkPreview() {
+  const sid = requestedSkinId();
+  if (!sid || sid === currentSkinId()) return; // совпадает с сохранённым — нечего предпросматривать
+  await previewSkin(sid);
 }
 
 /* ---------- навигация: настройки / стили ---------- */
@@ -1174,4 +1369,6 @@ bindHomeList();
 fillStaticIcons();
 route();
 loadHome();
-initSkin(); // стиль + бейдж из skins/; при смене перерисует текущий экран
+initSkin() // стиль + бейдж из skins/; при смене перерисует текущий экран
+  .then(syncFromCloud)        // CloudStorage: тема/стиль с других устройств (mini-app)
+  .then(initSkinLinkPreview); // ?skin=<id> / startapp=skin_<id> — показ без сохранения выбора

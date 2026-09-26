@@ -107,6 +107,7 @@
         <button class="lib-close" onclick="closeStyle()" aria-label="Назад">✕</button>
         <span class="about-title">Сменить стиль</span>
       </div>
+      <div id="style-tabs-wrap"></div>
     </div>
     <div id="style-list" class="lib-list"></div>
   </div>
@@ -154,6 +155,28 @@
       <div class="fb-text dn-link"><b>tbank.ru/cf/83mAzHJg3A</b></div>
       <button class="fb-go" onclick="donateCopy()">Скопировать ссылку</button>
       <button class="fb-cancel" onclick="closeDonateFallback()">Закрыть</button>
+    </div>
+  </div>
+
+  <div id="sk-modal" class="fb-modal hidden" onclick="if(event.target===this)closeSkinRequest()">
+    <div class="fb-card">
+      <div id="sk-form">
+        <div class="fb-title">Заказать свой стиль</div>
+        <input id="sk-name" class="fb-input" placeholder="Название: «Рассвет в горах»" maxlength="60" autocomplete="off">
+        <textarea id="sk-desc" class="fb-input sk-textarea" placeholder="Каким видите стиль: настроение, цвета, горы или море… (необязательно)" maxlength="1000"></textarea>
+        <input id="sk-contact" class="fb-input" placeholder="Ваш ник в Telegram — чтобы ответить (необязательно)" maxlength="80" autocomplete="off">
+        <input id="sk-site" class="sk-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label class="sk-consent"><input type="checkbox" id="sk-agree">
+          <span>Согласен(на) на обработку персональных данных (ник Telegram) для ответа по заявке — <a href="/privacy/" target="_blank" rel="noopener">подробнее</a></span></label>
+        <div class="fb-err hidden" id="sk-err"></div>
+        <button class="fb-go" onclick="skinRequestSubmit()">Отправить заявку</button>
+        <button class="fb-cancel" onclick="closeSkinRequest()">Отмена</button>
+      </div>
+      <div id="sk-sent" class="hidden">
+        <div class="fb-title">Отправлено <span class="sic" data-icon="check"></span></div>
+        <div class="fb-text">Заявка у авторов проекта. Если оставили ник в Telegram — ответим в личные сообщения ✍️</div>
+        <button class="fb-cancel" onclick="closeSkinRequest()">Закрыть</button>
+      </div>
     </div>
   </div>
 </div>

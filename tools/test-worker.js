@@ -4,7 +4,7 @@ const worker = mod.default;
 let passed = 0, failed = 0;
 const ok = (cond, name) => { if (cond) { passed++; console.log("  ✓", name); } else { failed++; console.log("  ✗ FAIL:", name); } };
 
-// Мок D1: записывает все вызовы
+// Мок D1: записывает все вызовы; first() эмулирует антиспам skin_requests (заявка с таким ключом уже есть)
 const calls = [];
 const DB = {
   prepare(sql) {
@@ -13,18 +13,34 @@ const DB = {
         return {
           run: async () => { calls.push({ sql: sql.slice(0, 40), args }); return {}; },
           all: async () => ({ results: [] }),
-          first: async () => null,
+          first: async () => {
+            if (sql.includes("skin_requests") &&
+                calls.some(c => c.sql.startsWith("INSERT INTO skin_requests") && c.args[6] === args[0]))
+              return { n: 1 };
+            return null;
+          },
         };
       },
     };
   },
 };
-const env = { DB, IP_SALT: "s1", ANALYTICS_SALT: "pepper", ADMIN_USER: "admin", ADMIN_PASS: "pw", GITHUB_TOKEN: "x" };
+const env = { DB, IP_SALT: "s1", ANALYTICS_SALT: "pepper", ADMIN_USER: "admin", ADMIN_PASS: "pw", GITHUB_TOKEN: "x", BOT_TOKEN: "bot123" };
 const req = (method, path, body, headers = {}) => new Request("https://w.dev" + path, {
   method,
   headers: { "Content-Type": "application/json", Origin: "https://pogoda-pro.ru", ...headers },
   body: body ? JSON.stringify(body) : undefined,
 });
+
+// Стаб fetch: перехватываем обращения к Telegram Bot API, остальное — в реальную сеть (не используется в тестах)
+const tgCalls = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (String(url).includes("api.telegram.org")) {
+    tgCalls.push({ url: String(url), body: opts && opts.body });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }
+  return realFetch(url, opts);
+};
 
 console.log("— /api/event —");
 let r = await worker.fetch(req("POST", "/api/event", {
@@ -73,6 +89,49 @@ ok(j.ok === true, "донат принят");
 ok(calls.some(c => c.sql.startsWith("INSERT INTO donations")), "донат записан в таблицу");
 r = await worker.fetch(req("POST", "/api/admin/donation", { amount: -5, date: "26.09.2026" }, auth), env);
 ok(r.status === 400, "кривой донат отклонён");
+
+console.log("— /api/skin-request (этап 2) —");
+calls.length = 0; tgCalls.length = 0;
+r = await worker.fetch(req("POST", "/api/skin-request", {
+  name: "Рассвет в горах", description: "Тёплые цвета", contact: "@ivan",
+  consent: true, hp: "", channel: "miniapp", user_key: "tg:506487479",
+}), env);
+j = await r.json();
+ok(r.status === 200 && j.ok && j.stored, "заявка принята и записана");
+const skIns = calls.find(c => c.sql.startsWith("INSERT INTO skin_requests"));
+ok(skIns && skIns.args[6].startsWith("t_") && !String(skIns.args[6]).includes("506487479"), "user_key заявки захэширован (без сырого tg id)");
+ok(skIns && skIns.args[2] === "Рассвет в горах" && skIns.args[5] === "miniapp", "название и канал сохранены");
+ok(tgCalls.length === 1 && tgCalls[0].body.includes("Рассвет в горах") && tgCalls[0].body.includes("@ivan"), "админу ушло уведомление в Telegram");
+
+r = await worker.fetch(req("POST", "/api/skin-request", {
+  name: "Вторая сегодня", consent: true, channel: "miniapp", user_key: "tg:506487479",
+}), env);
+ok(r.status === 429, "вторая заявка тем же пользователем в тот же день — 429");
+
+r = await worker.fetch(req("POST", "/api/skin-request", {
+  name: "Другой юзер", consent: true, channel: "site", user_key: "web:550e8400-e29b-41d4-a716-446655440000",
+}), env);
+j = await r.json();
+ok(r.status === 200 && j.ok, "другой пользователь — заявка принята");
+
+r = await worker.fetch(req("POST", "/api/skin-request", { name: "Без согласия", consent: false }), env);
+ok(r.status === 400, "без согласия — 400");
+r = await worker.fetch(req("POST", "/api/skin-request", { name: "Аб", consent: true }), env);
+ok(r.status === 400, "короткое название отклонено");
+
+calls.length = 0; tgCalls.length = 0;
+r = await worker.fetch(req("POST", "/api/skin-request", { name: "Бот заявка", consent: true, hp: "http://spam" }), env);
+j = await r.json();
+ok(r.status === 200 && j.ok && !calls.some(c => c.sql.startsWith("INSERT INTO skin_requests")) && tgCalls.length === 0,
+  "honeypot: ботская заявка «съедена» тихо (без записи и уведомления)");
+
+calls.length = 0; tgCalls.length = 0;
+r = await worker.fetch(req("POST", "/api/skin-request", {
+  name: "Без базы", consent: true, channel: "site", user_key: "web:550e8400-e29b-41d4-a716-446655440000",
+}), { ...env, DB: undefined });
+j = await r.json();
+ok(r.status === 200 && j.stored === false, "без D1 — ok, stored:false (тихая деградация)");
+ok(tgCalls.length === 1, "без D1 уведомление в Telegram всё равно уходит (заявка не теряется)");
 
 console.log("— приём точек (регрессия) —");
 r = await worker.fetch(req("POST", "/", { name: "какашка богов", lat: 43.6, lon: 40.2 }), env);

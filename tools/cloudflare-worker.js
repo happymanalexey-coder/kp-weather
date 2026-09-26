@@ -9,6 +9,10 @@
  *     GET  /api/stats/public    — обезличенные агрегаты для страницы /stats.
  *     GET  /admin/stats         — приватная HTML-админка (Basic Auth) + форма доната.
  *     POST /api/admin/donation  — ручной ввод доната {amount, date, note} (Basic Auth).
+ *  3. Заявки на скины (этап 2):
+ *     POST /api/skin-request    — {name, description, contact, consent, hp, channel, user_key}
+ *                                 → D1 (skin_requests) + уведомление админу в Telegram.
+ *                                 Антиспам: 1 заявка/сутки на user_key + honeypot-поле hp.
  *
  * Приватность (152-ФЗ):
  *  - IP нигде не сохраняется: только sha256(IP + IP_SALT) для квоты заявок;
@@ -20,6 +24,8 @@
  *   IP_SALT (Secret)       — хэш IP для квоты
  *   ANALYTICS_SALT (Secret)— хэш Telegram ID для user_key
  *   ADMIN_USER, ADMIN_PASS (Secret) — вход в /admin/stats
+ *   BOT_TOKEN (Secret)     — токен бота @pogoda_xxx_bot: уведомления админу о заявках на скины
+ *   ADMIN_CHAT_ID (переменная, опционально) — chat_id админа; по умолчанию 506487479
  * Привязка: D1 database → имя переменной DB (Settings → Bindings).
  * Без привязанной D1 воркер работает как раньше (события принимает, но не пишет: ok, stored:false).
  */
@@ -141,6 +147,19 @@ async function handleIntake(request, env, origin) {
 }
 
 /* ---------- 2. аналитика ---------- */
+/* user_key: "tg:<id>" → хэш с солью (сам id не храним); "web:<uuid>" → как есть */
+async function normalizeUserKey(raw, env) {
+  let uk = String(raw || "").slice(0, 80);
+  if (uk.startsWith("tg:")) {
+    uk = "t_" + (await sha256hex(uk.slice(3) + (env.ANALYTICS_SALT || "pogoda"))).slice(0, 24);
+  } else if (uk.startsWith("web:")) {
+    uk = "w_" + uk.slice(4).replace(/[^a-f0-9\-]/gi, "").slice(0, 40);
+  } else {
+    uk = "anon";
+  }
+  return uk;
+}
+
 async function handleEvent(request, env, origin) {
   let p;
   try { p = await request.json(); }
@@ -152,14 +171,7 @@ async function handleEvent(request, env, origin) {
   const channel = p.channel === "miniapp" ? "miniapp" : "site";
 
   // user_key: "tg:<id>" → хэш с солью (сам id не храним); "web:<uuid>" → как есть
-  let uk = String(p.user_key || "").slice(0, 80);
-  if (uk.startsWith("tg:")) {
-    uk = "t_" + (await sha256hex(uk.slice(3) + (env.ANALYTICS_SALT || "pogoda"))).slice(0, 24);
-  } else if (uk.startsWith("web:")) {
-    uk = "w_" + uk.slice(4).replace(/[^a-f0-9\-]/gi, "").slice(0, 40);
-  } else {
-    uk = "anon";
-  }
+  const uk = await normalizeUserKey(p.user_key, env);
 
   const country = (request.cf && request.cf.country) || null; // только страна, IP не пишем
   const utm = p.utm && typeof p.utm === "object" ? p.utm : {};
@@ -182,6 +194,70 @@ async function handleEvent(request, env, origin) {
     console.error("event insert failed:", e.message);
     return jsonResp({ ok: true, stored: false }, 200, origin); // аналитика не должна ломать приложение
   }
+}
+
+/* ---------- 3. заявки на скины (этап 2) ---------- */
+async function notifyAdmin(env, text) {
+  const token = env.BOT_TOKEN;
+  if (!token) { console.error("BOT_TOKEN не задан — уведомление админу не отправлено"); return; }
+  const chatId = env.ADMIN_CHAT_ID || "506487479";
+  const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+  });
+  if (!r.ok) throw new Error("telegram " + r.status);
+}
+async function handleSkinRequest(request, env, origin) {
+  let p;
+  try { p = await request.json(); }
+  catch { return jsonResp({ error: "Некорректный JSON" }, 400, origin); }
+
+  // honeypot: скрытое поле заполнил только бот — тихо «проглатываем», как будто отправлено
+  if (String(p.hp || "").trim() !== "") return jsonResp({ ok: true }, 200, origin);
+
+  const name = String(p.name || "").trim().replace(/\s+/g, " ").slice(0, 60);
+  const description = String(p.description || "").trim().slice(0, 1000);
+  const contact = String(p.contact || "").trim().slice(0, 80);
+  if (name.length < 3) return jsonResp({ error: "Название: от 3 до 60 символов" }, 400, origin);
+  if (/[\u0000-\u001f\u007f]/.test(name + description + contact))
+    return jsonResp({ error: "Недопустимые символы в тексте" }, 400, origin);
+  if (p.consent !== true) return jsonResp({ error: "Нужно согласие на обработку данных" }, 400, origin);
+
+  const channel = p.channel === "miniapp" ? "miniapp" : "site";
+  const uk = await normalizeUserKey(p.user_key, env);
+  const country = (request.cf && request.cf.country) || null; // только страна, IP не пишем
+  const day = dayStr(Date.now());
+
+  if (env.DB) {
+    try {
+      const prev = await env.DB.prepare(
+        "SELECT COUNT(*) n FROM skin_requests WHERE user_key = ? AND day >= ?"
+      ).bind(uk, day).first();
+      if (prev && prev.n > 0)
+        return jsonResp({ error: "Заявка уже отправлена сегодня — загляните завтра" }, 429, origin);
+      await env.DB.prepare(
+        "INSERT INTO skin_requests (ts, day, name, description, contact, channel, user_key, country) VALUES (?,?,?,?,?,?,?,?)"
+      ).bind(Math.floor(Date.now() / 1000), day, name, description || null, contact || null, channel, uk, country).run();
+    } catch (e) {
+      console.error("skin_request insert failed:", e.message);
+      return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
+    }
+  }
+
+  // уведомление админу: заявку нельзя терять, поэтому шлём в Telegram даже без D1
+  const tgText =
+    "🎨 Заявка на свой стиль\n\n" +
+    "Название: " + name +
+    (description ? "\nОписание: " + description : "") +
+    (contact ? "\nКонтакт: " + contact : "") +
+    "\nКанал: " + channel +
+    (country ? " · Страна: " + country : "") +
+    (env.DB ? "" : "\n\n⚠️ D1 не привязана — заявка не сохранена в базу, ответь из этого сообщения!");
+  try { await notifyAdmin(env, tgText); }
+  catch (e) { console.error("telegram notify failed:", e.message); } // заявка в D1 сохранена — не роняем ответ
+
+  return jsonResp({ ok: true, stored: !!env.DB }, 200, origin);
 }
 
 async function statsData(env) {
@@ -247,6 +323,7 @@ async function handleAdminStats(env, origin) {
   const dons = await all("SELECT date, amount, note FROM donations ORDER BY date DESC LIMIT 30");
   const donSum = await one("SELECT COALESCE(SUM(amount),0) s, COUNT(*) n FROM donations");
   const donateOpens = await one("SELECT COUNT(*) n FROM events WHERE event='donate_open' AND day >= ?", d30);
+  const skinReqs = await all("SELECT day, name, contact, channel, country FROM skin_requests ORDER BY ts DESC LIMIT 20");
   const recent = await all("SELECT day, event, channel, country, COALESCE(utm_source,'') s FROM events ORDER BY ts DESC LIMIT 25");
 
   const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -288,6 +365,8 @@ ${rows(pub.sources, s => `<tr><td>${esc(s.source)}</td><td>${s.users}</td></tr>`
 <button>Добавить донат</button></form>
 <table><tr><th>Дата</th><th>Сумма</th><th>Комментарий</th></tr>
 ${rows(dons, d => `<tr><td>${esc(d.date)}</td><td>${d.amount} ₽</td><td>${esc(d.note)}</td></tr>`)}</table>
+<h2>Заявки на свои стили</h2><table><tr><th>День</th><th>Название</th><th>Контакт</th><th>Канал</th><th>Страна</th></tr>
+${skinReqs.length ? rows(skinReqs, s => `<tr><td>${esc(s.day)}</td><td>${esc(s.name)}</td><td>${esc(s.contact || "—")}</td><td>${esc(s.channel)}</td><td>${esc(s.country || "—")}</td></tr>`) : `<tr><td colspan="5">пока нет заявок</td></tr>`}</table>
 <h2>Последние события</h2><table><tr><th>День</th><th>Событие</th><th>Канал</th><th>Страна</th><th>Источник</th></tr>
 ${rows(recent, r => `<tr><td>${r.day}</td><td>${esc(r.event)}</td><td>${r.channel}</td><td>${esc(r.country || "—")}</td><td>${esc(r.s)}</td></tr>`)}</table>
 <script>function fd(f){fetch('/api/admin/donation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:+f.amount.value,date:f.date.value,note:f.note.value})}).then(()=>location.reload());return false}</script>
@@ -327,6 +406,7 @@ export default {
 
     if (request.method === "POST" && path === "") return handleIntake(request, env, origin);
     if (request.method === "POST" && path === "/api/event") return handleEvent(request, env, origin);
+    if (request.method === "POST" && path === "/api/skin-request") return handleSkinRequest(request, env, origin);
     if (request.method === "GET" && path === "/api/stats/public") return handlePublicStats(env, origin);
     if (path === "/admin/stats" || path === "/api/admin/donation") {
       if (!checkAdmin(request, env)) return needAuth(origin);
