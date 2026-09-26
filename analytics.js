@@ -160,7 +160,8 @@
     userKey: userKey, // для форм (заявка на скин): тот же обезличенный ключ, что в событиях
     // заглушки под будущее (этапы 2–3) — функции уже есть, события улетят, когда появится UI
     subscribeInterest: function (where) { send("subscribe_interest", { where: where || null }); },
-    bannerPromoClick: function (id) { send("banner_promo_click", { id: id || null }); }
+    bannerPromoClick: function (id) { send("banner_promo_click", { id: id || null }); },
+    shareClick: function (meta) { send("share_click", meta || null); }
   };
 
   /* ----- init ----- */

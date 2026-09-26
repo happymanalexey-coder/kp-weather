@@ -8,6 +8,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Погода">
 <title>Погода в горах, на море и дома — Красная Поляна</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Погода в горах, на море и дома">
+<meta property="og:title" content="Погода в горах, на море и дома — Красная Поляна">
+<meta property="og:description" content="Консенсус-прогноз из пяти мировых метеоисточников по 52 точкам: Красная Поляна, Сочи, Абхазия, Бали. Время местное для каждой точки.">
+<meta property="og:url" content="https://pogoda-pro.ru/">
+<meta property="og:image" content="https://pogoda-pro.ru/icons/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -134,6 +143,9 @@
         <div class="fb-title">Добавить точку</div>
         <input id="fb-name" class="fb-input" placeholder="Название" maxlength="40" autocomplete="off">
         <input id="fb-coords" class="fb-input" placeholder="Координаты: 43.472, 40.534" autocomplete="off">
+        <input id="fb-tg" class="fb-input" placeholder="Ник в Telegram — сообщим о публикации (необязательно)" maxlength="33" autocomplete="off">
+        <label class="sk-consent"><input type="checkbox" id="fb-agree">
+          <span>Согласен(на) на обработку персональных данных (ник Telegram) — <a href="/privacy/" target="_blank" rel="noopener">подробнее</a></span></label>
         <div class="fb-err hidden" id="fb-err"></div>
         <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~30 минут.</div>
         <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
@@ -153,6 +165,7 @@
       <div class="fb-title">Поддержать проект</div>
       <div class="fb-text">Не получилось открыть ссылку автоматически.<br>Скопируйте её и откройте в браузере:</div>
       <div class="fb-text dn-link"><b>tbank.ru/cf/83mAzHJg3A</b></div>
+      <div class="fb-text dp-sbp-req" hidden></div>
       <button class="fb-go" onclick="donateCopy()">Скопировать ссылку</button>
       <button class="fb-cancel" onclick="closeDonateFallback()">Закрыть</button>
     </div>

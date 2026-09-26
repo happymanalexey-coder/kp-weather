@@ -111,5 +111,32 @@ for (const p of POINTS) {
   await sleep(1200); // вежливость к API
 }
 
+/* --- этап 3: конфиг-флаги выключены, генератор OG-страниц --- */
+console.log("\n== Этап 3: монетизация выключена, OG-страницы ==");
+ok(/PROMO_BANNER\s*=\s*\{[\s\S]*?enabled:\s*false/.test(asrc), "промо-слот выключен по умолчанию (enabled: false)");
+ok(/point_add:\s*false/.test(asrc) && /skin_custom:\s*false/.test(asrc) && /point_pin:\s*false/.test(asrc),
+  "все PAID_ACTIONS выключены (false = бесплатно, текущее поведение)");
+ok(/FREE_POINTS_LIMIT\s*=\s*3/.test(asrc), "free_points_limit = 3");
+ok(/function paidGate\(/.test(asrc) && /share_click/.test(fs.readFileSync(root + "analytics.js", "utf8")),
+  "единая проверка paidGate + событие share_click в аналитике");
+
+const os = await import("node:os");
+const tmpOut = fs.mkdtempSync(os.tmpdir() + "/kp-og-");
+const { generatePages } = await import("./gen_point_pages.mjs");
+const rep = await generatePages({ ids: ["rosa-pik"], outdir: tmpOut, agg: wctx.__agg, sleepMs: 0 });
+ok(rep.length === 1 && rep[0].ok, "генератор OG-страницы отработал по живым данным");
+const page = fs.readFileSync(tmpOut + "/rosa-pik/index.html", "utf8");
+ok(page.includes('property="og:title"') && /Погода на Роза Пик: консенсус -?\d+°, разброс \d+°/.test(page),
+  "og:title: «Погода на {название}: консенсус {X}°, разброс {Y}°»");
+ok(page.includes('property="og:description"') && page.includes('property="og:image"') &&
+  page.includes("https://pogoda-pro.ru/icons/og-cover.png"), "og:description и og:image на месте");
+ok(page.includes('url=/#point/rosa-pik') && page.includes('location.replace("/#point/rosa-pik")'),
+  "страница редиректит на /#point/rosa-pik (deep link)");
+ok(fs.existsSync(root + "icons/og-cover.png"), "обложка og-cover.png существует");
+const pointPages = fs.readdirSync(root + "point").filter(d => fs.existsSync(root + "point/" + d + "/index.html"));
+const totalPoints = JSON.parse(fs.readFileSync(root + "data/points.json", "utf8")).points.length;
+ok(pointPages.length === totalPoints, `страницы point/<id>/ на все ${totalPoints} точек (сейчас ${pointPages.length})`);
+fs.rmSync(tmpOut, { recursive: true, force: true });
+
 console.log("\n" + (fails ? `❌ ПРОВАЛОВ: ${fails}` : "✅ ВСЕ ПРОВЕРКИ ЗЕЛЁНЫЕ"));
 process.exit(fails ? 1 : 0);

@@ -72,11 +72,44 @@ server.py + web/ — dev-зеркало для локальной разрабо
 | `DONATE_URL` | `https://www.tbank.ru/cf/83mAzHJg3A` | кнопка «Поддержать проект» (сбор Т-Банк) |
 | `AUTHOR_TG` | `https://t.me/go_ride_bro` | кнопка «Написать автору» — сразу личные сообщения |
 | `FORM_BOT` | `https://t.me/Pagoda_assistant_bot` | бот приёма точек (ассистент, 24/7) |
-| `SITE_URL` | `https://pogoda-pro.ru/` | сайт-визитка |
+| `SITE_URL` | `https://pogoda-pro.ru/` | сайт-визитка; база коротких ссылок `/point/<id>` |
 | `COMMUNITY_URL` | placeholder | комьюнити (зарезервировано) |
 | `SBP_URL` | `PENDING_SBP` | (резерв) разовая поддержка СБП |
+| `PROMO_BANNER` | `enabled: false` | промо-слот: `title`, `text`, `link`, `place: "top"` — верх главного экрана |
+| `PAID_ACTIONS` | все `false` | платные действия: `point_add`, `skin_custom`, `point_pin` — `true` = заглушка «скоро» |
+| `FREE_POINTS_LIMIT` | `3` | бесплатных закреплений на главной (когда включится `point_pin`) |
 
 Подписка от 0 ₽/мес временно скрыта — вернём с ЮKassa.
+
+Реквизиты доната на фронте приходят из воркера: `GET /api/donate-config`
+→ `{donate_url, sbp}` (env `DONATE_URL`, `SBP_REQUISITES`; дефолты в коде воркера).
+
+## 4.1. Шеринг и deep links (этап 3)
+
+- **Сайт:** `https://pogoda-pro.ru/point/<id>` — статическая страница
+  `point/<id>/index.html` с OG-тегами (`og:title` «Погода на {название}:
+  консенсус {X}°, разброс {Y}°», `og:description`, `og:image`) и редиректом
+  на `/#point/<id>`. Генератор: `node tools/gen_point_pages.mjs`
+  (консенсус считает боевой `weather.js`); ежедневная регенерация —
+  `.github/workflows/og-refresh.yml`. Обложка: `python3 tools/gen_og.py` →
+  `icons/og-cover.png`.
+- **Mini-app:** `startapp=point_<id>` открывает точку; комбинации через `__`:
+  `point_<id>__src_vk__skin_bali` (старые `src_`/`skin_` работают как раньше).
+- **Кнопка «Поделиться»** на экране точки: сайт — Web Share API с фолбэком
+  на копирование ссылки, mini-app — `t.me/share/url`. Событие `share_click`.
+
+## 4.2. Отложенное (этап 3, НЕ реализовано — только флаги и заготовки)
+
+- **Подписка** — событие `subscribe_interest` уже шлётся (`analytics.js`),
+  UI и оплаты нет.
+- **Платное добавление/закрепление точек** — флаги `PAID_ACTIONS`
+  (`point_add`, `point_pin`) + `FREE_POINTS_LIMIT`; при `true` действие
+  перехватывает `paidGate()` и показывает заглушку «скоро». Платёжных
+  шлюзов нет.
+- **Продажа партнёрских скинов** — erid-разметка готова с этапа 2
+  (`skins/skins.json`, `badge: "ad"`, события `skin_view`/`skin_apply`).
+- **Платный зарубеж** — те же источники, отдельная зона покрытия; флаг
+  появится здесь, когда дойдёт.
 
 ## 5. Приём точек
 

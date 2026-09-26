@@ -2,11 +2,14 @@
  * pogoda-intake — Cloudflare Worker (бесплатный тариф).
  *
  * Две функции:
- *  1. POST /            — приём точек {name, lat, lon} → data/web_inbox.json (GitHub API),
+ *  1. POST /            — приём точек {name, lat, lon[, tg, consent]} → data/web_inbox.json (GitHub API),
  *                         дальше GitHub Actions публикует в points.json (каждые 15 мин).
+ *                         tg — ник Telegram, сохраняется ТОЛЬКО с consent: true (легальная база контактов).
  *  2. Аналитика (этап 1):
  *     POST /api/event           — событие {event, channel, user_key, utm, meta, ts} → D1.
  *     GET  /api/stats/public    — обезличенные агрегаты для страницы /stats.
+ *     GET  /api/donate-config   — {donate_url, sbp} для донат-панели; реквизиты из env
+ *                                 (DONATE_URL, SBP_REQUISITES), дефолты в коде.
  *     GET  /admin/stats         — приватная HTML-админка (Basic Auth) + форма доната.
  *     POST /api/admin/donation  — ручной ввод доната {amount, date, note} (Basic Auth).
  *  3. Заявки на скины (этап 2):
@@ -114,12 +117,23 @@ async function githubPutSha(token, sha, content) {
       body: JSON.stringify(body) });
   if (!r.ok) throw new Error("github put " + r.status);
 }
+const TG_NICK_RE = /^[A-Za-z0-9_]{4,32}$/; // правила ника Telegram, без @
 async function handleIntake(request, env, origin) {
   let payload;
   try { payload = await request.json(); }
   catch { return jsonResp({ error: "Некорректный JSON" }, 400, origin); }
   const v = validate(String(payload.name || ""), payload.lat, payload.lon);
   if (v.error) return jsonResp({ error: v.error }, 400, origin);
+  // ник Telegram — необязателен; без явного согласия не сохраняем (152-ФЗ)
+  const tgRaw = String(payload.tg || "").trim().replace(/^@/, "");
+  let tg = null;
+  if (tgRaw) {
+    if (!TG_NICK_RE.test(tgRaw))
+      return jsonResp({ error: "Некорректный ник Telegram (латиница, цифры и «_», 4–32 символа)" }, 400, origin);
+    if (payload.consent !== true)
+      return jsonResp({ error: "Нужно согласие на обработку данных" }, 400, origin);
+    tg = "@" + tgRaw;
+  }
   const ip = request.headers.get("CF-Connecting-IP") || "anon";
   const uid = (await sha256hex(ip + (env.IP_SALT || "pogoda"))).slice(0, 16);
   const entry = {
@@ -129,6 +143,7 @@ async function handleIntake(request, env, origin) {
     uid,
     ts: Math.floor(Date.now() / 1000),
   };
+  if (tg) { entry.tg = tg; entry.consent = true; }
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const { sha, content } = await githubGetSha(env.GITHUB_TOKEN);
@@ -394,6 +409,14 @@ async function handleDonation(request, env, origin) {
   return jsonResp({ ok: true }, 200, origin);
 }
 
+/* ---------- донат-конфиг (этап 3): реквизиты из env, дефолты в коде ---------- */
+function handleDonateConfig(env, origin) {
+  return jsonResp({
+    donate_url: env.DONATE_URL || "https://www.tbank.ru/cf/83mAzHJg3A",
+    sbp: env.SBP_REQUISITES || null, // реквизиты СБП (переменная воркера), null — не показываем
+  }, 200, origin);
+}
+
 /* ---------- роутер ---------- */
 export default {
   async fetch(request, env) {
@@ -408,6 +431,7 @@ export default {
     if (request.method === "POST" && path === "/api/event") return handleEvent(request, env, origin);
     if (request.method === "POST" && path === "/api/skin-request") return handleSkinRequest(request, env, origin);
     if (request.method === "GET" && path === "/api/stats/public") return handlePublicStats(env, origin);
+    if (request.method === "GET" && path === "/api/donate-config") return handleDonateConfig(env, origin);
     if (path === "/admin/stats" || path === "/api/admin/donation") {
       if (!checkAdmin(request, env)) return needAuth(origin);
       if (path === "/admin/stats" && request.method === "GET") return handleAdminStats(env, origin);

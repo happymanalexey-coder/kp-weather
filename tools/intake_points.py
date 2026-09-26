@@ -255,7 +255,7 @@ def process_inbox(points, state, now):
             print(f"inbox skip: bad coords {name_raw!r}")
             skipped += 1
             continue
-        user = {"id": "web:" + str(item.get("uid") or "anon"), "username": None}
+        user = {"id": "web:" + str(item.get("uid") or "anon"), "username": item.get("tg") or None}
         ok, reply = accept_point(points, state, name_raw, lat, lon, user, "web", now)
         added += 1 if ok else 0
         skipped += 0 if ok else 1

@@ -12,6 +12,32 @@ const INTAKE_API = "https://pogoda-intake.happymanalexey.workers.dev"; // при
 const SBP_URL = "PENDING_SBP";                                // (резерв) разовая поддержка СБП
 const HOME_LIMIT = 24;                                        // максимум виджетов на главной
 
+/* ---------- КОНФИГ МОНЕТИЗАЦИИ (этап 3): всё по умолчанию ВЫКЛЮЧЕНО ----------
+   Платёжных шлюзов нет и не будет до отдельного этапа: true = заглушка «скоро»,
+   false = текущее бесплатное поведение. Проверка — единая, через paidGate(). */
+const PAID_ACTIONS = {
+  point_add: false,   // платное добавление новой точки в библиотеку (форма «Добавить точку»)
+  skin_custom: false, // платный кастомный скин (форма «Заказать стиль»)
+  point_pin: false,   // платное закрепление точки на главной (библиотека → «Добавить»)
+};
+const FREE_POINTS_LIMIT = 3; // бесплатных закреплений на главной (учитывается, когда point_pin включится)
+
+/* Промо-слот: механика заложена сейчас, включится потом.
+   place: "top" — верх главного экрана; другие места — в будущем. */
+const PROMO_BANNER = {
+  enabled: false,
+  title: "",
+  text: "",
+  link: "",
+  place: "top",
+};
+
+/* ОТЛОЖЕННОЕ (этап 3, НЕ реализуем — только флаги/заготовки, см. README «Отложенное»):
+   • подписка — событие subscribe_interest уже шлётся (analytics.js), UI и оплаты нет;
+   • платное добавление/закрепление точек — флаги PAID_ACTIONS выше;
+   • продажа партнёрских скинов — erid-разметка готова с этапа 2 (skins/skins.json, badge "ad");
+   • платный зарубеж — те же источники, отдельная зона покрытия. */
+
 /* Ближайшие вершины Mountain-Forecast (проверено: страницы существуют) */
 const MF_MAP = {
   "achishkho-glavnaya": "Mount-Fisht", "belye-skaly": "Mount-Fisht",
@@ -172,6 +198,16 @@ function openSite() {
   window.open(SITE_URL, "_blank", "noopener");
 }
 
+/* ---------- механизм «платное действие» (этап 3): единая проверка ----------
+   false в PAID_ACTIONS = бесплатно, текущее поведение; true = заглушка «скоро»
+   (платёжных шлюзов нет). Возвращает true, если действие перехвачено. */
+function isPaidAction(action) { return PAID_ACTIONS[action] === true; }
+function paidGate(action) {
+  if (!isPaidAction(action)) return false;
+  soonHint("Скоро — эта возможность ещё в работе 🙏");
+  return true;
+}
+
 /* ---------- тема (тёмная ↔ светлая), луна/солнце в шапке ---------- */
 function applyTgColors() {
   try {
@@ -289,6 +325,8 @@ function pushRecent(id) {
 function libAdd(id) {
   const ids = homeBaseIds();
   if (!ids.includes(id)) {
+    // платное закрепление (сейчас выключено): бесплатных — FREE_POINTS_LIMIT, дальше заглушка «скоро»
+    if (isPaidAction("point_pin") && ids.length >= FREE_POINTS_LIMIT) { paidGate("point_pin"); return; }
     if (ids.length >= HOME_LIMIT) {
       soonHint(`На главной максимум ${HOME_LIMIT} виджета — уберите лишние (зажмите карточку)`);
       return;
@@ -315,6 +353,27 @@ function homeActionsHtml() {
     </div>`;
 }
 
+/* ---------- промо-слот (этап 3): заложен, выключен. place: "top" — верх главного экрана ---------- */
+function promoBannerHtml() {
+  if (!PROMO_BANNER.enabled || PROMO_BANNER.place !== "top") return "";
+  return `
+    <button class="promo-banner" onclick="promoGo()">
+      <span class="pb-title">${esc(PROMO_BANNER.title)}</span>
+      <span class="pb-text">${esc(PROMO_BANNER.text)}</span>
+    </button>`;
+}
+function promoGo() {
+  if (window.KP_ANALYTICS) KP_ANALYTICS.bannerPromoClick(PROMO_BANNER.place);
+  if (isPlaceholder(PROMO_BANNER.link)) return soonHint("Скоро");
+  let opened = false;
+  try {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+      Telegram.WebApp.openLink(PROMO_BANNER.link); opened = true;
+    }
+  } catch (e) {}
+  if (!opened) { try { opened = !!window.open(PROMO_BANNER.link, "_blank", "noopener"); } catch (e) {} }
+}
+
 function renderHome() {
   const list = document.getElementById("points-list");
   if (!POINTS.length) return;
@@ -322,6 +381,7 @@ function renderHome() {
   const ids = homeIdsOrdered();
   list.classList.toggle("editing", editMode);
   list.innerHTML =
+    promoBannerHtml() +
     (editMode ? `<div class="edit-bar">Тяни карточки, чтобы менять порядок · ✕ убирает с главной
       <button class="edit-done" onclick="exitEditMode()">Готово</button></div>` : "") +
     ids.map(id => {
@@ -546,6 +606,7 @@ const FB_BAD_WORDS = ["хуй","хуя","хуе","хуи","пизд","бляд",
   "мудак","мудил","сукa","сука","пидор","пидар","гандон","шлюх","залуп","мандa","манда"];
 
 function openFeedback() {
+  if (paidGate("point_add")) return; // платное добавление точки (сейчас выключено — бесплатно)
   const m = document.getElementById("fb-modal");
   if (m) m.classList.remove("hidden");
   const form = document.getElementById("fb-form");
@@ -625,17 +686,30 @@ async function feedbackSubmit() {
   const coordsEl = document.getElementById("fb-coords");
   const r = validateSuggestion(nameEl && nameEl.value, coordsEl && coordsEl.value);
   if (r.error) { fbShowError(r.error); return; }
+  // ник в Telegram — необязателен; отправляем только с галкой согласия (легальная база контактов)
+  const tgEl = document.getElementById("fb-tg");
+  const agreeEl = document.getElementById("fb-agree");
+  const tgNick = String((tgEl && tgEl.value) || "").trim().replace(/^@/, "");
+  if (tgNick && !/^[A-Za-z0-9_]{4,32}$/.test(tgNick)) {
+    fbShowError("Ник в Telegram: латиница, цифры и «_», 4–32 символа, без @"); return;
+  }
+  const consent = !!(agreeEl && agreeEl.checked);
+  if (tgNick && !consent) {
+    fbShowError("Чтобы оставить ник, отметьте согласие на обработку данных"); return;
+  }
   // единый канал для сайта и mini-app: POST на приёмник, никаких переходов в чат бота
   if (!INTAKE_API) { fbShowError("Сервис приёма точек перезапускается — попробуйте через пару минут"); return; }
   try {
+    const body = { name: r.name, lat: r.lat, lon: r.lon };
+    if (tgNick) { body.tg = "@" + tgNick; body.consent = true; }
     const resp = await fetch(INTAKE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: r.name, lat: r.lat, lon: r.lon }),
+      body: JSON.stringify(body),
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) { fbShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); return; }
-    if (window.KP_ANALYTICS) KP_ANALYTICS.track("point_suggest", { name: r.name });
+    if (window.KP_ANALYTICS) KP_ANALYTICS.track("point_suggest", { name: r.name, contact: !!tgNick });
     showFbSent();
   } catch (e) {
     fbShowError("Не получилось отправить — проверьте соединение и попробуйте ещё раз");
@@ -690,6 +764,9 @@ async function loadPoint(id) {
     return;
   }
   document.getElementById("sticky-name").textContent = point ? point.name : "";
+  document.title = point
+    ? "Погода на " + point.name + " — консенсус пяти источников"
+    : "Погода в горах, на море и дома — Красная Поляна";
   const sb = document.getElementById("sticky-badge");
   if (sb) sb.innerHTML = point && point.verified !== false ? ICONS.badge : "";
   if (!point) {
@@ -754,7 +831,7 @@ async function loadPoint(id) {
 
   const SHOW_EXT_LINKS = false; // временно скрыты кнопки Windy / Yr.no / Mountain-Forecast
   box.innerHTML = `
-    <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
+    <h2 class="pt-title">${esc(p.name)} <button class="globe-btn pt-globe" onclick="sharePoint('${p.id}')" aria-label="Поделиться" title="Поделиться">${ICONS.share}</button> <button class="globe-btn pt-globe" onclick="toggleMapChoice()" aria-label="Показать на карте" title="Показать на карте">${ICONS.globe}</button></h2>
     <div class="pt-sub">${esc(p.region)} · ${p.lat}, ${p.lon}${p.ele != null ? " · высота " + p.ele + " м" : ""}</div>
     <div class="map-choice hidden" id="map-choice">
       <a class="link-btn" href="${gmapsLink(p)}" target="_blank" rel="noopener">Google Maps</a>
@@ -911,11 +988,25 @@ function donateHtml() {
     <div class="donate-panel">
       <div class="dp-title">Мы сделали лучшее приложение для себя.<br>И этим хочется поделиться с каждым!</div>
       <button class="dp-go" onclick="donateGo()">Поддержать проект (СБП)</button>
+      <div class="dp-sbp-req" hidden></div>
     </div>`;
+}
+
+/* Реквизиты СБП — из env воркера (GET /api/donate-config); при недоступности просто не показываем */
+async function loadDonateConfig() {
+  const els = document.querySelectorAll(".dp-sbp-req");
+  if (!els.length) return;
+  try {
+    const r = await fetch(INTAKE_API + "/api/donate-config");
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j && j.sbp) els.forEach(el => { el.textContent = "СБП: " + j.sbp; el.hidden = false; });
+  } catch (e) {}
 }
 
 function donateGo() {
   if (window.KP_ANALYTICS) KP_ANALYTICS.track("donate_open", { channel_hint: (window.Telegram && Telegram.WebApp) ? "tg" : "web" });
+  loadDonateConfig(); // реквизиты СБП подтянем и в фолбэк-модалку
   if (isPlaceholder(DONATE_URL)) return soonHint("Ссылка на сбор появится чуть позже 🙏");
   let opened = false;
   try { // в Telegram mini-app — во внешний браузер, чтобы сработал переход в приложение Т-Банка
@@ -955,6 +1046,7 @@ const BADGE_FALLBACK = `<svg viewBox="0 0 24 24"><defs><linearGradient id="bs-g"
 const ICONS = Object.assign({}, WIC, {
   gear: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
   globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`,
+  share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1"/></svg>`,
   pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 21.2s-6.6-5.5-6.6-10.2a6.6 6.6 0 1 1 13.2 0c0 4.7-6.6 10.2-6.6 10.2z"/><circle cx="12" cy="10.6" r="2.3"/></svg>`,
   palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1 0 1.7-.7 1.7-1.6 0-.5-.18-.85-.45-1.13-.26-.29-.45-.64-.45-1.07 0-.9.73-1.6 1.6-1.6h1.9a3.7 3.7 0 0 0 3.7-3.7c0-3.9-4-6.5-8-6.5z"/><circle cx="7.4" cy="11" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.8" cy="7.8" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6l4.8 4.8L19.5 6.8"/></svg>`,
@@ -1145,6 +1237,7 @@ async function renderStyleList() {
 
 /* ---------- форма заявки на свой скин (карточка «Закажи свой стиль») ---------- */
 function openSkinRequest() {
+  if (paidGate("skin_custom")) return; // платный кастомный скин (сейчас выключено — бесплатно)
   const m = document.getElementById("sk-modal");
   if (!m) return;
   m.classList.remove("hidden");
@@ -1203,21 +1296,67 @@ async function skinRequestSubmit() {
   }
 }
 
-/* ---------- deep link на скин: ?skin=<id> / startapp=skin_<id> — просмотр БЕЗ сохранения ---------- */
+/* ---------- шеринг точки (этап 3): сайт — Web Share API / копирование, mini-app — t.me/share/url ----------
+   Ссылка короткая (SITE_URL + /point/<id>) — под будущие QR-коды партнёров. */
+function pointShareUrl(id) {
+  return SITE_URL.replace(/\/+$/, "") + "/point/" + encodeURIComponent(id);
+}
+function sharePoint(id) {
+  const p = POINTS.find(x => x.id === id);
+  const name = p ? p.name : id;
+  const url = pointShareUrl(id);
+  const text = "Погода на " + name + " — консенсус пяти источников";
+  const channel = (window.Telegram && Telegram.WebApp) ? "miniapp" : "site";
+  try { // в mini-app — нативный шеринг Telegram
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
+      if (window.KP_ANALYTICS) KP_ANALYTICS.shareClick({ point: id, channel: channel, via: "tg_share" });
+      Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text));
+      return;
+    }
+  } catch (e) {}
+  if (window.KP_ANALYTICS) KP_ANALYTICS.shareClick({ point: id, channel: channel, via: navigator.share ? "web_share" : "copy" });
+  if (navigator.share) { // сайт: системное меню «Поделиться»
+    navigator.share({ title: "Погода на " + name, text: text, url: url }).catch(() => {});
+    return;
+  }
+  const done = () => soonHint("Ссылка скопирована 📋"); // фолбэк: копирование ссылки
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => fallbackCopy(url, done));
+  else fallbackCopy(url, done);
+}
+
+/* ---------- deep links: startapp=point_<id>__src_x__skin_y (mini-app), ?skin=/?point= (сайт) ----------
+   Ссылка ведёт на конкретную точку; комбинации — через "__". Старые src_/skin_ работают как раньше. */
+function startParamParts() {
+  try {
+    let sp = null;
+    try { sp = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param; } catch (e) {}
+    if (!sp) { const q = new URLSearchParams(location.search); sp = q.get("startapp") || q.get("tgWebAppStartParam"); }
+    const out = {};
+    if (sp) String(sp).split("__").forEach(part => {
+      if (part.indexOf("point_") === 0) out.point = part.slice(6).slice(0, 60);
+      else if (part.indexOf("skin_") === 0) out.skin = part.slice(5).slice(0, 60);
+      else if (part.indexOf("src_") === 0) out.src = part.slice(4).slice(0, 60);
+    });
+    return out;
+  } catch (e) { return {}; }
+}
+/* deep link на скин: ?skin=<id> / startapp=skin_<id> — просмотр БЕЗ сохранения */
 function requestedSkinId() {
   try {
     const q = new URLSearchParams(location.search);
     let p = q.get("skin");
-    if (!p) {
-      let sp = null;
-      try { sp = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param; } catch (e) {}
-      if (!sp) sp = q.get("startapp") || q.get("tgWebAppStartParam");
-      if (sp) String(sp).split("__").forEach(part => {
-        if (part.indexOf("skin_") === 0) p = part.slice(5);
-      });
-    }
+    if (!p) p = startParamParts().skin || null;
     return p ? String(p).slice(0, 60) : null;
   } catch (e) { return null; }
+}
+/* deep link на точку: startapp=point_<id> / ?point=<id> — открываем сразу;
+   если каталог ещё грузится, loadHome повторит открытие по хэшу */
+function initPointLink() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const id = q.get("point") || startParamParts().point;
+    if (id) goPoint(String(id).slice(0, 60));
+  } catch (e) {}
 }
 async function previewSkin(id) {
   const skins = await loadSkinsReg();
@@ -1277,6 +1416,7 @@ function renderPanels() {
   if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
+  loadDonateConfig(); // реквизиты СБП из env воркера (тихо; при недоступности — не показываем)
 }
 
 /* ---------- роутинг ---------- */
@@ -1328,6 +1468,7 @@ function route() {
   } else {
     point.classList.add("hidden");
     home.classList.remove("hidden");
+    document.title = "Погода в горах, на море и дома — Красная Поляна";
     placeHeroInfo();
   }
 }
@@ -1371,4 +1512,5 @@ route();
 loadHome();
 initSkin() // стиль + бейдж из skins/; при смене перерисует текущий экран
   .then(syncFromCloud)        // CloudStorage: тема/стиль с других устройств (mini-app)
-  .then(initSkinLinkPreview); // ?skin=<id> / startapp=skin_<id> — показ без сохранения выбора
+  .then(initSkinLinkPreview)  // ?skin=<id> / startapp=skin_<id> — показ без сохранения выбора
+  .then(initPointLink);       // startapp=point_<id> / ?point=<id> — открыть точку по ссылке

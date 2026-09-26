@@ -31,13 +31,26 @@ const req = (method, path, body, headers = {}) => new Request("https://w.dev" + 
   body: body ? JSON.stringify(body) : undefined,
 });
 
-// Стаб fetch: перехватываем обращения к Telegram Bot API, остальное — в реальную сеть (не используется в тестах)
+// Стаб fetch: перехватываем Telegram Bot API и GitHub Contents API,
+// остальное — в реальную сеть (не используется в тестах)
 const tgCalls = [];
+const ghPuts = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
-  if (String(url).includes("api.telegram.org")) {
-    tgCalls.push({ url: String(url), body: opts && opts.body });
+  const u = String(url);
+  if (u.includes("api.telegram.org")) {
+    tgCalls.push({ url: u, body: opts && opts.body });
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }
+  if (u.includes("api.github.com")) {
+    if (opts && opts.method === "PUT") {
+      ghPuts.push(JSON.parse(opts.body));
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      sha: "testsha",
+      content: btoa(JSON.stringify({ inbox: [] })),
+    }), { status: 200 });
   }
   return realFetch(url, opts);
 };
@@ -141,6 +154,38 @@ r = await worker.fetch(req("POST", "/", { name: "Норм Точка", lat: 200,
 ok(r.status === 400, "координаты вне диапазона отклоняются");
 r = await worker.fetch(new Request("https://w.dev/api/event", { method: "OPTIONS", headers: { Origin: "https://pogoda-pro.ru" } }), env);
 ok(r.status === 204 && r.headers.get("Access-Control-Allow-Origin") === "https://pogoda-pro.ru", "preflight CORS работает");
+
+console.log("— приём точек: ник Telegram + согласие (этап 3) —");
+ghPuts.length = 0;
+r = await worker.fetch(req("POST", "/", { name: "Точка С Ником", lat: 43.6, lon: 40.2, tg: "@ivan_petrov", consent: true }), env);
+j = await r.json();
+ok(r.status === 200 && j.ok, "точка с ником и согласием принята");
+let inboxWritten = null;
+if (ghPuts.length) {
+  const content = JSON.parse(new TextDecoder().decode(
+    Uint8Array.from(atob(ghPuts[0].content), c => c.charCodeAt(0))));
+  inboxWritten = content.inbox && content.inbox[0];
+}
+ok(inboxWritten && inboxWritten.tg === "@ivan_petrov" && inboxWritten.consent === true,
+  "ник и согласие записаны в inbox");
+
+r = await worker.fetch(req("POST", "/", { name: "Ник Без Согласия", lat: 43.6, lon: 40.2, tg: "@ivan" }), env);
+ok(r.status === 400, "ник без согласия — 400 (не храним контакты без базы)");
+r = await worker.fetch(req("POST", "/", { name: "Кривой Ник", lat: 43.6, lon: 40.2, tg: "ivan!!", consent: true }), env);
+ok(r.status === 400, "некорректный ник — 400");
+r = await worker.fetch(req("POST", "/", { name: "Без Ника", lat: 43.6, lon: 40.2 }), env);
+j = await r.json();
+ok(r.status === 200 && j.ok, "точка без ника принята (ник необязателен)");
+
+console.log("— /api/donate-config (этап 3) —");
+r = await worker.fetch(req("GET", "/api/donate-config"), env);
+j = await r.json();
+ok(r.status === 200 && j.donate_url === "https://www.tbank.ru/cf/83mAzHJg3A" && j.sbp === null,
+  "без env — дефолтный donate_url, sbp null");
+r = await worker.fetch(req("GET", "/api/donate-config"), { ...env, DONATE_URL: "https://example.com/d", SBP_REQUISITES: "+7 900 000-00-00" });
+j = await r.json();
+ok(j.donate_url === "https://example.com/d" && j.sbp === "+7 900 000-00-00",
+  "реквизиты берутся из env");
 
 console.log(`\nИТОГ: ${passed} пройдено, ${failed} провалено`);
 process.exit(failed ? 1 : 0);
