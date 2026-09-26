@@ -4,7 +4,7 @@
    Всё деградирует тихо: нет воркера/D1 — приложение работает как раньше. */
 (function () {
   "use strict";
-  var YM_COUNTER_ID = ""; // TODO: вписать ID счётчика Яндекс.Метрики, когда будет создан
+  var YM_COUNTER_ID = "113082743"; // Яндекс.Метрика, pogoda-pro.ru
   var API = "https://pogoda-intake.happymanalexey.workers.dev";
   var COOKIE_CONSENT = "kp_consent";   // yes | no
   var COOKIE_UUID = "kp_uid";
