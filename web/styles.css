@@ -416,6 +416,9 @@ body {
   margin-bottom: 8px; outline: none;
 }
 .fb-input:focus { border-color: var(--accent); }
+.fb-input { cursor: text; }
+.fb-input.fb-soon { cursor: pointer; } /* поле-заготовка: видно, но неактивно */
+#fb-form .fb-go { margin-bottom: 12px; } /* зазор между двумя зелёными кнопками */
 .fb-err {
   background: var(--red-soft); color: var(--red); border-radius: var(--r-btn);
   padding: 8px 12px; font-size: 13px; margin-bottom: 8px; text-align: left;

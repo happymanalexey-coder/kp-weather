@@ -216,5 +216,46 @@ console.log("\n== Этап 7: регрессия симптома (синтет�
     "синтетика: hourPrecipCode синтезирует дождь при молчаливом коде и не трогает сухие часы");
 }
 
+/* --- этап 8Б: интерфейс и ссылки --- */
+console.log("\n== Этап 8Б: интерфейс и ссылки ==");
+{
+  const hsrc = fs.readFileSync(root + "index.html", "utf8");
+  const cssSrc = fs.readFileSync(root + "styles.css", "utf8");
+  const ptsData = JSON.parse(fs.readFileSync(root + "data/points.json", "utf8"));
+  // Блок 1: модалка «Добавить точку»
+  ok(!/Отправить в поддержку/.test(hsrc), "кнопка переименована в «Добавить точку»");
+  const o1 = hsrc.indexOf('onclick="feedbackSubmit()">Добавить точку<');
+  const o2 = hsrc.indexOf('>Поддержать проект (СБП)</button>', o1);
+  const o3 = hsrc.indexOf('fb-cancel" onclick="closeFeedback()">Отмена<', o2);
+  ok(o1 > 0 && o1 < o2 && o2 < o3, "порядок кнопок: Добавить точку → СБП → Отмена");
+  ok(/#fb-form \.fb-go \{ margin-bottom: 12px/.test(cssSrc), "зазор ~12px между зелёными кнопками");
+  ok(/id="fb-link"[^>]*class="fb-input fb-soon"/.test(hsrc) && /this\.blur\(\)/.test(hsrc),
+    "поле «Ссылка на вас или ваш бизнес» видно, но неактивно");
+  ok(!/fb-link/.test(asrc), "поле ссылки никак не участвует в отправке заявки");
+  // Блок 2: панель убрана, механизм сохранён
+  ok(!/popularCitiesHtml/.test(asrc), "панель «Популярные города» убрана с главной");
+  ok(/data\/cities\.json/.test(asrc) && /function cityToPoint/.test(asrc),
+    "механизм cities.json (библиотека, поиск, погода) сохранён");
+  // Блок 3: звёздочки всем
+  ok(ptsData.points.length > 0 && ptsData.points.every(p => p.verified === true),
+    `verified:true у всех ${ptsData.points.length} точек библиотеки`);
+  ok(/verified: true/.test(asrc), "города получают звезду через cityToPoint");
+  // Блок 4: замок и только base
+  ok(/function styleLocked\(/.test(asrc) && /lock: `<svg/.test(asrc) && /data-icon="lock"/.test(hsrc),
+    "«Сменить стиль»: пункт с иконкой замка, вход закрыт");
+  ok(/if \(h === "#style"\) \{ styleLocked\(\)/.test(asrc), "прямая ссылка #style тоже закрыта");
+  ok(/PUBLIC_SKINS = \["base"\]/.test(asrc) && /!PUBLIC_SKINS\.includes\(id\)/.test(asrc),
+    "по ссылкам (?skin=/skin_) валиден только base, прочие — тихий фолбэк");
+  // Блок 5: наборы точек
+  ok(/const POINT_SETS = \{[\s\S]*?kuban: \[/.test(asrc), "POINT_SETS с тестовым набором kuban");
+  const km = asrc.match(/kuban: \[([^\]]+)\]/);
+  const kubanIds = km ? km[1].match(/"([^"]+)"/g).map(s => s.slice(1, -1)) : [];
+  ok(kubanIds.length > 0 && kubanIds.every(id => ptsData.points.some(p => p.id === id)),
+    "набор kuban состоит только из существующих точек");
+  ok(/indexOf\("set_"\) === 0\) out\.set/.test(asrc), "парсер startapp=set_<id> (комбинации через __)");
+  ok(/localStorage\.getItem\("kp_home_ids"\)\) return/.test(asrc),
+    "сидинг набора только при первом визите (выбор пользователя не трогаем)");
+}
+
 console.log("\n" + (fails ? `❌ ПРОВАЛОВ: ${fails}` : "✅ ВСЕ ПРОВЕРКИ ЗЕЛЁНЫЕ"));
 process.exit(fails ? 1 : 0);

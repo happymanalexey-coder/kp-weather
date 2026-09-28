@@ -105,7 +105,7 @@
     <div class="set-list">
       <button class="set-row" onclick="openLibrary()"><span class="sic" data-icon="globe"></span>Библиотека точек</button>
       <button class="set-row" onclick="openFeedback()"><span class="sic" data-icon="pin"></span>Добавить точку</button>
-      <button class="set-row" onclick="openStyle()"><span class="sic" data-icon="palette"></span>Сменить стиль</button>
+      <button class="set-row" onclick="styleLocked()"><span class="sic" data-icon="lock"></span>Сменить стиль</button>
       <button class="dp-sbp" onclick="donateGo()">Поддержать проект (СБП)</button>
     </div>
   </div>
@@ -146,9 +146,11 @@
         <input id="fb-tg" class="fb-input" placeholder="Ник в Telegram — сообщим о публикации (необязательно)" maxlength="33" autocomplete="off">
         <label class="sk-consent"><input type="checkbox" id="fb-agree">
           <span>Согласен(на) на обработку персональных данных (ник Telegram) — <a href="/privacy/" target="_blank" rel="noopener">подробнее</a></span></label>
+        <input id="fb-link" class="fb-input fb-soon" placeholder="Ссылка на вас или ваш бизнес" autocomplete="off"
+               onfocus="this.blur()" onclick="soonHint('Мы работаем над этой возможностью и скоро предоставим её вам')">
         <div class="fb-err hidden" id="fb-err"></div>
         <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~30 минут.</div>
-        <button class="fb-go" onclick="feedbackSubmit()">Отправить в поддержку</button>
+        <button class="fb-go" onclick="feedbackSubmit()">Добавить точку</button>
         <button class="dp-sbp" onclick="closeFeedback(); donateGo()">Поддержать проект (СБП)</button>
         <button class="fb-cancel" onclick="closeFeedback()">Отмена</button>
       </div>

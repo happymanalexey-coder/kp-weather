@@ -216,7 +216,8 @@ function soonHint(text) {
   t.textContent = text;
   t.classList.add("show");
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+  // длинные сообщения (например, замок на стилях) читаются дольше
+  t._timer = setTimeout(() => t.classList.remove("show"), text.length > 80 ? 7000 : 2200);
 }
 function openSite() {
   if (isPlaceholder(SITE_URL)) return soonHint("Сайт-визитка скоро появится");
@@ -320,6 +321,25 @@ async function syncFromCloud() {
 /* Стартовые 8 карточек для нового пользователя. Состав — в одном месте, меняется здесь. */
 const STARTER_POINTS = ["rosa-pik", "rosa-dolina", "achishkho-glavnaya", "aibga",
                         "ritsa", "mamdzyshkha", "fisht", "oshten"];
+
+/* ---------- стартовые наборы по промо-ссылкам (?set=<id> / startapp=set_<id>) ----------
+   Применяются ТОЛЬКО при первом визите (ключа kp_home_ids ещё нет): выбор пользователя свят.
+   Наполнение наборов меняется здесь, одной строкой. Неизвестный id — обычные STARTER_POINTS. */
+const POINT_SETS = {
+  kuban: ["rosa-pik", "rosa-dolina", "roza-khutor-1100m", "achishkho-glavnaya",
+          "aibga", "laura-pichtovy", "fisht", "kanyon-psaho"],
+};
+function initPointSet(pts) {
+  try {
+    if (localStorage.getItem("kp_home_ids")) return; // пользователь уже был — ничего не перезаписываем
+    const q = new URLSearchParams(location.search);
+    const sid = q.get("set") || startParamParts().set;
+    const set = sid && POINT_SETS[sid];
+    if (!set) return; // неизвестный набор — молча стартовые 8
+    const ids = set.filter(id => pts.some(p => p.id === id));
+    if (ids.length) { saveHomeIds(ids); renderHome(); }
+  } catch (e) {}
+}
 function homeBaseIds() {
   let ids = null;
   try { ids = JSON.parse(localStorage.getItem("kp_home_ids") || "null"); } catch (e) {}
@@ -475,6 +495,7 @@ async function loadHome() {
       a.name.toLowerCase().localeCompare(b.name.toLowerCase(), "ru"));
     homeFailed = false;
     renderHome();
+    initPointSet(pts); // ?set=<id> / startapp=set_<id> — только первый визит
     const hm = location.hash.match(/^#point\/(.+)$/);
     if (hm) loadPoint(hm[1]); // каталог догрузился — повторяем открытие точки с прямой ссылки
   } catch (e) {
@@ -1110,6 +1131,7 @@ const BADGE_FALLBACK = `<svg viewBox="0 0 24 24"><defs><linearGradient id="bs-g"
 const ICONS = Object.assign({}, WIC, {
   gear: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
   globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5.5" y="10.5" width="13" height="9" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>`,
   share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1"/></svg>`,
   pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 21.2s-6.6-5.5-6.6-10.2a6.6 6.6 0 1 1 13.2 0c0 4.7-6.6 10.2-6.6 10.2z"/><circle cx="12" cy="10.6" r="2.3"/></svg>`,
   palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1 0 1.7-.7 1.7-1.6 0-.5-.18-.85-.45-1.13-.26-.29-.45-.64-.45-1.07 0-.9.73-1.6 1.6-1.6h1.9a3.7 3.7 0 0 0 3.7-3.7c0-3.9-4-6.5-8-6.5z"/><circle cx="7.4" cy="11" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.8" cy="7.8" r="1.15" fill="currentColor" stroke="none"/></svg>`,
@@ -1126,6 +1148,9 @@ function badgeHtml(p) {
    Добавление нового стиля = новая папка skins/<id>/ (skin.js + badge.svg)
    и одна строка в skins/skins.json — без правок остального кода. */
 const SKIN_KEY = "kp_skin";
+/* Блоки 4/5.4: публично доступен ТОЛЬКО базовый скин; любой другой id из ссылки —
+   тихий фолбэк на base (без ошибок и пустых экранов). Список расширять здесь. */
+const PUBLIC_SKINS = ["base"];
 let SKINS_REG = null;
 let SKIN_ID = "base";
 let appliedTokenKeys = [];
@@ -1399,6 +1424,7 @@ function startParamParts() {
     if (sp) String(sp).split("__").forEach(part => {
       if (part.indexOf("point_") === 0) out.point = part.slice(6).slice(0, 60);
       else if (part.indexOf("skin_") === 0) out.skin = part.slice(5).slice(0, 60);
+      else if (part.indexOf("set_") === 0) out.set = part.slice(4).slice(0, 60);
       else if (part.indexOf("src_") === 0) out.src = part.slice(4).slice(0, 60);
     });
     return out;
@@ -1423,6 +1449,7 @@ function initPointLink() {
   } catch (e) {}
 }
 async function previewSkin(id) {
+  if (!PUBLIC_SKINS.includes(id)) return; // закрытый/несуществующий скин — молча остаёмся на базовом
   const skins = await loadSkinsReg();
   if (!skins.some(s => s.id === id && (s.status || "active") !== "draft")) return;
   if (id !== "base") await loadSkinFile(id);
@@ -1455,6 +1482,10 @@ async function initSkinLinkPreview() {
 function openSettings() { location.hash = "#settings"; }
 function closeSettings() { location.hash = ""; }
 function openStyle() { location.hash = "#style"; }
+/* Блок 4: вход в «Сменить стиль» закрыт — публично существует только базовый скин */
+function styleLocked() {
+  soonHint("Спасибо, что интересуетесь нашим проектом! Мы в процессе улучшений и доработок, и совсем скоро у нас появятся новые скины — плюс возможность добавить свой собственный. А уже сейчас вы можете добавить любую точку мира по координатам и получать погоду именно для вашей геолокации");
+}
 function closeStyle() { location.hash = "#settings"; }
 
 function communityHtml() {
@@ -1470,18 +1501,6 @@ function authorGo() {
   window.open(AUTHOR_TG, "_blank");
 }
 
-/* ---------- «Популярные города» на главной: чипы из существующих классов (.dp-amt) ---------- */
-function popularCitiesHtml() {
-  if (!CITIES.length) return "";
-  return `
-    <div class="donate-panel">
-      <div class="dp-title">Популярные города</div>
-      <div class="dp-amounts">
-        ${CITIES.map(c => `<button class="dp-amt" onclick="goPoint('${cityId(c.name)}')" title="${esc(c.region)}${c.population ? " · население " + Number(c.population).toLocaleString("ru-RU") : ""}">${esc(c.name)}</button>`).join("")}
-      </div>
-    </div>`;
-}
-
 /* Единый компонент доната: один текст и один стиль (залитая кнопка) на всех экранах */
 function donateBtnHtml(pre) {
   return `<button class="dp-sbp" onclick="${pre || ""}donateGo()">Поддержать проект (СБП)</button>`;
@@ -1489,7 +1508,7 @@ function donateBtnHtml(pre) {
 
 function renderPanels() {
   const hp = document.getElementById("home-panels");
-  if (hp) hp.innerHTML = popularCitiesHtml() + donateHtml() + communityHtml(); // главная: города + донат + «Написать автору»
+  if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
   loadDonateUrl(); // прогреем donate_url из конфига воркера (тихо, фолбэк — константа)
@@ -1535,7 +1554,7 @@ function route() {
   if (h === "#library") { renderLibrary(document.getElementById("lib-search").value); return; }
   if (h === "#about") return;
   if (h === "#settings") return;
-  if (h === "#style") { if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_view"); renderStyleList(); return; }
+  if (h === "#style") { styleLocked(); style.classList.add("hidden"); location.hash = "#settings"; return; } // вход закрыт: публично только базовый скин
   if (m) {
     home.classList.add("hidden");
     point.classList.remove("hidden");

@@ -302,7 +302,7 @@
    "lon": 115.0843,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -312,7 +312,7 @@
    "lon": 115.1039,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -322,7 +322,7 @@
    "lon": 115.1136,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -332,7 +332,7 @@
    "lon": 115.1233,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -342,7 +342,7 @@
    "lon": 115.1176,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -352,7 +352,7 @@
    "lon": 115.1597,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -362,7 +362,7 @@
    "lon": 115.1253,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -372,7 +372,7 @@
    "lon": 115.1194,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -382,7 +382,7 @@
    "lon": 115.0889,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -392,7 +392,7 @@
    "lon": 115.1303,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -402,7 +402,7 @@
    "lon": 115.1372,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -412,7 +412,7 @@
    "lon": 115.1511,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -422,7 +422,7 @@
    "lon": 115.1686,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -432,7 +432,7 @@
    "lon": 115.1642,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -442,7 +442,7 @@
    "lon": 115.1614,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -452,7 +452,7 @@
    "lon": 115.1607,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -462,7 +462,7 @@
    "lon": 115.1575,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -472,7 +472,7 @@
    "lon": 115.2336,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -482,7 +482,7 @@
    "lon": 115.3264,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -492,7 +492,7 @@
    "lon": 114.6339,
    "ele": 5,
    "region": "Бали, Индонезия",
-   "verified": false,
+   "verified": true,
    "marine": true
   },
   {
@@ -502,7 +502,7 @@
    "lon": 40.3194,
    "ele": 1153,
    "region": "Красная Поляна",
-   "verified": false,
+   "verified": true,
    "added_by": "web:14a9ff70f27c7d0a",
    "added_by_username": null,
    "added_ts": 1790453897,
