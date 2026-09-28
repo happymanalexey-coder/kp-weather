@@ -22,7 +22,10 @@ styles.css      — тёмная/светлая темы, весь дизайн
 app.js          — UI: роутинг (#point/id, #library, #about), библиотека,
                   свайп-назад, донат, заготовка уведомлений
 weather.js      — движок: 5 источников → консенсус → кэш localStorage 30 мин
-data/points.json  — библиотека точек (52 шт., verified=true/false)
+data/points.json  — библиотека точек (53 шт., verified=true/false)
+data/cities.json  — 22 популярных города; координаты ТОЛЬКО из проверенных выгрузок
+                  (Wikidata + Nominatим, см. _readme в файле) — «по памяти» запрещены;
+                  verified:true — верифицирован, corrected:true — исправлен по выгрузке (>1 км)
 data/pending.json — очередь модерации предложенных точек (НЕ публикуется)
 manifest.json, sw.js, icons/ — PWA (установка на рабочий стол)
 tools/gen_icons.py — генератор иконок (чистый Python + zlib)

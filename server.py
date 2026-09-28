@@ -8,6 +8,7 @@ ECMWF/GFS/ICON как независимые метеомодели) и MET Norw
 """
 import json
 import os
+import re
 import time
 import argparse
 import urllib.request
@@ -19,6 +20,37 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(ROOT, "web")
 CACHE_DIR = os.path.join(ROOT, "cache")
 POINTS_FILE = os.path.join(ROOT, "data", "points.json")
+CITIES_FILE = os.path.join(ROOT, "data", "cities.json")
+
+# Та же транслитерация и тот же cityId, что в app.js — единый источник истины о точках
+CITY_TR = {"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo",
+           "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+           "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+           "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch",
+           "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya"}
+
+
+def city_id(name):
+    s = "".join(CITY_TR.get(ch, ch) for ch in name.lower())
+    return "city-" + "-".join(x for x in re.split(r"[^a-z0-9]+", s) if x)
+
+
+def all_points():
+    """data/points.json + data/cities.json с той же логикой слияния, что в app.js:
+    города становятся точками (без ele), совпадения по имени пропускаются."""
+    with open(POINTS_FILE, encoding="utf-8") as f:
+        pts = list(json.load(f)["points"])
+    try:
+        with open(CITIES_FILE, encoding="utf-8") as f:
+            cities = json.load(f).get("cities", [])
+    except (OSError, ValueError):
+        cities = []
+    existing = {p["name"].strip().lower() for p in pts}
+    for c in cities:
+        if c["name"].strip().lower() not in existing:
+            pts.append({"id": city_id(c["name"]), "name": c["name"], "lat": c["lat"],
+                        "lon": c["lon"], "region": c["region"], "verified": True})
+    return pts
 def point_tz(offset_sec):
     """Часовой пояс точки по сдвигу в секундах (utc_offset_seconds из Open-Meteo)."""
     return timezone(timedelta(seconds=offset_sec))
@@ -60,30 +92,40 @@ def get_json(url, timeout=15):
 
 def fetch_openmeteo(lat, lon, ele):
     """best_match: current + hourly + daily."""
-    q = urllib.parse.urlencode({
-        "latitude": lat, "longitude": lon, "elevation": ele,
+    params = {
+        "latitude": lat, "longitude": lon,
         "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m",
         "hourly": "temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,relative_humidity_2m",
         "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
         "timezone": "auto", "forecast_days": 6, "wind_speed_unit": "ms",
-    })
+    }
+    # без известной высоты (города без ele) elevation не передаём — elevation=None дал бы HTTP 400
+    if ele is not None:
+        params["elevation"] = ele
+    q = urllib.parse.urlencode(params)
     return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
 
 
 def fetch_openmeteo_models(lat, lon, ele):
     """Те же поля по отдельным метеомоделям (ECMWF IFS, GFS, ICON-EU)."""
-    q = urllib.parse.urlencode({
-        "latitude": lat, "longitude": lon, "elevation": ele,
+    params = {
+        "latitude": lat, "longitude": lon,
         "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max,cloud_cover_mean",
         "hourly": "temperature_2m,precipitation,wind_speed_10m",
         "timezone": "auto", "forecast_days": 6, "wind_speed_unit": "ms",
         "models": "ecmwf_ifs025,gfs_global,icon_eu",
-    })
+    }
+    if ele is not None:
+        params["elevation"] = ele
+    q = urllib.parse.urlencode(params)
     return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
 
 
 def fetch_metno(lat, lon, ele):
-    q = urllib.parse.urlencode({"lat": lat, "lon": lon, "altitude": int(round(ele))})
+    params = {"lat": lat, "lon": lon}
+    if ele is not None:
+        params["altitude"] = int(round(ele))  # иначе round(None) = ошибка
+    q = urllib.parse.urlencode(params)
     return get_json(f"https://api.met.no/weatherapi/locationforecast/2.0/compact?{q}")
 
 
@@ -230,7 +272,7 @@ def mean(vals):
 
 
 def aggregate(point):
-    lat, lon, ele = point["lat"], point["lon"], point["ele"]
+    lat, lon, ele = point["lat"], point["lon"], point.get("ele")  # ele нет у городов — источники берут высоту сетки
     sources, errors = [], []
 
     om = om_models = metno = m_cur = metno_h = None
@@ -481,16 +523,13 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def points_payload(self):
-        with open(POINTS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        pts = sorted(data["points"], key=lambda p: p["name"].lower())
-        return {"points": [{**{k: p[k] for k in ("id", "name", "ele", "region")},
+        pts = sorted(all_points(), key=lambda p: p["name"].lower())
+        return {"points": [{**{k: p[k] for k in ("id", "name", "region")},
+                            **({"ele": p["ele"]} if p.get("ele") is not None else {}),
                             **({"marine": True} if p.get("marine") else {})} for p in pts]}
 
     def weather_payload(self, pid):
-        with open(POINTS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        point = next((p for p in data["points"] if p["id"] == pid), None)
+        point = next((p for p in all_points() if p["id"] == pid), None)
         if not point:
             return {"error": "unknown point"}, 404
         cache_file = os.path.join(CACHE_DIR, f"{pid}.json")

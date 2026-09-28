@@ -1,195 +1,207 @@
 {
+ "_readme": "Координаты городов берутся ТОЛЬКО из проверенных выгрузок (Wikidata P625 + OpenStreetMap Nominatim, итог = среднее выгрузок). Координаты «по памяти» запрещены. verified:true — запись верифицирована; corrected:true — координаты исправлены по выгрузке (расхождение >1 км).",
  "cities": [
   {
    "name": "Москва",
    "region": "Москва",
-   "lat": 55.7558,
-   "lon": 37.6173,
+   "lat": 55.7505,
+   "lon": 37.6175,
    "population": 13274285,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Санкт-Петербург",
    "region": "Санкт-Петербург",
-   "lat": 59.941,
-   "lon": 30.3227,
+   "lat": 59.9444,
+   "lon": 30.3164,
    "population": 5652922,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Новосибирск",
    "region": "Новосибирская обл.",
-   "lat": 55.0032,
-   "lon": 82.9347,
+   "lat": 55.0006,
+   "lon": 82.9341,
    "population": 1637266,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Екатеринбург",
    "region": "Свердловская обл.",
-   "lat": 56.8389,
-   "lon": 60.6057,
+   "lat": 56.8369,
+   "lon": 60.6068,
    "population": 1468833,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Казань",
    "region": "Татарстан",
-   "lat": 55.7887,
-   "lon": 49.1221,
+   "lat": 55.7927,
+   "lon": 49.113,
    "population": 1329825,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Нижний Новгород",
    "region": "Нижегородская обл.",
-   "lat": 56.3166,
-   "lon": 43.9829,
+   "lat": 56.3267,
+   "lon": 44.0063,
    "population": 1198245,
    "type": "city",
-   "check": true
+   "verified": true,
+   "corrected": true
   },
   {
    "name": "Челябинск",
    "region": "Челябинская обл.",
-   "lat": 55.1581,
-   "lon": 61.4131,
+   "lat": 55.1549,
+   "lon": 61.4013,
    "population": 1176770,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Самара",
    "region": "Самарская обл.",
-   "lat": 53.1916,
-   "lon": 50.1061,
+   "lat": 53.1895,
+   "lon": 50.1091,
    "population": 1154223,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Уфа",
    "region": "Башкортостан",
-   "lat": 54.7304,
-   "lon": 55.9557,
+   "lat": 54.7261,
+   "lon": 55.9475,
    "population": 1144809,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Ростов-на-Дону",
    "region": "Ростовская обл.",
-   "lat": 47.2268,
-   "lon": 39.7105,
+   "lat": 47.2224,
+   "lon": 39.7149,
    "population": 1143123,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Краснодар",
    "region": "Краснодарский край",
-   "lat": 45.0355,
-   "lon": 38.9753,
+   "lat": 45.0342,
+   "lon": 38.9803,
    "population": 1154885,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Омск",
    "region": "Омская обл.",
-   "lat": 54.9794,
-   "lon": 73.3607,
+   "lat": 54.9748,
+   "lon": 73.3789,
    "population": 1101367,
    "type": "city",
-   "check": true
+   "verified": true,
+   "corrected": true
   },
   {
    "name": "Воронеж",
    "region": "Воронежская обл.",
-   "lat": 51.6681,
-   "lon": 39.1985,
+   "lat": 51.6661,
+   "lon": 39.2056,
    "population": 1041722,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Пермь",
    "region": "Пермский край",
-   "lat": 58.0117,
-   "lon": 56.2436,
+   "lat": 58.0124,
+   "lon": 56.2404,
    "population": 1027518,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Волгоград",
    "region": "Волгоградская обл.",
-   "lat": 48.708,
-   "lon": 44.5133,
+   "lat": 48.7084,
+   "lon": 44.515,
    "population": 1012219,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Красноярск",
    "region": "Красноярский край",
-   "lat": 56.0111,
-   "lon": 92.8792,
+   "lat": 56.009,
+   "lon": 92.8723,
    "population": 1092851,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Сочи",
    "region": "Краснодарский край",
-   "lat": 43.5855,
-   "lon": 39.7231,
+   "lat": 43.5854,
+   "lon": 39.7217,
    "population": 445149,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Владивосток",
    "region": "Приморский край",
-   "lat": 43.1155,
-   "lon": 131.8855,
+   "lat": 43.115,
+   "lon": 131.8854,
    "population": 591628,
-   "type": "city"
+   "type": "city",
+   "verified": true
   },
   {
    "name": "Калининград",
    "region": "Калининградская обл.",
-   "lat": 54.7124,
-   "lon": 20.4876,
+   "lat": 54.7134,
+   "lon": 20.5053,
    "population": 488690,
    "type": "city",
-   "check": true
+   "verified": true,
+   "corrected": true
   },
   {
    "name": "Севастополь",
    "region": "Севастополь",
-   "lat": 44.6108,
-   "lon": 33.5239,
+   "lat": 44.605,
+   "lon": 33.5225,
    "population": 485386,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Тверь",
    "region": "Тверская обл.",
    "lat": 56.8587,
-   "lon": 35.9116,
+   "lon": 35.9086,
    "population": 412806,
    "type": "city",
-   "check": true
+   "verified": true
   },
   {
    "name": "Вышний Волочёк",
    "region": "Тверская обл.",
-   "lat": 57.5882,
-   "lon": 34.5969,
+   "lat": 57.5878,
+   "lon": 34.5622,
    "population": 42884,
    "type": "city",
-   "check": true
+   "verified": true,
+   "corrected": true
   }
  ]
 }

@@ -10,7 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* --- боевой движок weather.js в vm (fetch берём нода-вский) --- */
 const wsrc = fs.readFileSync(root + "weather.js", "utf8");
 const wctx = vm.createContext({ fetch, console, setTimeout, clearTimeout, AbortController, URLSearchParams, Date, Math, JSON, Promise, Error, Set, Object, Array, Number, String, parseInt, parseFloat, isNaN });
-vm.runInContext(wsrc + "\nthis.__agg = aggregate;", wctx);
+vm.runInContext(wsrc + "\nthis.__agg = aggregate; this.__omurl = p => omParams(p, {});", wctx);
 
 /* --- из app.js вырезаем иконный блок (WMO, esc, wmoLabel, WIC/iconName/icon, codeRank, periodsHtml) --- */
 const asrc = fs.readFileSync(root + "app.js", "utf8");
@@ -142,6 +142,27 @@ for (const p of POINTS) {
 
   console.log(`     сейчас: ${d.current ? d.current.t + "°" : "—"}, день1: ${d.days[0].t_day}°/${d.days[0].t_night}°, осадки ${d.days[0].precip} мм, ветер ${d.days[0].wind} м/с`);
   await sleep(1200); // вежливость к API
+}
+
+/* --- этап 8А: город без ele получает погоду (блокер «пустых точек») --- */
+console.log("\n== Этап 8А: город без ele ==");
+{
+  const CITY = { id: "city-moskva", name: "Москва", lat: 55.7505, lon: 37.6175, region: "Москва", verified: true };
+  const omUrl = wctx.__omurl(CITY);
+  ok(!omUrl.includes("elevation"), "omParams: без ele параметр elevation НЕ передаётся");
+  ok(wctx.__omurl({ lat: 55, lon: 37, ele: 1500 }).includes("elevation=1500"), "omParams: с ele поведение прежнее");
+  const seen = [];
+  const realFetch = fetch;
+  wctx.fetch = async (url, opts) => { seen.push(String(url)); return realFetch(url, opts); };
+  let d = null;
+  try { d = await wctx.__agg(CITY); } catch (e) { console.log("     ⚠ aggregate:", e.message); }
+  ok(d && d.days && d.days.length > 0, "живой aggregate по городу без ele: дни получены");
+  ok(d && d.sources && (d.sources.includes("Open-Meteo") || d.sources.includes("MET Norway")),
+    "живой aggregate: погода от основного источника (" + (d ? d.sources.join(", ") : "—") + ")");
+  ok(!seen.filter(u => u.includes("open-meteo")).some(u => u.includes("undefined") || u.includes("NaN")),
+    "open-meteo запросы без elevation=undefined");
+  ok(!seen.filter(u => u.includes("met.no")).some(u => u.includes("undefined") || u.includes("NaN")),
+    "met.no запросы без altitude=NaN");
 }
 
 /* --- этап 3: конфиг-флаги выключены, генератор OG-страниц --- */

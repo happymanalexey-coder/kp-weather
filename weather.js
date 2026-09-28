@@ -29,10 +29,13 @@ async function fetchJson(url, timeoutMs = 15000) {
 
 function omParams(p, extra) {
   const q = new URLSearchParams({
-    latitude: p.lat, longitude: p.lon, elevation: p.ele,
+    latitude: p.lat, longitude: p.lon,
     timezone: "auto", forecast_days: 6, wind_speed_unit: "ms",
     ...extra,
   });
+  /* высота неизвестна (города из data/cities.json — точки без ele) — параметр НЕ передаём,
+     API сам возьмёт высоту своей сетки; elevation=undefined дал бы HTTP 400 и «пустую точку» */
+  if (Number.isFinite(p.ele)) q.set("elevation", p.ele);
   return "https://api.open-meteo.com/v1/forecast?" + q.toString();
 }
 
@@ -53,7 +56,9 @@ function fetchOpenMeteoModels(p) {
 }
 
 function fetchMetNo(p) {
-  const q = new URLSearchParams({ lat: p.lat, lon: p.lon, altitude: Math.round(p.ele) });
+  const q = new URLSearchParams({ lat: p.lat, lon: p.lon });
+  // без известной высоты altitude не передаём (Math.round(undefined) = NaN → HTTP 400)
+  if (Number.isFinite(p.ele)) q.set("altitude", Math.round(p.ele));
   return fetchJson("https://api.met.no/weatherapi/locationforecast/2.0/compact?" + q.toString());
 }
 
