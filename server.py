@@ -22,6 +22,15 @@ CACHE_DIR = os.path.join(ROOT, "cache")
 POINTS_FILE = os.path.join(ROOT, "data", "points.json")
 CITIES_FILE = os.path.join(ROOT, "data", "cities.json")
 
+# Обход блокировки IP Open-Meteo (dev): KP_OM_PROXY=1 → проксирование через воркер
+# (роуты /om, /ome, /omm). Без переменной — прямые базы, поведение прежнее.
+OM_PROXY_BASE = "https://pogoda-intake.happymanalexey.workers.dev"
+OM_BASES = ("https://api.open-meteo.com",
+            "https://ensemble-api.open-meteo.com",
+            "https://marine-api.open-meteo.com")
+OM = (OM_PROXY_BASE + "/om", OM_PROXY_BASE + "/ome", OM_PROXY_BASE + "/omm") \
+    if os.environ.get("KP_OM_PROXY") == "1" else OM_BASES
+
 # Та же транслитерация и тот же cityId, что в app.js — единый источник истины о точках
 CITY_TR = {"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo",
            "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
@@ -103,7 +112,7 @@ def fetch_openmeteo(lat, lon, ele):
     if ele is not None:
         params["elevation"] = ele
     q = urllib.parse.urlencode(params)
-    return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
+    return get_json(f"{OM[0]}/v1/forecast?{q}")
 
 
 def fetch_openmeteo_models(lat, lon, ele):
@@ -118,7 +127,7 @@ def fetch_openmeteo_models(lat, lon, ele):
     if ele is not None:
         params["elevation"] = ele
     q = urllib.parse.urlencode(params)
-    return get_json(f"https://api.open-meteo.com/v1/forecast?{q}")
+    return get_json(f"{OM[0]}/v1/forecast?{q}")
 
 
 def fetch_metno(lat, lon, ele):
@@ -137,7 +146,7 @@ def fetch_ensemble(lat, lon):
         "timezone": "auto", "forecast_days": 6,
         "models": "icon_seamless",
     })
-    return get_json(f"https://ensemble-api.open-meteo.com/v1/ensemble?{q}")
+    return get_json(f"{OM[1]}/v1/ensemble?{q}")
 
 
 def ensemble_spreads(raw):
@@ -172,7 +181,7 @@ def fetch_marine(lat, lon):
         "daily": "wave_height_max,wave_period_max,wave_direction_dominant",
         "timezone": "auto", "forecast_days": 6,
     })
-    return get_json(f"https://marine-api.open-meteo.com/v1/marine?{q}")
+    return get_json(f"{OM[2]}/v1/marine?{q}")
 
 
 def waves_from(raw):
