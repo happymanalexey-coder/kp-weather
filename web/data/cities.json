@@ -1,0 +1,195 @@
+{
+ "cities": [
+  {
+   "name": "Москва",
+   "region": "Москва",
+   "lat": 55.7558,
+   "lon": 37.6173,
+   "population": 13274285,
+   "type": "city"
+  },
+  {
+   "name": "Санкт-Петербург",
+   "region": "Санкт-Петербург",
+   "lat": 59.941,
+   "lon": 30.3227,
+   "population": 5652922,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Новосибирск",
+   "region": "Новосибирская обл.",
+   "lat": 55.0032,
+   "lon": 82.9347,
+   "population": 1637266,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Екатеринбург",
+   "region": "Свердловская обл.",
+   "lat": 56.8389,
+   "lon": 60.6057,
+   "population": 1468833,
+   "type": "city"
+  },
+  {
+   "name": "Казань",
+   "region": "Татарстан",
+   "lat": 55.7887,
+   "lon": 49.1221,
+   "population": 1329825,
+   "type": "city"
+  },
+  {
+   "name": "Нижний Новгород",
+   "region": "Нижегородская обл.",
+   "lat": 56.3166,
+   "lon": 43.9829,
+   "population": 1198245,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Челябинск",
+   "region": "Челябинская обл.",
+   "lat": 55.1581,
+   "lon": 61.4131,
+   "population": 1176770,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Самара",
+   "region": "Самарская обл.",
+   "lat": 53.1916,
+   "lon": 50.1061,
+   "population": 1154223,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Уфа",
+   "region": "Башкортостан",
+   "lat": 54.7304,
+   "lon": 55.9557,
+   "population": 1144809,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Ростов-на-Дону",
+   "region": "Ростовская обл.",
+   "lat": 47.2268,
+   "lon": 39.7105,
+   "population": 1143123,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Краснодар",
+   "region": "Краснодарский край",
+   "lat": 45.0355,
+   "lon": 38.9753,
+   "population": 1154885,
+   "type": "city"
+  },
+  {
+   "name": "Омск",
+   "region": "Омская обл.",
+   "lat": 54.9794,
+   "lon": 73.3607,
+   "population": 1101367,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Воронеж",
+   "region": "Воронежская обл.",
+   "lat": 51.6681,
+   "lon": 39.1985,
+   "population": 1041722,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Пермь",
+   "region": "Пермский край",
+   "lat": 58.0117,
+   "lon": 56.2436,
+   "population": 1027518,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Волгоград",
+   "region": "Волгоградская обл.",
+   "lat": 48.708,
+   "lon": 44.5133,
+   "population": 1012219,
+   "type": "city"
+  },
+  {
+   "name": "Красноярск",
+   "region": "Красноярский край",
+   "lat": 56.0111,
+   "lon": 92.8792,
+   "population": 1092851,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Сочи",
+   "region": "Краснодарский край",
+   "lat": 43.5855,
+   "lon": 39.7231,
+   "population": 445149,
+   "type": "city"
+  },
+  {
+   "name": "Владивосток",
+   "region": "Приморский край",
+   "lat": 43.1155,
+   "lon": 131.8855,
+   "population": 591628,
+   "type": "city"
+  },
+  {
+   "name": "Калининград",
+   "region": "Калининградская обл.",
+   "lat": 54.7124,
+   "lon": 20.4876,
+   "population": 488690,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Севастополь",
+   "region": "Севастополь",
+   "lat": 44.6108,
+   "lon": 33.5239,
+   "population": 485386,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Тверь",
+   "region": "Тверская обл.",
+   "lat": 56.8587,
+   "lon": 35.9116,
+   "population": 412806,
+   "type": "city",
+   "check": true
+  },
+  {
+   "name": "Вышний Волочёк",
+   "region": "Тверская обл.",
+   "lat": 57.5882,
+   "lon": 34.5969,
+   "population": 42884,
+   "type": "city",
+   "check": true
+  }
+ ]
+}

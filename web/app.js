@@ -438,6 +438,21 @@ function retryLib() {
   loadHome().then(() => renderLibrary(q ? q.value : ""));
 }
 
+/* ---------- «Популярные города» (data/cities.json) ----------
+   Города становятся обычными точками (погода + поиск через существующие потоки).
+   id — латинский слаг из названия: кириллица в hash-роутинге ломается
+   (location.hash возвращает percent-encoded строку). */
+const CITY_TR = { а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"yo",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",м:"m",
+                  н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"kh",ц:"ts",ч:"ch",ш:"sh",щ:"sch",
+                  ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya" };
+function cityId(name) {
+  return "city-" + name.toLowerCase().split("").map(ch => CITY_TR[ch] != null ? CITY_TR[ch] : ch).join("")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function cityToPoint(c) {
+  return { id: cityId(c.name), name: c.name, lat: c.lat, lon: c.lon, region: c.region, verified: true };
+}
+
 async function loadHome() {
   const list = document.getElementById("points-list");
   list.innerHTML = SK_HOME;
@@ -447,7 +462,16 @@ async function loadHome() {
     const r = await fetch("/api/points", { signal: ctrl.signal });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
-    POINTS = data.points.slice().sort((a, b) =>
+    CITIES = [];
+    try { // «Популярные города» — отсутствие/поломка файла не должны ронять главную
+      const rc = await fetch("data/cities.json", { signal: ctrl.signal });
+      if (rc.ok) { const cd = await rc.json(); if (Array.isArray(cd.cities)) CITIES = cd.cities; }
+    } catch (e) {}
+    const pts = data.points.slice();
+    for (const c of CITIES) { // города становятся обычными точками: погода, поиск, защита от дублей
+      if (!pts.some(p => p.name.trim().toLowerCase() === c.name.trim().toLowerCase())) pts.push(cityToPoint(c));
+    }
+    POINTS = pts.sort((a, b) =>
       a.name.toLowerCase().localeCompare(b.name.toLowerCase(), "ru"));
     homeFailed = false;
     renderHome();
@@ -1446,6 +1470,18 @@ function authorGo() {
   window.open(AUTHOR_TG, "_blank");
 }
 
+/* ---------- «Популярные города» на главной: чипы из существующих классов (.dp-amt) ---------- */
+function popularCitiesHtml() {
+  if (!CITIES.length) return "";
+  return `
+    <div class="donate-panel">
+      <div class="dp-title">Популярные города</div>
+      <div class="dp-amounts">
+        ${CITIES.map(c => `<button class="dp-amt" onclick="goPoint('${cityId(c.name)}')" title="${esc(c.region)}${c.population ? " · население " + Number(c.population).toLocaleString("ru-RU") : ""}">${esc(c.name)}</button>`).join("")}
+      </div>
+    </div>`;
+}
+
 /* Единый компонент доната: один текст и один стиль (залитая кнопка) на всех экранах */
 function donateBtnHtml(pre) {
   return `<button class="dp-sbp" onclick="${pre || ""}donateGo()">Поддержать проект (СБП)</button>`;
@@ -1453,7 +1489,7 @@ function donateBtnHtml(pre) {
 
 function renderPanels() {
   const hp = document.getElementById("home-panels");
-  if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
+  if (hp) hp.innerHTML = popularCitiesHtml() + donateHtml() + communityHtml(); // главная: города + донат + «Написать автору»
   const pp = document.getElementById("point-panels");
   if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
   loadDonateUrl(); // прогреем donate_url из конфига воркера (тихо, фолбэк — константа)
