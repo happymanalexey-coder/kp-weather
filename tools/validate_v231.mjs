@@ -26,10 +26,11 @@ const iconCode =
   "function wmoLabel(code){return (WMO[code]||[\"\",\"—\"])[1];}\n" +
   cut("/* «Суровость» кода погоды", "/* Почасовой прогноз на сутки");
 const actx = vm.createContext({ console });
-vm.runInContext(iconCode + "\nthis.__fns = { icon, iconName, codeRank, periodsHtml, wmoLabel };", actx);
+vm.runInContext(iconCode + "\nthis.__fns = { icon, iconName, codeRank, periodsHtml, wmoLabel, precipLabel, hourPrecipCode, isWetCode };", actx);
 const F = actx.__fns;
 
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
+const WET_SVG = /#38bdf8|url\(#wg-bolt\)|#7dd3fc/; // капли/молния/снежинка в ИСПОЛЬЗОВАНИИ — сухие иконки их не содержат
 let fails = 0;
 const ok = (cond, msg) => { console.log((cond ? "  ✅ " : "  ❌ ") + msg); if (!cond) fails++; };
 
@@ -49,11 +50,12 @@ ok(F.icon(2, true) !== F.icon(2, false), "переменная облачнос�
 /* --- данные по 3 точкам --- */
 const POINTS = [
   { id: "achishkho-glavnaya", name: "Ачишхо", lat: 43.727442, lon: 40.124403, ele: 2370, region: "Красная Поляна" },
+  { id: "roza-khutor-1100m", name: "Роза Хутор 1100м", lat: 43.6584, lon: 40.3194, ele: 1153, region: "Красная Поляна" },
   { id: "balangan", name: "Баланган", lat: -8.7926, lon: 115.1233, ele: 5, region: "Бали" },
   { id: "rosa-pik", name: "Роза Пик", lat: 43.625286, lon: 40.310063, ele: 2293, region: "Красная Поляна" },
 ];
-const EXPECT_TZ = { "achishkho-glavnaya": 3 * 3600, "balangan": 8 * 3600, "rosa-pik": 3 * 3600 };
-const EXPECT_WAVES = { "achishkho-glavnaya": false, "balangan": true, "rosa-pik": false };
+const EXPECT_TZ = { "achishkho-glavnaya": 3 * 3600, "roza-khutor-1100m": 3 * 3600, "balangan": 8 * 3600, "rosa-pik": 3 * 3600 };
+const EXPECT_WAVES = { "achishkho-glavnaya": false, "roza-khutor-1100m": false, "balangan": true, "rosa-pik": false };
 
 for (const p of POINTS) {
   console.log(`\n== ${p.name} (${p.lat}, ${p.lon}, ${p.ele} м) ==`);
@@ -107,6 +109,37 @@ for (const p of POINTS) {
   }
   ok(pOk, "каждый день: 4 SVG-иконки периодов (ночь/утро/день/вечер)");
 
+  /* 7 (зеркало данных): период с осадками ≥0.1 мм обязан рисовать «мокрую» иконку;
+     почасовая ячейка с ≥0.5 мм — тоже (единый маппинг hourPrecipCode) */
+  const PERIODS = [[0, 6], [6, 12], [12, 18], [18, 24]];
+  let mirrorBad = [];
+  let rainDays = 0;
+  if (d.hourly) for (const day of d.days) {
+    if ((day.precip || 0) >= 1) rainDays++;
+    const html = F.periodsHtml(d, day.date, day.code);
+    const cells = html.match(/<span class="dp-ico"[\s\S]*?<\/svg><\/span>/g) || [];
+    for (let j = 0; j < PERIODS.length && j < cells.length; j++) {
+      let prSum = 0, hourMax = 0;
+      for (let i = 0; i < d.hourly.time.length; i++) {
+        if (d.hourly.time[i].slice(0, 10) !== day.date) continue;
+        const hh = parseInt(d.hourly.time[i].slice(11, 13), 10);
+        if (hh >= PERIODS[j][0] && hh < PERIODS[j][1]) {
+          prSum += d.hourly.precip[i] || 0;
+          if ((d.hourly.precip[i] || 0) > hourMax) hourMax = d.hourly.precip[i] || 0;
+        }
+      }
+      if (hourMax >= 0.1 && !WET_SVG.test(cells[j]))
+        mirrorBad.push(`${day.date} ${PERIODS[j][0]}–${PERIODS[j][1]}ч: час до ${hourMax.toFixed(1)} мм (сумма ${prSum.toFixed(1)}), но иконка сухая`);
+    }
+    for (let i = 0; i < d.hourly.time.length; i++) {
+      if (d.hourly.time[i].slice(0, 10) !== day.date) continue;
+      if ((d.hourly.precip[i] || 0) >= 0.5 && !F.isWetCode(F.hourPrecipCode(d, i)))
+        mirrorBad.push(`${d.hourly.time[i]}: ${d.hourly.precip[i]} мм, код не «мокрый»`);
+    }
+  }
+  ok(mirrorBad.length === 0, "зеркало: дождливый период → иконка с осадками (сводка и лента)" +
+    (mirrorBad.length ? " — " + mirrorBad.join(" | ") : "") + (rainDays ? ` [дождливых дней: ${rainDays}]` : " [сухая неделя — проверка на других точках]"));
+
   console.log(`     сейчас: ${d.current ? d.current.t + "°" : "—"}, день1: ${d.days[0].t_day}°/${d.days[0].t_night}°, осадки ${d.days[0].precip} мм, ветер ${d.days[0].wind} м/с`);
   await sleep(1200); // вежливость к API
 }
@@ -137,6 +170,30 @@ const pointPages = fs.readdirSync(root + "point").filter(d => fs.existsSync(root
 const totalPoints = JSON.parse(fs.readFileSync(root + "data/points.json", "utf8")).points.length;
 ok(pointPages.length === totalPoints, `страницы point/<id>/ на все ${totalPoints} точек (сейчас ${pointPages.length})`);
 fs.rmSync(tmpOut, { recursive: true, force: true });
+
+console.log("\n== Этап 7: регрессия симптома (синтетика, без сети) ==");
+{
+  // Симптом «Роза Хутор 1100м»: консенсус-осадки 0.8–0.9 мм в 16–18ч, а код best_match там
+  // молчит (облако); утром лёгкая морось 0.2 мм. Старая логика рисовала дождь только утром.
+  const date = "2026-09-28";
+  const time = [], code = [], precip = [], t = [], wind = [];
+  for (let hh = 0; hh < 24; hh++) {
+    time.push(date + "T" + String(hh).padStart(2, "0") + ":00");
+    code.push(3); precip.push(0); t.push(12); wind.push(2);
+  }
+  code[9] = 61; precip[9] = 0.2;                          // утро: честная морось от best_match
+  precip[16] = 0.8; precip[17] = 0.9; precip[18] = 0.9;   // день/вечер: дождь по консенсусу, код «облако»
+  const sd = { hourly: { time, code, precip, t, wind } };
+  const html = F.periodsHtml(sd, date, 3);
+  const cells = html.match(/<span class="dp-ico"[\s\S]*?<\/svg><\/span>/g) || [];
+  ok(cells.length === 4, "синтетика: 4 иконки периодов");
+  ok(!WET_SVG.test(cells[0]), "синтетика: ночь без осадков — сухая иконка");
+  ok(WET_SVG.test(cells[1]) && WET_SVG.test(cells[2]) && WET_SVG.test(cells[3]),
+    "синтетика: дождь 16–18ч → мокрые иконки утра(морось), дня и вечера — было: только утро");
+  ok(/title="[^"]*дождь[^"]*"/.test(cells[3]), "синтетика: подсказка вечера честно называет дождь");
+  ok(F.isWetCode(F.hourPrecipCode(sd, 18)) && F.hourPrecipCode(sd, 5) === 3,
+    "синтетика: hourPrecipCode синтезирует дождь при молчаливом коде и не трогает сухие часы");
+}
 
 console.log("\n" + (fails ? `❌ ПРОВАЛОВ: ${fails}` : "✅ ВСЕ ПРОВЕРКИ ЗЕЛЁНЫЕ"));
 process.exit(fails ? 1 : 0);

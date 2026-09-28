@@ -164,10 +164,29 @@ function iconName(code, night) {
 function icon(code, night) { const R = (typeof ICONS !== "undefined" && ICONS) || WIC; return R[iconName(code, night)] || R.cloud; }
 function wmoLabel(code) { return (WMO[code] || ["", "—"])[1]; }
 /* Честное название осадков по ФАКТИЧЕСКОЙ интенсивности (мм), а не только по коду WMO:
-   0.3 мм — это «небольшой дождь», а не «ливень». Гроза остаётся грозой независимо от мм. */
+   0.3 мм — это «небольшой дождь», а не «ливень». Гроза остаётся грозой независимо от мм.
+   Классы кода — единый источник истины: их же использует hourPrecipCode (зеркало сводки и ленты). */
+const PR_RAIN = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82];
+const PR_SNOW = [71, 73, 75, 77, 85, 86];
+const PR_STORM = [95, 96, 99];
+function isWetCode(c) {
+  return c != null && (PR_RAIN.includes(c) || PR_SNOW.includes(c) || PR_STORM.includes(c));
+}
+/* Единый маппинг «данные часа → код для иконки» (почасовая лента И сводка дня).
+   Согласованные осадки (консенсус моделей) важнее «молчаливого» кода best_match:
+   без правки ячейка со 0.9 мм показывала просто облако, а соседние виджеты — дождь. */
+function hourPrecipCode(d, i) {
+  const c = d.hourly.code[i], pr = d.hourly.precip[i] || 0;
+  if (pr < 0.1 || isWetCode(c)) return c;
+  const t = d.hourly.t && d.hourly.t[i] != null ? d.hourly.t[i] : 5;
+  if (t <= 0) return 71; // снег по температуре точки
+  if (pr < 2) return 61; // небольшой дождь
+  if (pr < 6) return 63; // дождь
+  return 65;             // сильный дождь
+}
 function precipLabel(code, mm) {
-  const rain = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code);
-  const snow = [71, 73, 75, 77, 85, 86].includes(code);
+  const rain = PR_RAIN.includes(code);
+  const snow = PR_SNOW.includes(code);
   if ((!rain && !snow) || mm == null) return wmoLabel(code);
   if (rain) {
     if (mm < 0.5) return "морось";
@@ -561,10 +580,10 @@ function setLibTab(tab) {
 }
 
 function libTabsHtml() {
-  const mine = tgUserId() !== null; // «Мои» — только внутри Telegram
   const tab = (key, label) =>
     `<button class="lib-tab${libTab === key ? " active" : ""}" onclick="setLibTab('${key}')">${label}</button>`;
-  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", "От разработчиков")}${mine ? tab("mine", "Мои") : ""}</div>`;
+  return `<div class="lib-tabs">${tab("all", "Все")}${tab("dev", "От разработчиков")}` +
+    `<button class="lib-tab lib-tab-add" onclick="openFeedback()" title="Добавить точку">+ Добавить</button></div>`;
 }
 
 function renderLibrary(filter) {
@@ -576,13 +595,10 @@ function renderLibrary(filter) {
     box.innerHTML = errHtml("retryLib()");
     return;
   }
-  if (libTab === "mine" && tgUserId() === null) libTab = "all"; // на всякий случай
   const q = String(filter || "").trim().toLowerCase();
   const ids = homeBaseIds();
-  const mine = myPointIds();
   const rows = POINTS.filter(p => {
     if (libTab === "dev" && p.verified === false) return false;
-    if (libTab === "mine" && !mine.has(p.id)) return false;
     return !q || p.name.toLowerCase().includes(q) || p.region.toLowerCase().includes(q);
   }).map(p => {
     const on = ids.includes(p.id);
@@ -921,7 +937,8 @@ function codeRank(c) {
 }
 
 /* Иконки 4 периодов суток (как в Yr.no): ночь 00–06 · утро 06–12 · день 12–18 · вечер 18–24.
-   Иконка периода — типичное (самое частое) состояние из почасового; при равенстве — суровее.
+   Коды часов — через hourPrecipCode (единый маппинг с почасовой лентой); без осадков иконка
+   периода — типичное (самое частое) состояние, при равенстве — суровее; с осадками — мокрая.
    Подсказка — честное название по сумме осадков периода. */
 function periodsHtml(d, date, fallbackCode) {
   const fallback = `<span class="dp-ico">${icon(fallbackCode, false)}</span>`;
@@ -936,16 +953,25 @@ function periodsHtml(d, date, fallbackCode) {
       if (t.slice(0, 10) !== date) continue;
       const hh = parseInt(t.slice(11, 13), 10);
       if (hh >= from && hh < to) {
-        if (d.hourly.code[i] != null) codes.push(d.hourly.code[i]);
+        const c = hourPrecipCode(d, i); // тот же маппинг, что в почасовой ленте
+        if (c != null) codes.push(c);
         prSum += d.hourly.precip[i] || 0;
       }
     }
     if (!codes.length) break;
-    const freq = {};
-    codes.forEach(c => { freq[c] = (freq[c] || 0) + 1; });
-    const best = Object.keys(freq).map(Number)
-      .sort((a, b) => freq[b] - freq[a] || codeRank(b) - codeRank(a))[0];
     const pr = Math.round(prSum * 10) / 10;
+    /* Зеркало почасовки: если хоть один час периода показывает осадки в ленте
+       (порог 0.1 мм = порог показа мм в ячейке) — иконка периода ОБЯЗАНА быть с осадками,
+       иначе сводка дня противоречит своим же часам (симптом этапа 7: «Завтра 16 мм», а
+       все 4 иконки — просто облака). Следы меньше 0.1 мм/ч в ленте не видны — и тут сухо. */
+    const pickBest = arr => {
+      const freq = {};
+      arr.forEach(c => { freq[c] = (freq[c] || 0) + 1; });
+      return Object.keys(freq).map(Number)
+        .sort((a, b) => freq[b] - freq[a] || codeRank(b) - codeRank(a))[0];
+    };
+    const wet = codes.filter(isWetCode);
+    const best = wet.length ? pickBest(wet) : pickBest(codes);
     cells.push(`<span class="dp-ico" title="${esc(precipLabel(best, pr))}">${icon(best, night)}</span>`);
   }
   return cells.length === 4 ? cells.join("") : fallback;
@@ -968,7 +994,7 @@ function hoursHtml(d, date) {
     cells += `
       <div class="h-cell${isNow ? " now" : ""}" data-h="${hh}">
         <div class="h-time">${isNow ? "сейчас" : String(hh).padStart(2, "0") + ":00"}</div>
-        <div class="h-icon">${icon(h.code[i], hh < 6 || hh >= 21)}</div>
+        <div class="h-icon">${icon(hourPrecipCode(d, i), hh < 6 || hh >= 21)}</div>
         <div class="h-t">${h.t[i] ?? "—"}°</div>
         <div class="h-pr">${pr >= 0.1 ? pr.toFixed(1) : ""}</div>
         <div class="h-w">${h.wind[i] ?? "—"}</div>
@@ -1446,7 +1472,7 @@ function placeHeroInfo() {
   const offY = 160 - H / scale;        /* YMax: верхняя граница */
   const half = 23;                     /* половина кнопки 46px */
   const cx = Math.max(half + 4, Math.min((340 - offX) * scale, W - half - 4));
-  const cy = Math.max(half + 4, Math.min((132 - offY) * scale, H - half - 4));
+  const cy = Math.max(half + 4, Math.min((132 - offY) * scale - 7, H - half - 4)); // −7px ≈ 2мм: не цеплять слоган
   btn.style.left = cx + "px";
   btn.style.top = cy + "px";
 }
