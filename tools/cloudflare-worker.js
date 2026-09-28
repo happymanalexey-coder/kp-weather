@@ -417,6 +417,30 @@ function handleDonateConfig(env, origin) {
   }, 200, origin);
 }
 
+/* ---------- GET-прокси Open-Meteo (этап 9): обход блокировки IP конкретных пользователей ----------
+   Только GET, только три хоста open-meteo, query string сохраняется, CORS *, без кэша.
+   Включается ТОЛЬКО явным флагом на клиенте (?omproxy=1 → localStorage kp_om_proxy=1):
+   поведение прода и localhost по умолчанию не меняется. */
+const OM_PROXY = {
+  "/om/": "https://api.open-meteo.com/",
+  "/ome/": "https://ensemble-api.open-meteo.com/",
+  "/omm/": "https://marine-api.open-meteo.com/",
+};
+async function handleOmProxy(path, query) {
+  const prefix = Object.keys(OM_PROXY).find(p => path.startsWith(p));
+  if (!prefix) return jsonResp({ error: "bad target" }, 400);
+  const target = OM_PROXY[prefix] + path.slice(prefix.length) + query;
+  const r = await fetch(target, { headers: { "User-Agent": "pogoda-om-proxy/1.0" } });
+  return new Response(r.body, {
+    status: r.status,
+    headers: {
+      "Content-Type": r.headers.get("Content-Type") || "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 /* ---------- роутер ---------- */
 export default {
   async fetch(request, env) {
@@ -437,6 +461,8 @@ export default {
       if (path === "/admin/stats" && request.method === "GET") return handleAdminStats(env, origin);
       if (path === "/api/admin/donation" && request.method === "POST") return handleDonation(request, env, origin);
     }
+    if (request.method === "GET" && (path.startsWith("/om/") || path.startsWith("/ome/") || path.startsWith("/omm/")))
+      return handleOmProxy(path, url.search);
     if (request.method === "POST" && path === "/") return handleIntake(request, env, origin);
     return jsonResp({ error: "not found" }, 404, origin);
   },

@@ -313,8 +313,8 @@ async function syncFromCloud() {
 
 /* ---------- набор и порядок виджетов на главной (localStorage) ---------- */
 /* Стартовые 8 карточек для нового пользователя. Состав — в одном месте, меняется здесь. */
-const STARTER_POINTS = ["rosa-pik", "rosa-dolina", "achishkho-glavnaya", "aibga",
-                        "ritsa", "mamdzyshkha", "fisht", "oshten"];
+const STARTER_POINTS = ["city-moskva", "city-sankt-peterburg", "krasnaya-polyana", "sirius",
+                        "verevochny-park-nastroenie", "city-vyshniy-volochyok", "city-kazan", "city-sochi"];
 
 /* ---------- стартовые наборы по промо-ссылкам (?set=<id> / startapp=set_<id>) ----------
    Применяются ТОЛЬКО при первом визите (ключа kp_home_ids ещё нет): выбор пользователя свят.
@@ -337,7 +337,10 @@ function initPointSet(pts) {
 function homeBaseIds() {
   let ids = null;
   try { ids = JSON.parse(localStorage.getItem("kp_home_ids") || "null"); } catch (e) {}
-  if (!Array.isArray(ids)) ids = STARTER_POINTS.slice(); // новый пользователь — стартовые 8
+  if (!Array.isArray(ids)) { // новый пользователь — стартовые 8 в строгом порядке
+    ids = STARTER_POINTS.slice();
+    try { localStorage.setItem("kp_home_custom", "1"); } catch (e) {} // порядок как в STARTER_POINTS; kp_home_ids НЕ сохраняем — первый визит нужен initPointSet
+  }
   // если ключ уже есть (даже пустой массив) — это выбор пользователя, дефолт не навязываем
   return ids.filter(id => POINTS.some(p => p.id === id));
 }
@@ -1476,9 +1479,21 @@ async function initSkinLinkPreview() {
 function openSettings() { location.hash = "#settings"; }
 function closeSettings() { location.hash = ""; }
 function openStyle() { location.hash = "#style"; }
-/* Блок 4: вход в «Сменить стиль» закрыт — публично существует только базовый скин */
+/* Блок 4: вход в «Сменить стиль» закрыт — публично существует только базовый скин.
+   Большая центральная модалка: автозакрытие ~4с, тап по бэкдропу закрывает. */
+let styleLockTimer = null;
 function styleLocked() {
-  soonHint("Спасибо, что интересуетесь нашим проектом! Мы в процессе улучшений и доработок, и совсем скоро у нас появятся новые скины — плюс возможность добавить свой собственный. А уже сейчас вы можете добавить любую точку мира по координатам и получать погоду именно для вашей геолокации");
+  const m = document.getElementById("stl-modal");
+  if (!m) return;
+  m.classList.remove("hidden");
+  clearTimeout(styleLockTimer);
+  styleLockTimer = setTimeout(closeStyleLocked, 4000);
+}
+function closeStyleLocked() {
+  clearTimeout(styleLockTimer);
+  const m = document.getElementById("stl-modal");
+  if (m) m.classList.add("hidden");
+  resetScrollX();
 }
 function closeStyle() { location.hash = "#settings"; }
 

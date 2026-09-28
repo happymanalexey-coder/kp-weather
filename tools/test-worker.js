@@ -52,6 +52,10 @@ globalThis.fetch = async (url, opts) => {
       content: btoa(JSON.stringify({ inbox: [] })),
     }), { status: 200 });
   }
+  if (u.includes("api.open-meteo.com")) {
+    return new Response(JSON.stringify({ ok: true, proxied: true }), { status: 200,
+      headers: { "Content-Type": "application/json" } });
+  }
   return realFetch(url, opts);
 };
 
@@ -186,6 +190,23 @@ r = await worker.fetch(req("GET", "/api/donate-config"), { ...env, DONATE_URL: "
 j = await r.json();
 ok(j.donate_url === "https://example.com/d" && j.sbp === "+7 900 000-00-00",
   "реквизиты берутся из env");
+
+console.log("— GET-прокси Open-Meteo (этап 9) —");
+r = await worker.fetch(req("GET", "/om/v1/forecast?latitude=55&current=temperature_2m"), env);
+j = await r.json();
+ok(r.status === 200 && j.proxied === true, "GET /om/* проброшен на api.open-meteo.com");
+ok(r.headers.get("Access-Control-Allow-Origin") === "*" && r.headers.get("Cache-Control") === "no-store",
+  "CORS * и no-store на прокси-ответе");
+r = await worker.fetch(req("GET", "/ome/v1/ensemble?latitude=55"), env);
+j = await r.json();
+ok(r.status === 200 && j.proxied === true, "GET /ome/* проброшен на ensemble-api");
+r = await worker.fetch(req("GET", "/omm/v1/marine?latitude=55"), env);
+j = await r.json();
+ok(r.status === 200 && j.proxied === true, "GET /omm/* проброшен на marine-api");
+r = await worker.fetch(req("POST", "/om/v1/forecast", { x: 1 }), env);
+ok(r.status === 404, "POST на /om/* не проксируется (только GET)");
+r = await worker.fetch(req("GET", "/omx/v1/"), env);
+ok(r.status === 404, "неизвестный префикс — 404");
 
 console.log(`\nИТОГ: ${passed} пройдено, ${failed} провалено`);
 process.exit(failed ? 1 : 0);

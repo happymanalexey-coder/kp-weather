@@ -146,8 +146,10 @@
         <input id="fb-tg" class="fb-input" placeholder="Ник в Telegram — сообщим о публикации (необязательно)" maxlength="33" autocomplete="off">
         <label class="sk-consent"><input type="checkbox" id="fb-agree">
           <span>Согласен(на) на обработку персональных данных (ник Telegram) — <a href="/privacy/" target="_blank" rel="noopener">подробнее</a></span></label>
+        <!-- BIZ-LINK: скрыто до запуска монетизации, НЕ удалять
         <input id="fb-link" class="fb-input fb-soon" placeholder="Ссылка на вас или ваш бизнес" autocomplete="off"
                onfocus="this.blur()" onclick="soonHint('Мы работаем над этой возможностью и скоро предоставим её вам')">
+        -->
         <div class="fb-err hidden" id="fb-err"></div>
         <div class="fb-text">Пример: <b>Озеро Рица — 43.472, 40.534</b><br>Точка появится в библиотеке в течение ~30 минут.</div>
         <button class="fb-go" onclick="feedbackSubmit()">Добавить точку</button>
@@ -159,6 +161,13 @@
         <div class="fb-text" id="fb-sent-text">Отправлено! Точка появится в библиотеке в течение ~30 минут ⛰</div>
         <button class="fb-cancel" onclick="closeFeedback()">Закрыть</button>
       </div>
+    </div>
+  </div>
+
+  <div id="stl-modal" class="fb-modal hidden" onclick="if(event.target===this)closeStyleLocked()">
+    <div class="fb-card stl-card">
+      <div class="stl-text">Спасибо, что интересуетесь нашим проектом! Мы в процессе улучшений и доработок, и совсем скоро у нас появятся новые скины — плюс возможность добавить свой собственный. А уже сейчас вы можете добавить любую точку мира по координатам и получать погоду именно для вашей геолокации</div>
+      <button class="fb-go" onclick="closeStyleLocked()">Спасибо</button>
     </div>
   </div>
 

@@ -25,6 +25,29 @@ async function fetchJson(url, timeoutMs = 15000) {
   } finally { clearTimeout(t); }
 }
 
+/* ---------- этап 9: обход блокировки IP (?omproxy=1) ----------
+   ТОЛЬКО явный флаг: ?omproxy=1 сохраняет localStorage["kp_om_proxy"]="1" и включает проксирование
+   через воркер, ?omproxy=0 удаляет флаг. Без флага — прямые запросы (поведение прода по умолчанию).
+   В node (validate/генераторы) location нет — прямые базы. */
+const OM_PROXY_BASE = "https://pogoda-intake.happymanalexey.workers.dev";
+const OM_BASES = {
+  om: "https://api.open-meteo.com",
+  ome: "https://ensemble-api.open-meteo.com",
+  omm: "https://marine-api.open-meteo.com",
+};
+let omProxyOn = false;
+try {
+  if (typeof location !== "undefined" && typeof localStorage !== "undefined") {
+    const q = new URLSearchParams(location.search);
+    if (q.get("omproxy") === "1") localStorage.setItem("kp_om_proxy", "1");
+    else if (q.get("omproxy") === "0") localStorage.removeItem("kp_om_proxy");
+    omProxyOn = localStorage.getItem("kp_om_proxy") === "1";
+  }
+} catch (e) {}
+function omBase(key) {
+  return omProxyOn ? OM_PROXY_BASE + "/" + key : OM_BASES[key];
+}
+
 /* ---------- источники ---------- */
 
 function omParams(p, extra) {
@@ -36,7 +59,7 @@ function omParams(p, extra) {
   /* высота неизвестна (города из data/cities.json — точки без ele) — параметр НЕ передаём,
      API сам возьмёт высоту своей сетки; elevation=undefined дал бы HTTP 400 и «пустую точку» */
   if (Number.isFinite(p.ele)) q.set("elevation", p.ele);
-  return "https://api.open-meteo.com/v1/forecast?" + q.toString();
+  return omBase("om") + "/v1/forecast?" + q.toString();
 }
 
 function fetchOpenMeteo(p) {
@@ -70,7 +93,7 @@ function fetchEnsemble(p) {
     daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
     models: "icon_seamless",
   });
-  return fetchJson("https://ensemble-api.open-meteo.com/v1/ensemble?" + q.toString());
+  return fetchJson(omBase("ome") + "/v1/ensemble?" + q.toString());
 }
 
 /* {date: {tmax:[min,max], tmin:[min,max], pr:[min,max]}} по всем членам ансамбля */
@@ -102,7 +125,7 @@ function fetchMarine(p) {
     timezone: "auto", forecast_days: 6,
     daily: "wave_height_max,wave_period_max,wave_direction_dominant",
   });
-  return fetchJson("https://marine-api.open-meteo.com/v1/marine?" + q.toString());
+  return fetchJson(omBase("omm") + "/v1/marine?" + q.toString());
 }
 
 function wavesFrom(raw) {
