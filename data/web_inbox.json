@@ -1,1 +1,6 @@
-{"meta":{"note":"Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."},"inbox":[{"name":"Поселок Красная Поляна","lat":43.6818,"lon":40.2036,"uid":"14a9ff70f27c7d0a","ts":1790607473,"tg":"@ikristiandr","consent":true}]}
+{
+ "meta": {
+  "note": "Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."
+ },
+ "inbox": []
+}
