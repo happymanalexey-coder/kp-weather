@@ -2,7 +2,7 @@
  "meta": {
   "version": 3,
   "source": "ТЗ v2.2: +20 спотов Бали (verified=false), остальные verified=true",
-  "count": 56
+  "count": 55
  },
  "points": [
   {
@@ -516,19 +516,6 @@
    "ele": 136,
    "region": "Тверь",
    "verified": true
-  },
-  {
-   "id": "poselok-krasnaya-polyana",
-   "name": "Поселок Красная Поляна",
-   "lat": 43.6818,
-   "lon": 40.2036,
-   "ele": 562,
-   "region": "Красная Поляна",
-   "verified": false,
-   "added_by": "web:14a9ff70f27c7d0a",
-   "added_by_username": "@ikristiandr",
-   "added_ts": 1790607888,
-   "via": "web"
   },
   {
    "id": "krasnaya-polyana",
