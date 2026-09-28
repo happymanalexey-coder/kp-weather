@@ -2,7 +2,7 @@
  "meta": {
   "version": 3,
   "source": "ТЗ v2.2: +20 спотов Бали (verified=false), остальные verified=true",
-  "count": 52
+  "count": 54
  },
  "points": [
   {
@@ -507,6 +507,15 @@
    "added_by_username": null,
    "added_ts": 1790453897,
    "via": "web"
+  },
+  {
+   "id": "verevochny-park-nastroenie",
+   "name": "Верёвочный парк «Настроение»",
+   "lat": 56.841393,
+   "lon": 35.838367,
+   "ele": 136,
+   "region": "Тверь",
+   "verified": true
   }
  ]
 }
