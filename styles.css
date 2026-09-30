@@ -369,7 +369,7 @@ body {
   padding: 12px 14px; margin-bottom: 8px;
 }
 .lib-info { flex: 1; min-width: 0; }
-.lib-name { font-size: 15px; font-weight: var(--fw-semi); }
+.lib-name { font-size: 15px; font-weight: var(--fw-semi); cursor: pointer; } /* название = предпросмотр погоды */
 .lib-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .lib-add {
   background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--r-btn);

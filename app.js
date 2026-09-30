@@ -656,7 +656,7 @@ function renderLibrary(filter) {
     return `
       <div class="lib-row">
         <div class="lib-info">
-          <div class="lib-name">${esc(p.name)}${badgeHtml(p)}</div>
+          <div class="lib-name" data-id="${p.id}" title="Посмотреть погоду">${esc(p.name)}${badgeHtml(p)}</div>
           <div class="lib-sub">${esc(p.region)}${p.ele != null ? " · " + p.ele + " м" : ""}</div>
         </div>
         ${on
@@ -671,6 +671,7 @@ function renderLibrary(filter) {
   box.innerHTML = (rows.length ? rows.join("") : `<div class="lib-empty">${emptyText}</div>`) + donate;
   box.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => libAdd(b.dataset.add)));
   box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => libRemove(b.dataset.rm)));
+  box.querySelectorAll(".lib-name").forEach(n => n.addEventListener("click", () => openLibraryPoint(n.dataset.id)));
 }
 
 /* ---------- предложить точку: форма с валидацией ---------- */
@@ -1554,8 +1555,42 @@ function placeHeroInfo() {
 }
 window.addEventListener("resize", placeHeroInfo);
 
-function goPoint(id) { location.hash = "#point/" + id; }
+/* ---------- предпросмотр точки из поиска: «откуда вошёл — туда и вернулся» ----------
+   pointReturnTo запоминает контекст входа на экран погоды: из поиска Back/свайп/нативная
+   кнопка TG возвращают на #library с тем же состоянием (запрос, вкладка, скролл). */
+let pointReturnTo = "home";
+let libScrollMem = null;
+function goPoint(id) { pointReturnTo = "home"; location.hash = "#point/" + id; }
 function goHome() { location.hash = ""; }
+/* Предпросмотр из поиска: тот же экран погоды, но возврат — в поиск с сохранённым скроллом */
+function openLibraryPoint(id) {
+  const scr = document.getElementById("lib-screen"), box = document.getElementById("lib-list");
+  libScrollMem = { box: box ? box.scrollTop : 0, screen: scr ? scr.scrollTop : 0 };
+  pointReturnTo = "library";
+  location.hash = "#point/" + id;
+  syncTgBackBtn();
+}
+function backFromPoint() {
+  const toLibrary = pointReturnTo === "library";
+  pointReturnTo = "home";
+  syncTgBackBtn();
+  if (toLibrary) location.hash = "#library"; // route() восстановит скролл поиска
+  else goHome();
+}
+/* Нативная кнопка «назад» Telegram: показываем ТОЛЬКО при входе в точку из поиска
+   (вход с главной — без изменений, как раньше) */
+function syncTgBackBtn() {
+  try {
+    const bw = window.Telegram && Telegram.WebApp && Telegram.WebApp.BackButton;
+    if (!bw) return;
+    if (pointReturnTo === "library" && location.hash.indexOf("#point/") === 0) {
+      bw.onClick(backFromPoint);
+      bw.show();
+    } else {
+      bw.hide();
+    }
+  } catch (e) {}
+}
 
 function route() {
   const h = location.hash;
@@ -1572,7 +1607,16 @@ function route() {
   if (about) about.classList.toggle("hidden", h !== "#about");
   if (settings) settings.classList.toggle("hidden", h !== "#settings");
   if (style) style.classList.toggle("hidden", h !== "#style");
-  if (h === "#library") { renderLibrary(document.getElementById("lib-search").value); return; }
+  if (h === "#library") {
+    renderLibrary(document.getElementById("lib-search").value);
+    if (libScrollMem) { // возврат из предпросмотра точки: восстанавливаем скролл поиска
+      const box = document.getElementById("lib-list"), scr = document.getElementById("lib-screen");
+      if (box) box.scrollTop = libScrollMem.box;
+      if (scr) scr.scrollTop = libScrollMem.screen;
+      libScrollMem = null;
+    }
+    return;
+  }
   if (h === "#about") return;
   if (h === "#settings") return;
   if (h === "#style") { styleLocked(); style.classList.add("hidden"); location.hash = "#settings"; return; } // вход закрыт: публично только базовый скин
@@ -1581,6 +1625,7 @@ function route() {
     point.classList.remove("hidden");
     loadPoint(m[1]);
     window.scrollTo(0, 0);
+    syncTgBackBtn();
   } else {
     point.classList.add("hidden");
     home.classList.remove("hidden");
@@ -1608,7 +1653,8 @@ function route() {
     if (t && t.closest && t.closest(".hours-wrap, input, textarea")) return; // горизонтальный скролл/ввод
     const h = location.hash;
     if (h === "#style") { closeStyle(); return; } // свайп со стилей → назад в настройки
-    if (h === "#library" || h === "#about" || h === "#settings" || h.indexOf("#point/") === 0) goHome();
+    if (h.indexOf("#point/") === 0) { backFromPoint(); return; }
+    if (h === "#library" || h === "#about" || h === "#settings") goHome();
   }, { passive: true });
 })();
 
