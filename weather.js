@@ -303,6 +303,8 @@ async function aggregate(point) {
       t_day_spread: widen(tmaxF, es && es.tmax, 1),
       t_night_spread: widen(tminF, es && es.tmin, 1),
       precip: precip != null ? Math.round(precip * 10) / 10 : null,
+      precip_raw: precip != null ? precip : null, // сырая оценка; при наличии почасовых перезапишется точной суммой часов
+      precip_sub: 0, // вклад ненулевых часов < 0.1 мм (считается в блоке синхронизации ниже)
       precip_spread: widen(prV.filter(v => v != null), es && es.pr, 10),
       wind: wind != null ? Math.round(wind) : null,
       cloud: cloud != null ? Math.round(cloud) : null,
@@ -311,18 +313,20 @@ async function aggregate(point) {
     };
   });
 
-  /* Дневная сумма осадков = сумме показываемых часов (один и тот же источник,
-     best_match). Иначе число в дне не сходится с почасовой раскладкой —
-     подрывает доверие к прогнозу. */
+  /* Дневная сумма осадков = сумме СЫРЫХ почасовых за локальные сутки точки (без округления
+     до суммирования). Сырые часы — это те же значения, что уходят в почасовую ленту UI. */
   if (om && om.hourly && om.hourly.precipitation) {
-    const sums = {};
+    const sums = {}, subs = {};
     om.hourly.time.forEach((t, i) => {
-      const d = t.slice(0, 10);
-      sums[d] = (sums[d] || 0) + (om.hourly.precipitation[i] || 0);
+      const d = t.slice(0, 10), v = om.hourly.precipitation[i] || 0;
+      sums[d] = (sums[d] || 0) + v;
+      if (v > 0 && v < 0.1) subs[d] = (subs[d] || 0) + v; // морось ниже точности отображения
     });
     for (const day of days) {
       if (sums[day.date] != null) {
-        day.precip = Math.round(sums[day.date] * 10) / 10;
+        day.precip_raw = sums[day.date]; // сырая сумма — единственный источник истины для UI
+        day.precip = Math.round(sums[day.date] * 10) / 10; // округление ТОЛЬКО после агрегации
+        day.precip_sub = Math.round((subs[day.date] || 0) * 100) / 100;
         day.verdict = verdictFor(day.precip, day.wind, day.cloud, day.code);
       }
     }
@@ -336,6 +340,7 @@ async function aggregate(point) {
       humidity: Math.round(c.relative_humidity_2m), wind: Math.round(c.wind_speed_10m),
       gust: Math.round(c.wind_gusts_10m), cloud: Math.round(c.cloud_cover), code: c.weather_code,
       precip: c.precipitation != null ? Math.round(c.precipitation * 10) / 10 : 0,
+      precip_raw: c.precipitation != null ? c.precipitation : 0,
     };
   }
   if (mCur && current) {
@@ -348,8 +353,10 @@ async function aggregate(point) {
      из-за неё число в шапке расходилось с ячейкой «сейчас». */
   if (current && om && om.hourly) {
     const ni = om.hourly.time.indexOf(tzNowIso(tzOffset).slice(0, 13) + ":00");
-    if (ni >= 0 && om.hourly.precipitation[ni] != null)
+    if (ni >= 0 && om.hourly.precipitation[ni] != null) {
+      current.precip_raw = om.hourly.precipitation[ni]; // сырое значение — для честной семантики «нет/следы/мм»
       current.precip = Math.round(om.hourly.precipitation[ni] * 10) / 10;
+    }
   }
 
   let overall = "green";
@@ -358,7 +365,7 @@ async function aggregate(point) {
     if (d.verdict === "yellow") overall = "yellow";
   }
 
-  return {
+  const payload = {
     point: { id: point.id, name: point.name, lat: point.lat, lon: point.lon, ele: point.ele, region: point.region },
     fetched_at: tzNowIso(tzOffset),
     tz_offset: tzOffset,
@@ -372,6 +379,45 @@ async function aggregate(point) {
       wind: om.hourly.wind_speed_10m.map(v => v == null ? null : Math.round(v)),
     } : null,
   };
+  precipConsistencyCheck(payload); // dev-only: raw daily vs Σ raw hourly, семантика наличия
+  return payload;
+}
+
+/* ---------- dev-проверки семантики осадков: raw daily vs Σ raw hourly (R5) ----------
+   Только console — пользователю в production не видно. Срабатывает на каждый aggregate. */
+function precipConsistencyCheck(payload) {
+  try {
+    const h = payload.hourly;
+    if (!h || !h.time) return; // почасовых нет (деградация) — сверять нечего
+    const sums = {}, counts = {}, nonzero = {};
+    const t0 = h.time[0], t1 = h.time[h.time.length - 1];
+    for (let i = 0; i < h.time.length; i++) {
+      const d = h.time[i].slice(0, 10), v = h.precip[i] || 0;
+      sums[d] = (sums[d] || 0) + v;
+      counts[d] = (counts[d] || 0) + 1;
+      if (v > 0) nonzero[d] = (nonzero[d] || 0) + 1;
+    }
+    for (const day of payload.days) {
+      const raw = sums[day.date];
+      if (raw == null) continue; // день вне горизонта почасовых — ок
+      const rawDaily = day.precip_raw != null ? day.precip_raw : null;
+      const present = raw > 0;
+      const eps = 0.001;
+      const bad =
+        rawDaily == null ||
+        Math.abs(rawDaily - raw) > eps ||
+        (rawDaily > 0) !== present ||
+        ((nonzero[day.date] || 0) > 0) !== present;
+      if (bad) console.warn("[precip]", JSON.stringify({
+        point: payload.point && payload.point.id,
+        date: day.date, tz: payload.tz_offset, period: [t0, t1],
+        hours: counts[day.date] || 0, nonzeroHours: nonzero[day.date] || 0,
+        rawDaily, rawHourlySum: Math.round(raw * 1000) / 1000,
+        diff: rawDaily != null ? Math.round((rawDaily - raw) * 1000) / 1000 : null,
+        present,
+      }));
+    }
+  } catch (e) {}
 }
 
 function errName(e) { return (e && e.name) || "Error"; }

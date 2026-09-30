@@ -411,6 +411,8 @@ def aggregate(point):
             "t_day_spread": widen(tmax_f, es.get("tmax"), 0),
             "t_night_spread": widen(tmin_f, es.get("tmin"), 0),
             "precip": round(precip, 1) if precip is not None else None,
+            "precip_raw": precip,  # сырая оценка; при наличии почасовых перезапишется суммой часов
+            "precip_sub": 0,  # вклад ненулевых часов < 0.1 мм
             "precip_spread": widen(pf, es.get("pr"), 1),
             "wind": round(wind) if wind is not None else None,
             "cloud": round(cloud) if cloud is not None else None,
@@ -421,13 +423,18 @@ def aggregate(point):
     # Дневная сумма осадков = сумме показываемых часов (один источник, best_match).
     # Иначе число в дне не сходится с почасовой раскладкой — подрывает доверие.
     if om and om.get("hourly") and om["hourly"].get("precipitation"):
-        sums = {}
+        sums, subs = {}, {}
         for t, pr in zip(om["hourly"]["time"], om["hourly"]["precipitation"]):
             d = t[:10]
-            sums[d] = sums.get(d, 0.0) + (pr or 0)
+            v = pr or 0
+            sums[d] = sums.get(d, 0.0) + v
+            if 0 < v < 0.1:
+                subs[d] = subs.get(d, 0.0) + v
         for day in days:
             if day["date"] in sums:
-                day["precip"] = round(sums[day["date"]], 1)
+                day["precip_raw"] = sums[day["date"]]  # сырая сумма — источник истины для UI
+                day["precip"] = round(sums[day["date"]], 1)  # округление только после агрегации
+                day["precip_sub"] = round(subs.get(day["date"], 0.0), 2)
                 day["verdict"] = verdict_for(day["precip"], day["wind"], day["cloud"], day["code"])
 
     current = None
@@ -442,6 +449,7 @@ def aggregate(point):
             "cloud": round(c["cloud_cover"]),
             "code": c["weather_code"],
             "precip": round(c.get("precipitation") or 0, 1),
+            "precip_raw": c.get("precipitation") or 0,
         }
     if m_cur and current is not None:
         if m_cur["t"] is not None:
@@ -458,6 +466,7 @@ def aggregate(point):
             ni = om["hourly"]["time"].index(now_key)
             v = om["hourly"]["precipitation"][ni]
             if v is not None:
+                current["precip_raw"] = v  # сырое значение — для честной семантики «нет/следы/мм»
                 current["precip"] = round(v, 1)
 
     overall = "green"

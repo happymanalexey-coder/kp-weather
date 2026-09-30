@@ -26,7 +26,7 @@ const iconCode =
   "function wmoLabel(code){return (WMO[code]||[\"\",\"—\"])[1];}\n" +
   cut("/* «Суровость» кода погоды", "/* Почасовой прогноз на сутки");
 const actx = vm.createContext({ console });
-vm.runInContext(iconCode + "\nthis.__fns = { icon, iconName, codeRank, periodsHtml, wmoLabel, precipLabel, hourPrecipCode, isWetCode };", actx);
+vm.runInContext(iconCode + "\nthis.__fns = { icon, iconName, codeRank, periodsHtml, wmoLabel, precipLabel, hourPrecipCode, isWetCode, precipMmText };", actx);
 const F = actx.__fns;
 
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
@@ -139,6 +139,25 @@ for (const p of POINTS) {
   }
   ok(mirrorBad.length === 0, "зеркало: дождливый период → иконка с осадками (сводка и лента)" +
     (mirrorBad.length ? " — " + mirrorBad.join(" | ") : "") + (rainDays ? ` [дождливых дней: ${rainDays}]` : " [сухая неделя — проверка на других точках]"));
+
+  /* 9: семантика осадков — raw daily = Σ raw hourly (ε), факт наличия не теряется */
+  let prBad = [];
+  if (d.hourly) for (const day of d.days) {
+    let rawSum = 0, nz = 0;
+    for (let i = 0; i < d.hourly.time.length; i++) {
+      if (d.hourly.time[i].slice(0, 10) !== day.date) continue;
+      const v = d.hourly.precip[i] || 0;
+      rawSum += v;
+      if (v > 0) nz++;
+    }
+    const okDay = day.precip_raw != null &&
+      Math.abs(day.precip_raw - rawSum) <= 0.001 &&
+      (day.precip_raw > 0) === (rawSum > 0) &&
+      (nz > 0) === (rawSum > 0);
+    if (!okDay) prBad.push(day.date);
+  }
+  ok(prBad.length === 0, "осадки: raw daily == Σ raw hourly (ε), семантика «есть/нет» сходится" +
+    (prBad.length ? " — " + prBad.join(", ") : ""));
 
   console.log(`     сейчас: ${d.current ? d.current.t + "°" : "—"}, день1: ${d.days[0].t_day}°/${d.days[0].t_night}°, осадки ${d.days[0].precip} мм, ветер ${d.days[0].wind} м/с`);
   await sleep(1200); // вежливость к API
@@ -256,6 +275,15 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
   ok(/localStorage\.getItem\("kp_home_ids"\)\) return/.test(asrc),
     "сидинг набора только при первом визите (выбор пользователя не трогаем)");
 }
+
+console.log("\n== Этап 9: семантика осадков (форматтер) ==");
+ok(F.precipMmText(0).text === "нет" && !F.precipMmText(0).present, "0 → «нет» (осадков нет)");
+ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "следы",
+  "0.01 → «следы» (ненулевое не исчезает семантически)");
+ok(F.precipMmText(0.04).traces && F.precipMmText(0.04).text === "следы", "0.04 → «следы»");
+ok(F.precipMmText(0.96).text === "1.0 мм" && F.precipMmText(0.96).present && !F.precipMmText(0.96).traces,
+  "0.96 → «1.0 мм» (округление только после агрегации)");
+ok(F.precipMmText(null).text === "—", "null → «—»");
 
 console.log("\n" + (fails ? `❌ ПРОВАЛОВ: ${fails}` : "✅ ВСЕ ПРОВЕРКИ ЗЕЛЁНЫЕ"));
 process.exit(fails ? 1 : 0);
