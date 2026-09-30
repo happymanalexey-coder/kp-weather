@@ -200,12 +200,12 @@ function precipLabel(code, mm) {
   return "снегопад";
 }
 /* Единый форматтер КОЛИЧЕСТВА осадков для UI (сырое значение → семантика):
-   0 → «нет» (осадков нет); >0 и <0.05 → «следы» (осадки есть, но ниже точности 0.1 мм);
+   0 → «нет» (осадков нет); >0 и <0.05 → «морось» (осадки есть, но ниже точности 0.1 мм);
    >= 0.05 → обычное число мм. Округление — только после агрегации, формат прежний. */
 function precipMmText(raw) {
   if (raw == null) return { text: "—", present: false, traces: false };
   if (raw <= 0) return { text: "нет", present: false, traces: false };
-  if (raw < 0.05) return { text: "следы", present: true, traces: true };
+  if (raw < 0.05) return { text: "морось", present: true, traces: true };
   return { text: (Math.round(raw * 10) / 10).toFixed(1) + " мм", present: true, traces: false };
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -895,15 +895,13 @@ async function loadPoint(id) {
   const daysHtml = d.days.map((day, i) => {
     const label = fmtDay(day.date, i);
     const prInfo = precipMmText(day.precip_raw != null ? day.precip_raw : day.precip);
-    const prTitle = prInfo.traces ? ` title="Осадки есть, но ниже точности отображения (0,1 мм)"`
-      : (day.precip_sub >= 0.05 ? ` title="В сумме с моросью ниже 0,1 мм"` : "");
     return `
       <div class="day-block">
         <div class="day-row" onclick="toggleHours(this)">
           <div class="d-left">
             <div class="d-date"><span class="vdot ${day.verdict}"></span>${label}</div>
             <div class="d-temp"><span class="d-max">${day.t_day ?? "—"}°</span><span class="d-min"> / ${day.t_night ?? "—"}°</span></div>
-            <div class="d-pr"${prTitle}>${prInfo.text}</div>
+            <div class="d-pr">${prInfo.text}</div>
           </div>
           <div class="d-icons">${periodsHtml(d, day.date, day.code)}</div>
           <div class="d-right">${WIC.wind} ${day.wind ?? "—"}  м/с<br>${WIC.cloud} ${day.cloud ?? "—"}% <span class="chev">▾</span></div>

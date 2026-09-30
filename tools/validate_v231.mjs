@@ -278,12 +278,14 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
 
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");
 ok(F.precipMmText(0).text === "нет" && !F.precipMmText(0).present, "0 → «нет» (осадков нет)");
-ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "следы",
-  "0.01 → «следы» (ненулевое не исчезает семантически)");
-ok(F.precipMmText(0.04).traces && F.precipMmText(0.04).text === "следы", "0.04 → «следы»");
+ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "морось",
+  "0.01 → «морось» (ненулевое не исчезает семантически)");
+ok(F.precipMmText(0.04).traces && F.precipMmText(0.04).text === "морось", "0.04 → «морось»");
 ok(F.precipMmText(0.96).text === "1.0 мм" && F.precipMmText(0.96).present && !F.precipMmText(0.96).traces,
   "0.96 → «1.0 мм» (округление только после агрегации)");
 ok(F.precipMmText(null).text === "—", "null → «—»");
+ok(!/title="[^"]*моросью/.test(asrc) && !/title="Осадки есть/.test(asrc),
+  "всплывающих подсказок у суммы осадков нет");
 
 console.log("\n" + (fails ? `❌ ПРОВАЛОВ: ${fails}` : "✅ ВСЕ ПРОВЕРКИ ЗЕЛЁНЫЕ"));
 process.exit(fails ? 1 : 0);
