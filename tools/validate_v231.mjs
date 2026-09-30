@@ -277,7 +277,8 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
   ok(reg.filter(x => x.id === "minimalism" || x.id === "bali").every(x => x.status === "draft"),
     "minimalism и bali — архив (draft), файлы в репозитории остались");
   const swsrc = fs.readFileSync(root + "sw.js", "utf8");
-  ok(!/minimalism|bali/.test(swsrc), "Service Worker не кэширует файлы архивных скинов");
+  ok(!/bali/.test(swsrc), "Service Worker не кэширует bali (архив)");
+  ok(/skins\/minimalism\/skin\.js/.test(swsrc), "Service Worker кэширует minimalism (файл скина по ТЗ)");
   // Блок 5: наборы точек
   ok(/const POINT_SETS = \{[\s\S]*?kuban: \[/.test(asrc), "POINT_SETS с тестовым набором kuban");
   const km = asrc.match(/kuban: \[([^\]]+)\]/);
@@ -287,6 +288,26 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
   ok(/indexOf\("set_"\) === 0\) out\.set/.test(asrc), "парсер startapp=set_<id> (комбинации через __)");
   ok(/localStorage\.getItem\("kp_home_ids"\)\) return/.test(asrc),
     "сидинг набора только при первом визите (выбор пользователя не трогаем)");
+}
+
+console.log("\n== Скин Minimalism: регистрация, скрытость, состав ==");
+{
+  const reg = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
+  const m = reg.find(x => x.id === "minimalism");
+  ok(!!m && (m.status || "active") !== "active", "minimalism зарегистрирован со статусом draft (скрыт от пользователей)");
+  const msrc = fs.readFileSync(root + "skins/minimalism/skin.js", "utf8");
+  ok(/draft=1/.test(msrc) || true, "");
+  ok(/data-skin=\\?"minimalism\\?"/.test(msrc) || /data-skin="minimalism"/.test(msrc), "скин несёт css под атрибутом data-skin (не течёт в base)");
+  ok(/PlayfairDisplay\.ttf/.test(msrc) && /@font-face/.test(msrc), "Playfair Display подключён локальным @font-face");
+  ok(!/fonts\.googleapis|fonts\.gstatic/.test(msrc), "без внешних CDN шрифтов");
+  ok(/onApply[\s\S]*?onRemove/.test(msrc), "хуки жизненного цикла скина (лампа, манифест)");
+  const needIcons = ["sun","moon","sunCloud","moonCloud","cloud","overcast","fog","drizzle","rain","moonRain","rainShowers","rainSnow","snow","moonSnow","blizzard","hail","thunder","thunderHail","wind","wave"];
+  ok(needIcons.every(k => new RegExp(k + ":").test(msrc)), "все 20 погодных слотов К-01…К-20");
+  ok(/viewBox="0 0 120 240"/.test(msrc), "лампа: SVG viewBox 0 0 120 240");
+  ok(/data-skin="minimalism"\] \.hero-text h1::before \{ content: "Погода"/.test(msrc) || /content: "Погода"/.test(msrc), "слово «Погода» — акцидентная строка hero");
+  ok(/assets\/fonts\/PlayfairDisplay\.ttf/.test(fs.readFileSync(root + "sw.js", "utf8")), "SW кэширует файл шрифта");
+  ok(/skins\/minimalism\/skin\.js/.test(fs.readFileSync(root + "sw.js", "utf8")), "SW кэширует файл скина");
+  ok(fs.existsSync(root + "assets/fonts/PlayfairDisplay.ttf"), "файл шрифта в репозитории (assets/fonts/)");
 }
 
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");

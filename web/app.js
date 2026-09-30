@@ -1208,18 +1208,36 @@ async function loadBadge() {
   } catch (e) {}
   return false;
 }
+/* Слоты UI-иконок (не погодные): скин может подменять и их — при смене скина восстанавливаем базу */
+const UI_ICON_SLOTS = ["gear", "globe", "pin", "palette", "check", "badge", "telegram", "share"];
+const UI_BASE_ICONS = {};
+UI_ICON_SLOTS.forEach(k => { UI_BASE_ICONS[k] = ICONS[k]; });
+let appliedSkinId = "base"; // для хука onRemove прежнего скина
 function applySkinTokens() {
   const root = document.documentElement;
   appliedTokenKeys.forEach(k => root.style.removeProperty(k));
   appliedTokenKeys = [];
+  const prev = window.KP_SKINS && KP_SKINS[appliedSkinId];
   const skin = window.KP_SKINS && KP_SKINS[SKIN_ID];
+  if (prev && prev.onRemove && prev !== skin) { try { prev.onRemove(); } catch (e) {} }
   const ov = (skin && skin.icons) || {}; // погодные иконки — слоты: скин может подменить любую
   Object.keys(WIC).forEach(k => { ICONS[k] = ov[k] || WIC[k]; });
+  UI_ICON_SLOTS.forEach(k => { ICONS[k] = ov[k] || UI_BASE_ICONS[k]; });
+  /* структурный css скина (шрифты/hero/компоненты) живёт под атрибутом data-skin — снимается при смене */
+  let cssEl = document.getElementById("kp-skin-css");
+  if (skin && skin.css) {
+    if (!cssEl) { cssEl = document.createElement("style"); cssEl.id = "kp-skin-css"; document.head.appendChild(cssEl); }
+    if (cssEl.textContent !== skin.css) cssEl.textContent = skin.css;
+  } else if (cssEl) cssEl.remove();
   if (skin && skin.tokens && SKIN_ID !== "base") { // base = значения по умолчанию в styles.css
     const theme = root.dataset.theme === "light" ? "light" : "dark";
     const map = skin.tokens[theme] || {};
     Object.keys(map).forEach(k => { root.style.setProperty(k, map[k]); appliedTokenKeys.push(k); });
   }
+  if (SKIN_ID === "base") root.removeAttribute("data-skin");
+  else root.dataset.skin = SKIN_ID;
+  if (skin && skin.onApply) { try { skin.onApply(); } catch (e) {} }
+  appliedSkinId = SKIN_ID;
   applyTgColors();
 }
 function fillStaticIcons() {
@@ -1474,7 +1492,10 @@ function initPointLink() {
 }
 async function previewSkin(id) {
   const skins = await loadSkinsReg();
-  if (!skins.some(s => s.id === id && (s.status || "active") !== "draft")) return;
+  /* draft-скины (архив/разработка) скрыты от пользователей; владелец смотрит с явным ?draft=1 */
+  let allowDraft = false;
+  try { allowDraft = new URLSearchParams(location.search).get("draft") === "1"; } catch (e) {}
+  if (!skins.some(s => s.id === id && (allowDraft || (s.status || "active") !== "draft"))) return;
   if (id !== "base") await loadSkinFile(id);
   SKIN_ID = id;
   skinPreview = true; // выбор НЕ пишем: localStorage и облако остаются как были
