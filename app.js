@@ -650,7 +650,7 @@ function renderLibrary(filter) {
   const ids = homeBaseIds();
   const rows = POINTS.filter(p => {
     if (libTab === "dev" && p.verified === false) return false;
-    return !q || p.name.toLowerCase().includes(q) || p.region.toLowerCase().includes(q);
+    return !q || p.name.toLowerCase().includes(q); // только по названию точки, не по региону
   }).map(p => {
     const on = ids.includes(p.id);
     return `
