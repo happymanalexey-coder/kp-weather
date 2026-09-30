@@ -403,10 +403,13 @@ function libRemove(id) {
 /* ---------- главный экран ---------- */
 let editMode = false;
 
-function homeActionsHtml() {
+/* Главные действия НАД виджетами — тот же .home-actions/.ha-btn, новый дизайн не выдумываем */
+function homeTopActionsHtml() {
   return `
-    <div class="home-actions">
-      <button class="ha-btn set-btn" onclick="openSettings()"><span class="sic">${ICONS.gear}</span>Настройки</button>
+    <div class="home-actions top-actions">
+      <button class="ha-btn set-btn" onclick="openLibrary()"><span class="sic">${ICONS.globe}</span>Поиск</button>
+      <button class="ha-btn set-btn" onclick="openFeedback()"><span class="sic">${ICONS.pin}</span>Добавить</button>
+      <button class="ha-btn set-btn" onclick="openStyle()"><span class="sic">${ICONS.palette}</span>Скин</button>
     </div>`;
 }
 
@@ -438,6 +441,7 @@ function renderHome() {
   const ids = homeIdsOrdered();
   list.classList.toggle("editing", editMode);
   list.innerHTML =
+    homeTopActionsHtml() +
     promoBannerHtml() +
     (editMode ? `<div class="edit-bar">Тяни карточки, чтобы менять порядок · ✕ убирает с главной
       <button class="edit-done" onclick="exitEditMode()">Готово</button></div>` : "") +
@@ -452,7 +456,7 @@ function renderHome() {
         <span class="p-region">${esc(p.region)}</span>
         <span class="p-remove" data-rm="${p.id}" title="Убрать с главной">✕</span>
       </button>`;
-    }).join("") + homeActionsHtml();
+    }).join("");
 }
 
 /* ---------- состояния: skeleton, ошибка сети (без технических деталей) ---------- */
@@ -1162,9 +1166,8 @@ function badgeHtml(p) {
    Добавление нового стиля = новая папка skins/<id>/ (skin.js + badge.svg)
    и одна строка в skins/skins.json — без правок остального кода. */
 const SKIN_KEY = "kp_skin";
-/* Блоки 4/5.4: публично доступен ТОЛЬКО базовый скин; любой другой id из ссылки —
-   тихий фолбэк на base (без ошибок и пустых экранов). Список расширять здесь. */
-const PUBLIC_SKINS = ["base"];
+/* Экран стилей строится по реестру skins.json: видны только status "active".
+   Новый скин с активным статусом появляется сам, без правок кода экрана. */
 let SKINS_REG = null;
 let SKIN_ID = "base";
 let appliedTokenKeys = [];
@@ -1230,7 +1233,14 @@ function rerenderCurrent() {
   fillStaticIcons();
 }
 async function initSkin() {
-  SKIN_ID = currentSkinId();
+  const skins = await loadSkinsReg();
+  let saved = currentSkinId();
+  // архивные скины (draft) никогда не подгружаем — даже если сохранены в localStorage ранее
+  if (!skins.some(s => s.id === saved && (s.status || "active") !== "draft")) {
+    saved = "base";
+    try { localStorage.setItem(SKIN_KEY, "base"); } catch (e) {} // зафиксировать сброс архивного скина
+  }
+  SKIN_ID = saved;
   let changed = false;
   if (SKIN_ID !== "base") { await loadSkinFile(SKIN_ID); changed = true; }
   applySkinTokens();
@@ -1463,7 +1473,6 @@ function initPointLink() {
   } catch (e) {}
 }
 async function previewSkin(id) {
-  if (!PUBLIC_SKINS.includes(id)) return; // закрытый/несуществующий скин — молча остаёмся на базовом
   const skins = await loadSkinsReg();
   if (!skins.some(s => s.id === id && (s.status || "active") !== "draft")) return;
   if (id !== "base") await loadSkinFile(id);
@@ -1492,27 +1501,9 @@ async function initSkinLinkPreview() {
   await previewSkin(sid);
 }
 
-/* ---------- навигация: настройки / стили ---------- */
-function openSettings() { location.hash = "#settings"; }
-function closeSettings() { location.hash = ""; }
+/* ---------- навигация: стили (вкладка «Настройки» убрана — действия на главном экране) ---------- */
 function openStyle() { location.hash = "#style"; }
-/* Блок 4: вход в «Сменить стиль» закрыт — публично существует только базовый скин.
-   Большая центральная модалка: автозакрытие ~4с, тап по бэкдропу закрывает. */
-let styleLockTimer = null;
-function styleLocked() {
-  const m = document.getElementById("stl-modal");
-  if (!m) return;
-  m.classList.remove("hidden");
-  clearTimeout(styleLockTimer);
-  styleLockTimer = setTimeout(closeStyleLocked, 4000);
-}
-function closeStyleLocked() {
-  clearTimeout(styleLockTimer);
-  const m = document.getElementById("stl-modal");
-  if (m) m.classList.add("hidden");
-  resetScrollX();
-}
-function closeStyle() { location.hash = "#settings"; }
+function closeStyle() { location.hash = ""; } // стили → сразу на главную
 
 function communityHtml() {
   return `<button class="community-panel" onclick="authorGo()">${TG_ICON}Написать автору</button>`;
@@ -1572,28 +1563,12 @@ function openLibraryPoint(id) {
   libScrollMem = { box: box ? box.scrollTop : 0, screen: scr ? scr.scrollTop : 0 };
   pointReturnTo = "library";
   location.hash = "#point/" + id;
-  syncTgBackBtn();
 }
 function backFromPoint() {
   const toLibrary = pointReturnTo === "library";
   pointReturnTo = "home";
-  syncTgBackBtn();
   if (toLibrary) location.hash = "#library"; // route() восстановит скролл поиска
   else goHome();
-}
-/* Нативная кнопка «назад» Telegram: показываем ТОЛЬКО при входе в точку из поиска
-   (вход с главной — без изменений, как раньше) */
-function syncTgBackBtn() {
-  try {
-    const bw = window.Telegram && Telegram.WebApp && Telegram.WebApp.BackButton;
-    if (!bw) return;
-    if (pointReturnTo === "library" && location.hash.indexOf("#point/") === 0) {
-      bw.onClick(backFromPoint);
-      bw.show();
-    } else {
-      bw.hide();
-    }
-  } catch (e) {}
 }
 
 function route() {
@@ -1604,12 +1579,10 @@ function route() {
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");
   const about = document.getElementById("about-screen");
-  const settings = document.getElementById("settings-screen");
   const style = document.getElementById("style-screen");
   const m = h.match(/^#point\/(.+)$/);
   if (lib) lib.classList.toggle("hidden", h !== "#library");
   if (about) about.classList.toggle("hidden", h !== "#about");
-  if (settings) settings.classList.toggle("hidden", h !== "#settings");
   if (style) style.classList.toggle("hidden", h !== "#style");
   if (h === "#library") {
     renderLibrary(document.getElementById("lib-search").value);
@@ -1622,14 +1595,12 @@ function route() {
     return;
   }
   if (h === "#about") return;
-  if (h === "#settings") return;
-  if (h === "#style") { styleLocked(); style.classList.add("hidden"); location.hash = "#settings"; return; } // вход закрыт: публично только базовый скин
+  if (h === "#style") { if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_view"); renderStyleList(); return; }
   if (m) {
     home.classList.add("hidden");
     point.classList.remove("hidden");
     loadPoint(m[1]);
     window.scrollTo(0, 0);
-    syncTgBackBtn();
   } else {
     point.classList.add("hidden");
     home.classList.remove("hidden");
@@ -1658,7 +1629,7 @@ function route() {
     const h = location.hash;
     if (h === "#style") { closeStyle(); return; } // свайп со стилей → назад в настройки
     if (h.indexOf("#point/") === 0) { backFromPoint(); return; }
-    if (h === "#library" || h === "#about" || h === "#settings") goHome();
+    if (h === "#library" || h === "#about" || h === "#style") goHome();
   }, { passive: true });
 })();
 

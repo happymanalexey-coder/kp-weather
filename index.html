@@ -95,21 +95,6 @@
     <div id="lib-list" class="lib-list"></div>
   </div>
 
-  <div id="settings-screen" class="lib-overlay hidden">
-    <div class="lib-sticky">
-      <div class="lib-head">
-        <button class="lib-close" onclick="closeSettings()" aria-label="Назад">✕</button>
-        <span class="about-title">Настройки</span>
-      </div>
-    </div>
-    <div class="set-list">
-      <button class="set-row" onclick="openLibrary()"><span class="sic" data-icon="globe"></span>Библиотека точек</button>
-      <button class="set-row" onclick="openFeedback()"><span class="sic" data-icon="pin"></span>Добавить точку</button>
-      <button class="set-row" onclick="styleLocked()"><span class="sic" data-icon="lock"></span>Сменить стиль</button>
-      <button class="dp-sbp" onclick="donateGo()">Поддержать проект (СБП)</button>
-    </div>
-  </div>
-
   <div id="style-screen" class="lib-overlay hidden">
     <div class="lib-sticky">
       <div class="lib-head">
@@ -161,13 +146,6 @@
         <div class="fb-text" id="fb-sent-text">Отправлено! Точка появится в библиотеке в течение ~30 минут ⛰</div>
         <button class="fb-cancel" onclick="closeFeedback()">Закрыть</button>
       </div>
-    </div>
-  </div>
-
-  <div id="stl-modal" class="fb-modal hidden" onclick="if(event.target===this)closeStyleLocked()">
-    <div class="fb-card stl-card">
-      <div class="stl-text">Спасибо, что интересуетесь нашим проектом! Мы в процессе улучшений и доработок, и совсем скоро у нас появятся новые скины — плюс возможность добавить свой собственный. А уже сейчас вы можете добавить любую точку мира по координатам и получать погоду именно для вашей геолокации</div>
-      <button class="fb-go" onclick="closeStyleLocked()">Спасибо</button>
     </div>
   </div>
 

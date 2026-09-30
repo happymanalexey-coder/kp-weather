@@ -259,12 +259,25 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
   ok(ptsData.points.length > 0 && ptsData.points.every(p => p.verified === true),
     `verified:true у всех ${ptsData.points.length} точек библиотеки`);
   ok(/verified: true/.test(asrc), "города получают звезду через cityToPoint");
-  // Блок 4: замок и только base
-  ok(/function styleLocked\(/.test(asrc) && /lock: `<svg/.test(asrc) && /data-icon="lock"/.test(hsrc),
-    "«Сменить стиль»: пункт с иконкой замка, вход закрыт");
-  ok(/if \(h === "#style"\) \{ styleLocked\(\)/.test(asrc), "прямая ссылка #style тоже закрыта");
-  ok(/PUBLIC_SKINS = \["base"\]/.test(asrc) && /!PUBLIC_SKINS\.includes\(id\)/.test(asrc),
-    "по ссылкам (?skin=/skin_) валиден только base, прочие — тихий фолбэк");
+  // Блок 4 (актуализировано): вкладки «Настройки» нет, стили — реальный экран по реестру
+  ok(!/id="settings-screen"/.test(hsrc) && !/function openSettings/.test(asrc),
+    "вкладка «Настройки» удалена из интерфейса полностью");
+  ok(/onclick="openLibrary\(\)"><span class="sic">\$\{ICONS\.globe\}<\/span>Поиск<\/button>/.test(asrc) &&
+     /onclick="openFeedback\(\)"><span class="sic">\$\{ICONS\.pin\}<\/span>Добавить<\/button>/.test(asrc) &&
+     /onclick="openStyle\(\)"><span class="sic">\$\{ICONS\.palette\}<\/span>Скин<\/button>/.test(asrc),
+    "ряд «Поиск / Добавить / Скин» над виджетами на главной");
+  ok(!/function styleLocked/.test(asrc) && !/PUBLIC_SKINS/.test(asrc) && !/id="stl-modal"/.test(hsrc),
+    "модалка-замок стилей убрана, PUBLIC_SKINS нет — экран строится по реестру");
+  ok(/if \(h === "#style"\) \{ if \(window\.KP_ANALYTICS\) KP_ANALYTICS\.track\("skin_view"\); renderStyleList\(\); return; \}/.test(asrc),
+    "#style — настоящий экран скинов (renderStyleList)");
+  const reg = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
+  const active = reg.filter(x => (x.status || "active") !== "draft").map(x => x.id);
+  ok(JSON.stringify(active) === JSON.stringify(["base"]),
+    `в выдаче только активные скины реестра (сейчас: ${active.join(", ")})`);
+  ok(reg.filter(x => x.id === "minimalism" || x.id === "bali").every(x => x.status === "draft"),
+    "minimalism и bali — архив (draft), файлы в репозитории остались");
+  const swsrc = fs.readFileSync(root + "sw.js", "utf8");
+  ok(!/minimalism|bali/.test(swsrc), "Service Worker не кэширует файлы архивных скинов");
   // Блок 5: наборы точек
   ok(/const POINT_SETS = \{[\s\S]*?kuban: \[/.test(asrc), "POINT_SETS с тестовым набором kuban");
   const km = asrc.match(/kuban: \[([^\]]+)\]/);
