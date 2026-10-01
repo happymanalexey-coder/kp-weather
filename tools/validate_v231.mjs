@@ -361,6 +361,42 @@ console.log("\n== Э-5 «Сменить стиль»: карточки скин�
     "чип тем — правый нижний угол превью (styles.css)");
 }
 
+console.log("\n== Карточки главной: current temperature (общий слой, честное «Обновлено») ==");
+{
+  const ssrc = fs.readFileSync(root + "styles.css", "utf8");
+  const msrc = fs.readFileSync(root + "skins/minimalism/skin.js", "utf8");
+  ok(/async function getCurrentFor\(points\)/.test(asrc) && /fetchCurrentOnly/.test(asrc),
+    "getCurrentFor: общий слой в app.js (работает в обеих версиях, включая web/ без weather.js)");
+  ok(/const CURRENT_TTL_MS = 15 \* 60 \* 1000/.test(asrc),
+    "TTL current-кэша 15 мин = интервал обновления анализа OM (current.interval=900)");
+  ok(/localStorage\.getItem\("wxc_" \+ id\)/.test(asrc) && /localStorage\.setItem\("wxc_" \+ id/.test(asrc),
+    "лёгкий кэш wxc_<id> = {ts, t, code, night}; wx8_<id> не тронут");
+  const wsrc = fs.readFileSync(root + "weather.js", "utf8");
+  ok(/async function getWeather\(point\) \{[\s\S]*?wx8_" \+ point\.id/.test(wsrc) &&
+     /CACHE_TTL_MS = 30 \* 60 \* 1000/.test(wsrc),
+    "weather.js без изменений: getWeather/wx8_/TTL 30 мин как раньше");
+  const appRounds = (asrc.match(/Math\.round\(c\.temperature_2m\)/g) || []).length;
+  const wxRounds = (wsrc.match(/Math\.round\(c\.temperature_2m\)/g) || []).length;
+  ok(appRounds === 1 && wxRounds === 1,
+    "одна формула округления current: Math.round(temperature_2m) в карточке и в aggregate шапки точки");
+  ok(/wxcSyncFromPayload\(id, d\)/.test(asrc),
+    "после loadPoint карточка синхронизируется из payload.current (CARD TEMP === POINT TEMP)");
+  ok(/<span class="p-temp" hidden><\/span><span class="p-wicon" hidden><\/span>/.test(asrc),
+    "карточки несут ОБЩИЕ нейтральные слоты .p-temp/.p-wicon (без skin-структуры)");
+  ok(/\.point-btn \.p-wicon \{ display: none; \}/.test(ssrc),
+    "base: температура текстом в сервисной строке, иконки нет");
+  ok(/\.p-temp\[hidden\], \.p-wicon\[hidden\] \{ display: none; \}/.test(ssrc),
+    "пустые слоты не занимают место ([hidden] не пробивается display скинов)");
+  ok(/data-skin="minimalism"\] \.p-temp \{ position: absolute; right: 12px; top: 62px; font-size: 19px/.test(msrc) &&
+     /data-skin="minimalism"\] \.p-wicon svg \{ width: 30px; height: 30px/.test(msrc),
+    "minimalism К-04: справа температура 19px/700 + иконка 30px (скин только отображает)");
+  ok(/Math\.min\.apply\(null, recs\.map\(r => r\.ts\)\)/.test(asrc),
+    "«Обновлено» = самый ранний ts среди ПОКАЗАННых температур (честная семантика при partial success)");
+  const wasrc = fs.readFileSync(root + "web/app.js", "utf8");
+  ok(/async function getCurrentFor\(points\)/.test(wasrc),
+    "зеркало web/app.js содержит общий слой (ровно 4 серверных отличия — см. блок зеркала)");
+}
+
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");
 ok(F.precipMmText(0).text === "нет" && !F.precipMmText(0).present, "0 → «нет» (осадков нет)");
 ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "морось",

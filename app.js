@@ -394,8 +394,111 @@ function libRemove(id) {
   renderHome();
 }
 
+/* ---------- текущая температура для карточек главной (ОБЩИЙ слой обеих версий) ----------
+   Один источник со шапкой точки: блок current Open-Meteo (best_match), то же округление
+   Math.round(temperature_2m). Полный прогноз ради одной цифры НЕ грузим: лёгкий current-only
+   запрос (~0.4 КБ) на точку без свежего wx8_<id>. Скины ничего не запрашивают — только
+   отображают подготовленные t/code/ts. Кэш wxc_<id> = {ts, t, code, night},
+   TTL 15 мин = интервал обновления анализа OM (current.interval = 900). */
+const CURRENT_TTL_MS = 15 * 60 * 1000;
+const WX8_TTL_MS = 30 * 60 * 1000; // как CACHE_TTL_MS в weather.js (в web-версии weather.js нет)
+function wxcRead(id) {
+  try {
+    const c = JSON.parse(localStorage.getItem("wxc_" + id) || "null");
+    if (c && c.t != null && Date.now() - c.ts < CURRENT_TTL_MS) return c;
+  } catch (e) {}
+  return null;
+}
+function wxcWrite(id, t, code, night, ts) {
+  try { localStorage.setItem("wxc_" + id, JSON.stringify({ ts, t, code, night })); } catch (e) {}
+}
+function wx8Read(id) {
+  try {
+    const c = JSON.parse(localStorage.getItem("wx8_" + id) || "null");
+    if (c && c.payload && Date.now() - c.ts < WX8_TTL_MS) return c;
+  } catch (e) {}
+  return null;
+}
+function isNightNow(offsetSec) {
+  const h = new Date(Date.now() + (offsetSec || 0) * 1000).getUTCHours();
+  return h < 6 || h >= 21;
+}
+/* Лёгкий current-only запрос. Клиентская версия — через omBase() weather.js (учитывает
+   прокси-флаг), серверная (web/) — прямой запрос, т.к. weather.js там не подключён. */
+async function fetchCurrentOnly(point) {
+  const q = new URLSearchParams({
+    latitude: point.lat, longitude: point.lon,
+    timezone: "auto", forecast_days: 1,
+    current: "temperature_2m,weather_code",
+  });
+  if (Number.isFinite(point.ele)) q.set("elevation", point.ele);
+  const base = typeof omBase === "function" ? omBase("om") : "https://api.open-meteo.com";
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch(base + "/v1/forecast?" + q.toString(), { signal: ctrl.signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+/* Массив {id, ts, t, code, night} для точек, по которым есть свежее current.
+   Ошибка одной точки не трогает остальные; без данных точка просто без температуры. */
+async function getCurrentFor(points) {
+  const out = [];
+  await Promise.all(points.map(async p => {
+    try {
+      const hit = wxcRead(p.id);
+      if (hit) return void out.push(Object.assign({ id: p.id }, hit));
+      const w8 = wx8Read(p.id);
+      if (w8 && w8.payload.current && w8.payload.current.t != null) {
+        const c = w8.payload.current;
+        const rec = { ts: w8.ts, t: c.t, code: c.code, night: isNightNow(w8.payload.tz_offset) };
+        wxcWrite(p.id, rec.t, rec.code, rec.night, rec.ts);
+        return void out.push(Object.assign({ id: p.id }, rec));
+      }
+      const raw = await fetchCurrentOnly(p);
+      const c = raw && raw.current;
+      if (!c || c.temperature_2m == null) return;
+      const rec = {
+        ts: Date.now(),
+        t: Math.round(c.temperature_2m), // та же формула, что в aggregate для шапки точки
+        code: c.weather_code,
+        night: isNightNow(raw.utc_offset_seconds),
+      };
+      wxcWrite(p.id, rec.t, rec.code, rec.night, rec.ts);
+      out.push(Object.assign({ id: p.id }, rec));
+    } catch (e) { /* точка без температуры — главная не ломается */ }
+  }));
+  return out;
+}
+/* После открытия точки карточка = то же current, что только что показала шапка.
+   ts берём из записи wx8_ (момент получения payload), а не из момента отрисовки. */
+function wxcSyncFromPayload(id, payload) {
+  const c = payload && payload.current;
+  if (!c || c.t == null) return;
+  let ts = Date.now();
+  try {
+    const w8 = JSON.parse(localStorage.getItem("wx8_" + id) || "null");
+    if (w8 && w8.ts) ts = w8.ts;
+  } catch (e) {}
+  wxcWrite(id, c.t, c.code, isNightNow(payload.tz_offset), ts);
+}
+/* Честная метка «Обновлено»: самый РАННий момент получения среди ПОКАЗАНных температур —
+   все видимые значения получены в этот момент или позже. Непоказанные точки не учитываются. */
+function homeUpdatedLabel(recs) {
+  const el = document.getElementById("home-updated");
+  if (!el) return;
+  if (!recs.length) { el.hidden = true; return; }
+  const oldest = Math.min.apply(null, recs.map(r => r.ts));
+  const d = new Date(oldest);
+  el.textContent = "Обновлено " + String(d.getHours()).padStart(2, "0") + ":" +
+    String(d.getMinutes()).padStart(2, "0");
+  el.hidden = false;
+}
+
 /* ---------- главный экран ---------- */
 let editMode = false;
+let homeRenderGen = 0; // защита от устаревших асинхронных проходов при повторном renderHome
 
 /* Главные действия НАД виджетами — тот же .home-actions/.ha-btn, новый дизайн не выдумываем */
 function homeTopActionsHtml() {
@@ -433,9 +536,11 @@ function renderHome() {
   if (!POINTS.length) return;
   const byId = Object.fromEntries(POINTS.map(p => [p.id, p]));
   const ids = homeIdsOrdered();
+  const gen = ++homeRenderGen;
   list.classList.toggle("editing", editMode);
   list.innerHTML =
     homeTopActionsHtml() +
+    `<div class="home-updated" id="home-updated" hidden></div>` +
     promoBannerHtml() +
     (editMode ? `<div class="edit-bar">Тяни карточки, чтобы менять порядок · ✕ убирает с главной
       <button class="edit-done" onclick="exitEditMode()">Готово</button></div>` : "") +
@@ -446,11 +551,38 @@ function renderHome() {
       <button class="point-btn" data-id="${p.id}">
         ${badgeHtml(p)}
         <span class="p-name">${esc(p.name)}</span>
-        <span class="p-ele">${p.ele != null ? p.ele + " м" : ""}</span>
+        <span class="p-ele">${p.ele != null ? p.ele + " м" : ""}<span class="p-temp" hidden></span><span class="p-wicon" hidden></span></span>
         <span class="p-region">${esc(p.region)}</span>
         <span class="p-remove" data-rm="${p.id}" title="Убрать с главной">✕</span>
       </button>`;
     }).join("");
+  fillHomeCurrent(ids.map(id => byId[id]).filter(Boolean), gen);
+}
+
+/* Температуры/иконки подставляем после рендера: общий слой данных → нейтральные слоты.
+   Устаревший проход (уже был новый renderHome) не затирает свежую отрисовку. */
+async function fillHomeCurrent(points, gen) {
+  const recs = await getCurrentFor(points);
+  if (gen !== homeRenderGen) return;
+  const list = document.getElementById("points-list");
+  if (!list) return;
+  const shown = [];
+  for (const r of recs) {
+    const btn = list.querySelector('.point-btn[data-id="' + r.id + '"]');
+    if (!btn) continue;
+    const tEl = btn.querySelector(".p-temp");
+    if (tEl) {
+      const ele = btn.querySelector(".p-ele");
+      const hasEle = !!(ele && ele.firstChild && ele.firstChild.textContent.trim());
+      tEl.textContent = r.t + "°";
+      tEl.dataset.ele = hasEle ? "1" : ""; // разделитель «·» рисует CSS base только при наличии высоты
+      tEl.hidden = false;
+    }
+    const iEl = btn.querySelector(".p-wicon");
+    if (iEl) { iEl.innerHTML = icon(r.code, r.night); iEl.hidden = false; }
+    shown.push(r);
+  }
+  homeUpdatedLabel(shown);
 }
 
 /* ---------- состояния: skeleton, ошибка сети (без технических деталей) ---------- */
@@ -865,6 +997,7 @@ async function loadPoint(id) {
     return;
   }
   lastPayload = d;
+  wxcSyncFromPayload(id, d); // карточка главной = то же current, что только что показала точка
   checkWatchedPoint(d); // заготовка уведомлений: сравнить со снимком (без рассылки)
   pushRecent(id);
   const p = d.point;
