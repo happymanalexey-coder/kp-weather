@@ -1,7 +1,7 @@
 /* Скин «Minimalism» — реализация Minimalism_Design_Spec.md (01.10.2026).
    Тёплая бумага + бронза, редакционная типографика (Playfair Display 500 — только акцидентные строки),
    округлые карточки 20px без обводок, линейные иконки 24×24 stroke 1.5.
-   Статус: draft — скрыт от пользователей, просмотр владельцем: ?skin=minimalism&draft=1 */
+   Статус: active — опубликован, доступен всем на экране «Скин» (base по умолчанию не меняется). */
 window.KP_SKINS = window.KP_SKINS || {};
 (function () {
   "use strict";
@@ -66,7 +66,11 @@ window.KP_SKINS = window.KP_SKINS || {};
     wind: svg('<g stroke="' + K + '"><path d="M3.5 8.5 h9 a2.6 2.6 0 1 0-2.6-2.8"/><path d="M3.5 12.7 h12.6 a2.6 2.6 0 1 1-2.6 2.8"/><path d="M3.5 16.9 h6.5"/></g>'),
     wave: svg('<g stroke="' + K + '"><path d="M2.5 9.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/><path d="M2.5 15.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/></g>'),
     /* UI: «поделиться» — бумажный самолётик (К-03), мастер 24×24, stroke 1.8 */
-    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>'
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>',
+    /* UI: быстрый ряд (Д-Р2) — линейные иконки, красятся через currentColor (токен --accent) */
+    "qa-search": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><line x1="15.2" y1="15.2" x2="20" y2="20"/></svg>',
+    "qa-add": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    "qa-skin": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 21a9 9 0 0 0 9-9"/><circle cx="7.5" cy="10.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/></svg>'
   };
 
   /* ---------- 16 цветовых ролей (§2 спеки) → токены приложения ---------- */
@@ -154,24 +158,19 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="minimalism"][data-theme="dark"] #m-lamp .m-cord { stroke: #57503F; }',
     '[data-skin="minimalism"][data-theme="dark"] #m-lamp .m-bulb { fill: #201D18; stroke: #463F33; }',
     '[data-skin="minimalism"][data-theme="dark"] #m-lamp .m-fil { stroke: #FFB75E; stroke-width: 3.6; }',
-    '/* ---- Д-Р2 quick row: три кнопки, вставка, пилюли 22px ---- */',
+    '/* ---- Д-Р2 quick row: три кнопки, вставка, пилюли 22px; иконки — слоты qa-*, цвет currentColor = --accent ---- */',
     '[data-skin="minimalism"] .top-actions { margin: 2px 0 4px; }',
     '[data-skin="minimalism"] .top-actions .ha-btn { height: 44px; border: none; border-radius: 22px; background: var(--bg2); color: var(--text); font-size: 12px; font-weight: 700; gap: 6px; }',
     '[data-skin="minimalism"] .top-actions .ha-btn:active { opacity: .7; transition: opacity .12s; }',
     '[data-skin="minimalism"] .top-actions .sic { width: 15px; height: 15px; color: var(--accent); }',
-    '[data-skin="minimalism"] .top-actions .sic svg { display: none; }',
-    '[data-skin="minimalism"] .top-actions .ha-btn:nth-child(1) .sic { background: url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><line x1="15.2" y1="15.2" x2="20" y2="20"/></svg>\') center/contain no-repeat; }',
-    '[data-skin="minimalism"] .top-actions .ha-btn:nth-child(2) .sic { background: url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>\') center/contain no-repeat; }',
-    '[data-skin="minimalism"] .top-actions .ha-btn:nth-child(3) .sic { background: url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 21a9 9 0 0 0 9-9"/><circle cx="7.5" cy="10.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/></svg>\') center/contain no-repeat; }',
     '/* ---- общие: карточки 20px, без обводок, тень по теме ---- */',
     '[data-skin="minimalism"] .point-btn, [data-skin="minimalism"] .card, [data-skin="minimalism"] .donate-panel, [data-skin="minimalism"] .community-panel { border: none; box-shadow: var(--card-sh); border-radius: 20px; }',
     '[data-skin="minimalism"] .point-btn:active { opacity: .7; transition: opacity .12s; }',
     '/* ---- К-05 «Сейчас»: Playfair 56px, иконка 52px ---- */',
     '[data-skin="minimalism"] .now-t { font-family: "Playfair Display", serif; font-weight: 500; font-size: 56px; }',
     '[data-skin="minimalism"] .now-icon .wic { width: 52px; height: 52px; }',
-    '/* ---- К-08: «сейчас» — плашка вставки радиус 10 вместо рамки ---- */',
-    '[data-skin="minimalism"] .h-cell.now { border: none; background: var(--bg2); border-radius: 10px; }',
-    '[data-skin="minimalism"] .hours-wrap { background: transparent; }',
+    '/* ---- К-08: лента часов без плашек; «сейчас» — акцент времени, рамка — общая .h-mid (все скины) ---- */',
+    '[data-skin="minimalism"] .h-cell { background: transparent; }',
     '/* ---- К-03: название точки Playfair 30 ---- */',
     '[data-skin="minimalism"] .pt-title { font-family: "Playfair Display", serif; font-weight: 500; font-size: 30px; }',
     '[data-skin="minimalism"] .d-date { font-weight: 700; }',

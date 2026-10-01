@@ -401,9 +401,9 @@ let editMode = false;
 function homeTopActionsHtml() {
   return `
     <div class="home-actions top-actions">
-      <button class="ha-btn set-btn" onclick="openLibrary()"><span class="sic">${ICONS.globe}</span>Поиск</button>
-      <button class="ha-btn set-btn" onclick="openFeedback()"><span class="sic">${ICONS.pin}</span>Добавить</button>
-      <button class="ha-btn set-btn" onclick="openStyle()"><span class="sic">${ICONS.palette}</span>Скин</button>
+      <button class="ha-btn set-btn" onclick="openLibrary()"><span class="sic">${ICONS["qa-search"]}</span>Поиск</button>
+      <button class="ha-btn set-btn" onclick="openFeedback()"><span class="sic">${ICONS["qa-add"]}</span>Добавить</button>
+      <button class="ha-btn set-btn" onclick="openStyle()"><span class="sic">${ICONS["qa-skin"]}</span>Скин</button>
     </div>`;
 }
 
@@ -1057,7 +1057,30 @@ function hoursHtml(d, date) {
         <div class="h-w">${h.wind[i] ?? "—"}</div>
       </div>`;
   }
-  return `<div class="hours-strip">${cells}</div><div class="hours-legend">осадки, мм · ветер,  м/с</div>`;
+  return `<div class="hours-strip"><div class="h-mid" aria-hidden="true"></div>${cells}</div><div class="hours-legend">осадки, мм · ветер,  м/с</div>`;
+}
+
+/* Центральная рамка ленты (общий компонент, все скины): подсвечивает час, ближайший
+   к центру видимой области. Рамка одна, едет от часа к часу (transition в css),
+   цвет — токен скина. Ячейки без рамок/фонов, искусственные отступы на краях не добавляем. */
+function hoursFrameSync(wrap, instant) {
+  const strip = wrap.querySelector(".hours-strip");
+  const frame = strip && strip.querySelector(".h-mid");
+  if (!frame) return;
+  const cells = strip.querySelectorAll(".h-cell");
+  if (!cells.length) { frame.classList.remove("on"); return; }
+  const mid = wrap.scrollLeft + wrap.clientWidth / 2;
+  let best = null, bestD = Infinity;
+  cells.forEach(c => {
+    const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+    if (d < bestD) { bestD = d; best = c; }
+  });
+  if (!best) return;
+  if (instant) frame.style.transition = "none";
+  frame.style.width = best.offsetWidth + "px";
+  frame.style.left = best.offsetLeft + "px";
+  if (instant) { void frame.offsetWidth; frame.style.transition = ""; }
+  frame.classList.add("on");
 }
 
 function toggleHours(rowEl) {
@@ -1068,8 +1091,23 @@ function toggleHours(rowEl) {
   if (opening) {
     const target = wrap.querySelector(".h-cell.now") || wrap.querySelector('[data-h="6"]');
     if (target) target.scrollIntoView({ block: "nearest", inline: "center" });
+    /* первичная установка рамки — без анимации «вылета» из нулевой позиции */
+    requestAnimationFrame(() => hoursFrameSync(wrap, true));
   }
 }
+
+/* скролл не всплывает — ловим на capture; синхронизация через rAF (троттлинг) */
+let hoursFrameTick = false;
+document.addEventListener("scroll", e => {
+  const t = e.target;
+  if (!t || !t.classList || !t.classList.contains("hours-wrap")) return;
+  if (hoursFrameTick) return;
+  hoursFrameTick = true;
+  requestAnimationFrame(() => { hoursFrameTick = false; hoursFrameSync(t); });
+}, true);
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".hours-wrap:not(.hidden)").forEach(w => hoursFrameSync(w));
+});
 
 /* ---------- поддержка проекта (одна кнопка → сбор Т-Банк) и связь с автором ---------- */
 function donateHtml() {
@@ -1152,6 +1190,12 @@ const ICONS = Object.assign({}, WIC, {
   badge: BADGE_FALLBACK,
   telegram: TG_ICON,
 });
+/* Слоты быстрого ряда «Поиск/Добавить/Скин»: по умолчанию = базовые globe/pin/palette.
+   Отдельные слоты, чтобы скин мог рисовать в ряду свои иконки (currentColor/токены),
+   не подменяя слот globe у кнопки «карта» на экране точки. */
+ICONS["qa-search"] = ICONS.globe;
+ICONS["qa-add"] = ICONS.pin;
+ICONS["qa-skin"] = ICONS.palette;
 function badgeHtml(p) {
   return p.verified === false ? "" : `<span class="badge-verified" title="Точка от разработчиков">${ICONS.badge}</span>`;
 }
@@ -1203,7 +1247,7 @@ async function loadBadge() {
   return false;
 }
 /* Слоты UI-иконок (не погодные): скин может подменять и их — при смене скина восстанавливаем базу */
-const UI_ICON_SLOTS = ["gear", "globe", "pin", "palette", "check", "badge", "telegram", "share"];
+const UI_ICON_SLOTS = ["gear", "globe", "pin", "palette", "check", "badge", "telegram", "share", "qa-search", "qa-add", "qa-skin"];
 const UI_BASE_ICONS = {};
 UI_ICON_SLOTS.forEach(k => { UI_BASE_ICONS[k] = ICONS[k]; });
 let appliedSkinId = "base"; // для хука onRemove прежнего скина

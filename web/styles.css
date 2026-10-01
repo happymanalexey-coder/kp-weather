@@ -145,13 +145,19 @@ body {
 .chev { display: inline-block; margin-left: 4px; color: var(--muted); transition: transform .15s ease; }
 .day-row.open .chev { transform: rotate(180deg); }
 
-/* почасовой прогноз */
+/* почасовой прогноз: часы лежат свободно (без обводок/фонов), одна рамка — в центре ленты */
 .hours-wrap { overflow-x: auto; scrollbar-width: thin; }
-.hours-strip { display: flex; gap: 4px; padding: 2px 0 6px; }
-.h-cell { min-width: 54px; flex: 0 0 auto; text-align: center; background: var(--bg2); border-radius: var(--r-xs); padding: 8px 4px 6px; }
-.h-cell.now { outline: 1px solid var(--accent); background: var(--accent-soft); }
+.hours-strip { display: flex; gap: 4px; padding: 2px 0 6px; position: relative; }
+.h-cell { min-width: 54px; flex: 0 0 auto; text-align: center; padding: 8px 4px 6px; }
 .h-time { font-size: 11px; color: var(--muted); font-weight: 600; }
 .h-cell.now .h-time { color: var(--accent); }
+/* центральная рамка: общий компонент для всех скинов, цвет — токен скина (--accent) */
+.h-mid {
+  position: absolute; top: 2px; bottom: 6px; left: 0; width: 62px;
+  border: 1.5px solid var(--accent); border-radius: var(--r-sm);
+  pointer-events: none; opacity: 0; transition: left .18s ease, width .18s ease, opacity .18s ease;
+}
+.h-mid.on { opacity: 1; }
 .h-icon { font-size: 18px; margin: 3px 0 2px; }
 .h-t { font-size: 14px; font-weight: 700; }
 .h-pr { font-size: 10.5px; color: var(--blue); min-height: 14px; margin-top: 2px; }

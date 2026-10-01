@@ -262,20 +262,25 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
   // Блок 4 (актуализировано): вкладки «Настройки» нет, стили — реальный экран по реестру
   ok(!/id="settings-screen"/.test(hsrc) && !/function openSettings/.test(asrc),
     "вкладка «Настройки» удалена из интерфейса полностью");
-  ok(/onclick="openLibrary\(\)"><span class="sic">\$\{ICONS\.globe\}<\/span>Поиск<\/button>/.test(asrc) &&
-     /onclick="openFeedback\(\)"><span class="sic">\$\{ICONS\.pin\}<\/span>Добавить<\/button>/.test(asrc) &&
-     /onclick="openStyle\(\)"><span class="sic">\$\{ICONS\.palette\}<\/span>Скин<\/button>/.test(asrc),
-    "ряд «Поиск / Добавить / Скин» над виджетами на главной");
+  ok(/onclick="openLibrary\(\)"><span class="sic">\$\{ICONS\["qa-search"\]\}<\/span>Поиск<\/button>/.test(asrc) &&
+     /onclick="openFeedback\(\)"><span class="sic">\$\{ICONS\["qa-add"\]\}<\/span>Добавить<\/button>/.test(asrc) &&
+     /onclick="openStyle\(\)"><span class="sic">\$\{ICONS\["qa-skin"\]\}<\/span>Скин<\/button>/.test(asrc),
+    "ряд «Поиск / Добавить / Скин» над виджетами на главной (слоты qa-*)");
+  ok(/ICONS\["qa-search"\] = ICONS\.globe/.test(asrc) &&
+     /"qa-search", "qa-add", "qa-skin"/.test(asrc),
+    "qa-слоты дефолтятся на base-иконки и подменяются скином через UI_ICON_SLOTS (currentColor/токены, без data-URI)");
   ok(!/function styleLocked/.test(asrc) && !/PUBLIC_SKINS/.test(asrc) && !/id="stl-modal"/.test(hsrc),
     "модалка-замок стилей убрана, PUBLIC_SKINS нет — экран строится по реестру");
   ok(/if \(h === "#style"\) \{ if \(window\.KP_ANALYTICS\) KP_ANALYTICS\.track\("skin_view"\); renderStyleList\(\); return; \}/.test(asrc),
     "#style — настоящий экран скинов (renderStyleList)");
   const reg = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
   const active = reg.filter(x => (x.status || "active") !== "draft").map(x => x.id);
-  ok(JSON.stringify(active) === JSON.stringify(["base"]),
+  ok(JSON.stringify(active) === JSON.stringify(["base", "minimalism"]),
     `в выдаче только активные скины реестра (сейчас: ${active.join(", ")})`);
-  ok(reg.filter(x => x.id === "minimalism" || x.id === "bali").every(x => x.status === "draft"),
-    "minimalism и bali — архив (draft), файлы в репозитории остались");
+  ok(reg.find(x => x.id === "bali") && reg.find(x => x.id === "bali").status === "draft",
+    "bali — архив (draft), файлы в репозитории остались");
+  const msrc0 = fs.readFileSync(root + "skins/minimalism/skin.js", "utf8");
+  ok(!/data:image\/svg\+xml/.test(msrc0), "у быстрого ряда minimalism нет data-URI иконок (currentColor через слоты)");
   const swsrc = fs.readFileSync(root + "sw.js", "utf8");
   ok(!/bali/.test(swsrc), "Service Worker не кэширует bali (архив)");
   ok(/skins\/minimalism\/skin\.js/.test(swsrc), "Service Worker кэширует minimalism (файл скина по ТЗ)");
@@ -290,12 +295,14 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
     "сидинг набора только при первом визите (выбор пользователя не трогаем)");
 }
 
-console.log("\n== Скин Minimalism: регистрация, скрытость, состав ==");
+console.log("\n== Скин Minimalism: публикация, состав ==");
 {
   const reg = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
   const m = reg.find(x => x.id === "minimalism");
-  ok(!!m && (m.status || "active") !== "active", "minimalism зарегистрирован со статусом draft (скрыт от пользователей)");
+  ok(!!m && (m.status || "active") === "active", "minimalism опубликован (active) — карточка видна на экране «Скин» рядом с base");
   const msrc = fs.readFileSync(root + "skins/minimalism/skin.js", "utf8");
+  ok(/"qa-search":/.test(msrc) && /"qa-add":/.test(msrc) && /"qa-skin":/.test(msrc),
+    "minimalism рисует свой набор иконок быстрого ряда (qa-слоты)");
   ok(/draft=1/.test(msrc) || true, "");
   ok(/data-skin=\\?"minimalism\\?"/.test(msrc) || /data-skin="minimalism"/.test(msrc), "скин несёт css под атрибутом data-skin (не течёт в base)");
   ok(/PlayfairDisplay\.ttf/.test(msrc) && /@font-face/.test(msrc), "Playfair Display подключён локальным @font-face");
@@ -308,6 +315,20 @@ console.log("\n== Скин Minimalism: регистрация, скрытост�
   ok(/assets\/fonts\/PlayfairDisplay\.ttf/.test(fs.readFileSync(root + "sw.js", "utf8")), "SW кэширует файл шрифта");
   ok(/skins\/minimalism\/skin\.js/.test(fs.readFileSync(root + "sw.js", "utf8")), "SW кэширует файл скина");
   ok(fs.existsSync(root + "assets/fonts/PlayfairDisplay.ttf"), "файл шрифта в репозитории (assets/fonts/)");
+}
+
+console.log("\n== Почасовая лента: свободные ячейки + одна центральная рамка (все скины) ==");
+{
+  const ssrc = fs.readFileSync(root + "styles.css", "utf8");
+  ok(/\.h-mid\s*\{[\s\S]*?border: 1\.5px solid var\(--accent\)/.test(ssrc),
+    "рамка .h-mid: цвет из токена скина (--accent) — base и minimalism по своим палитрам");
+  ok(!/\.h-cell\s*\{[^}]*background/.test(ssrc), "обычные ячейки часов лежат свободно (без фона/обводок)");
+  ok(!/\.h-cell\.now\s*\{[^}]*outline/.test(ssrc) && !/\.h-cell\.now\s*\{[^}]*background/.test(ssrc),
+    "у «сейчас» нет собственной рамки/плашки — подсветка одна, центральная");
+  ok(/<div class="h-mid" aria-hidden="true"><\/div>/.test(asrc) && /function hoursFrameSync/.test(asrc) &&
+     /addEventListener\("scroll"/.test(asrc) && /requestAnimationFrame/.test(asrc),
+    "рамка рендерится в общем компоненте ленты и следит за ближайшим к центру часом (rAF)");
+  ok(!/bali/.test(fs.readFileSync(root + "sw.js", "utf8")), "Service Worker не кэширует bali (архив) — по-прежнему");
 }
 
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");
