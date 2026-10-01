@@ -75,6 +75,35 @@
      "#ffe9d2"
     ]
    }
+  },
+  {
+   "id": "tema299",
+   "name": "Тёма 299",
+   "authorName": "Тёма",
+   "authorLink": "https://www.instagram.com/tema.polyana",
+   "type": "official",
+   "badge": "none",
+   "erid": "",
+   "status": "draft",
+   "themes": [
+    "light",
+    "dark"
+   ],
+   "file": "skins/tema299/skin.js",
+   "badgeSvg": "skins/tema299/badge.svg",
+   "preview": {
+    "sky0": "#0B0C0E",
+    "sky1": "#E9E7E1",
+    "mt1": "#1C1D21",
+    "mt2": "#F5F3EE",
+    "mt3": "#242529",
+    "palette": [
+     "#E04556",
+     "#FFFFFF",
+     "#3E8FE0",
+     "#FF4457"
+    ]
+   }
   }
  ]
 }

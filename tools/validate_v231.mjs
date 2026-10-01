@@ -397,6 +397,45 @@ console.log("\n== Карточки главной: current temperature (общи
     "зеркало web/app.js содержит общий слой (ровно 4 серверных отличия — см. блок зеркала)");
 }
 
+console.log("\n== Скин «Тёма 299» (draft): состав, шкала, арт, зоны ==");
+{
+  const reg3 = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
+  const t9 = reg3.find(x => x.id === "tema299");
+  ok(!!t9 && (t9.status || "active") === "draft" && t9.name === "Тёма 299",
+    "tema299 зарегистрирован как draft (на экране скинов не появляется)");
+  ok(reg3.filter(x => x.id === "tema299").length === 1, "ровно одна запись tema299, существующие не дублированы");
+  const t9src = fs.readFileSync(root + "skins/tema299/skin.js", "utf8");
+  const needKeys = ["sun","moon","sunCloud","moonCloud","cloud","overcast","fog","drizzle","rain","moonRain","rainShowers","rainSnow","snow","moonSnow","blizzard","hail","thunder","thunderHail","wind","wave"];
+  ok(needKeys.every(k => new RegExp(k + ":").test(t9src)), "все 20 погодных слотов К-01…К-20 (ключи WIC)");
+  ok(/tempColor[\s\S]*?#7A0E2B/.test(t9src) && /tempColor[\s\S]*?#16338C/.test(t9src) && t9src.includes("#6FB9E8"),
+    "temp_color Д-Р1: якоря шкалы +50 бордо / −50 тёмно-синий / 0 светло-голубой");
+  ok(/"#F2BCA8"/.test(t9src) && /"#CFE9F8"/.test(t9src), "тёмная тема шкалы — осветлённые варианты");
+  ok(/tempText[\s\S]*?"\+"/.test(t9src) && /"−"/.test(t9src), "формат «+27°»/«−12°» (типографский минус)");
+  ok(/function pyRound/.test(t9src), "округление шкалы — как в эталонной реализации");
+  ok((t9src.match(/@font-face/g) || []).length === 3 && /Nunito-400\.ttf/.test(t9src) && /Nunito-800\.ttf/.test(t9src),
+    "Nunito 400/700/800 локально через @font-face");
+  ok(!/fonts\.googleapis|fonts\.gstatic|cdn\./.test(t9src), "без внешних CDN");
+  ok(/w2t|w2m/.test(t9src) && /n2/.test(t9src) && /h2s|h2v/.test(t9src), "иконки быстрого ряда: колесо/гайка/шлем (§6.3)");
+  ok(/"qa-search"|qa-search:/.test(t9src), "ряд Поиск/Добавить/Скин стилизуется через qa-слоты");
+  ok(/rgba\(94,177,255,\.85\)/.test(t9src) && /#FFFFFF/.test(t9src), "донат Д-Р2: белая заливка + голубой неон");
+  ok(/t299-z-moto/.test(t9src) && /t299-z-299/.test(t9src) && /t299-z-ig/.test(t9src) && /t299-z-i/.test(t9src),
+    "4 тап-зоны шапки (тема / 299 / Instagram / i)");
+  ok(/instagram\.com\/tema\.polyana/.test(t9src), "Instagram Д-Р4: внешняя ссылка из ночного арта");
+  ok(/skins\/tema299\/assets\/header-" \+ \(dark \? "night" : "day"\) \+ "\.jpg/.test(t9src),
+    "арт шапки день/ночь монтируется по теме");
+  ["Nunito-400.ttf","Nunito-700.ttf","Nunito-800.ttf","header-day.jpg","header-night.jpg"].forEach(f => {
+    ok(fs.existsSync(root + "skins/tema299/assets/" + f), "assets/" + f + " существует");
+  });
+  const sw3 = fs.readFileSync(root + "sw.js", "utf8");
+  ok(/skins\/tema299\/skin\.js/.test(sw3) && /skins\/tema299\/assets\/header-day\.jpg/.test(sw3) &&
+     /skins\/tema299\/assets\/Nunito-800\.ttf/.test(sw3), "SW кэширует файлы скина (существующие записи не тронуты)");
+  ok(/skins\/base\/skin\.js/.test(sw3) && /skins\/minimalism\/skin\.js/.test(sw3) && !/bali/.test(sw3),
+    "записи base/minimalism в кэше целы, bali по-прежнему не кэшируется");
+  const asrc2 = fs.readFileSync(root + "app.js", "utf8");
+  ok(/function tempInner\(t\)/.test(asrc2) && /s\.tempColor/.test(asrc2),
+    "общий слой tempInner подхватывает tempColor/tempText скина (base/minimalism — прежний вывод)");
+}
+
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");
 ok(F.precipMmText(0).text === "нет" && !F.precipMmText(0).present, "0 → «нет» (осадков нет)");
 ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "морось",

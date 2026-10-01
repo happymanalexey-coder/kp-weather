@@ -496,6 +496,23 @@ function homeUpdatedLabel(recs) {
   el.hidden = false;
 }
 
+/* Отрисовка температуры. Скин может задать в манифесте tempColor(t, dark) и tempText(t)
+   (Д-Р1 «Тёмы 299»: непрерывная шкала −50…+50, формат «+27°»/«−12°»). Без этих хуков —
+   прежний вывод побайтово: «12°», без обёрток. base/minimalism не затронуты. */
+function tempInner(t) {
+  if (t == null) return "—°";
+  const s = window.KP_SKINS && KP_SKINS[SKIN_ID];
+  if (!s || (!s.tempColor && !s.tempText)) return t + "°";
+  const dark = document.documentElement.dataset.theme === "dark";
+  const style = s.tempColor ? ' style="color:' + s.tempColor(t, dark) + '"' : "";
+  const txt = s.tempText ? s.tempText(t) : t + "°";
+  return "<span" + style + ">" + txt + "</span>";
+}
+function hasTempHooks() {
+  const s = window.KP_SKINS && KP_SKINS[SKIN_ID];
+  return !!(s && (s.tempColor || s.tempText));
+}
+
 /* ---------- главный экран ---------- */
 let editMode = false;
 let homeRenderGen = 0; // защита от устаревших асинхронных проходов при повторном renderHome
@@ -574,8 +591,9 @@ async function fillHomeCurrent(points, gen) {
     if (tEl) {
       const ele = btn.querySelector(".p-ele");
       const hasEle = !!(ele && ele.firstChild && ele.firstChild.textContent.trim());
-      tEl.textContent = r.t + "°";
       tEl.dataset.ele = hasEle ? "1" : ""; // разделитель «·» рисует CSS base только при наличии высоты
+      if (hasTempHooks()) tEl.innerHTML = tempInner(r.t); // скин с хуками (Тёма 299: «+27°» + шкала)
+      else tEl.textContent = r.t + "°";                    // прежний вывод, побайтово
       tEl.hidden = false;
     }
     const iEl = btn.querySelector(".p-wicon");
@@ -1012,7 +1030,7 @@ async function loadPoint(id) {
       <div class="now-main">
         <div class="now-icon">${icon(cur.code, nowNight)}</div>
         <div>
-          <div class="now-t">${cur.t}°</div>
+          <div class="now-t">${tempInner(cur.t)}</div>
           <div class="now-desc">${precipLabel(cur.code, cur.precip)} · ощущается ${cur.feels}°</div>
         </div>
       </div>
@@ -1031,7 +1049,7 @@ async function loadPoint(id) {
         <div class="day-row" onclick="toggleHours(this)">
           <div class="d-left">
             <div class="d-date"><span class="vdot ${day.verdict}"></span>${label}</div>
-            <div class="d-temp"><span class="d-max">${day.t_day ?? "—"}°</span><span class="d-min"> / ${day.t_night ?? "—"}°</span></div>
+            <div class="d-temp"><span class="d-max">${tempInner(day.t_day)}</span><span class="d-min"> / ${tempInner(day.t_night)}</span></div>
             <div class="d-pr">${prInfo.text}</div>
           </div>
           <div class="d-icons">${periodsHtml(d, day.date, day.code)}</div>
@@ -1185,7 +1203,7 @@ function hoursHtml(d, date) {
       <div class="h-cell${isNow ? " now" : ""}" data-h="${hh}">
         <div class="h-time">${isNow ? "сейчас" : String(hh).padStart(2, "0") + ":00"}</div>
         <div class="h-icon">${icon(hourPrecipCode(d, i), hh < 6 || hh >= 21)}</div>
-        <div class="h-t">${h.t[i] ?? "—"}°</div>
+        <div class="h-t">${tempInner(h.t[i])}</div>
         <div class="h-pr">${pr >= 0.1 ? pr.toFixed(1) : ""}</div>
         <div class="h-w">${h.wind[i] ?? "—"}</div>
       </div>`;

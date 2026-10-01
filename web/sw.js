@@ -1,7 +1,7 @@
 /* Минимальный service worker «Погода в горах».
    Статика — cache-first, data/points.json — network-first,
    погодные API — всегда сеть (свежесть важнее, кэширует само приложение). */
-const CACHE = "kp-weather-v3.25";
+const CACHE = "kp-weather-v3.26";
 const STATIC = [
   "./",
   "index.html",
@@ -18,6 +18,13 @@ const STATIC = [
   "skins/minimalism/skin.js",
   "skins/minimalism/preview.png",
   "assets/fonts/PlayfairDisplay.ttf",
+  "skins/tema299/skin.js",
+  "skins/tema299/badge.svg",
+  "skins/tema299/assets/Nunito-400.ttf",
+  "skins/tema299/assets/Nunito-700.ttf",
+  "skins/tema299/assets/Nunito-800.ttf",
+  "skins/tema299/assets/header-day.jpg",
+  "skins/tema299/assets/header-night.jpg",
 ];
 
 self.addEventListener("install", e => {
