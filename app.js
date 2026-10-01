@@ -238,12 +238,22 @@ function paidGate(action) {
 }
 
 /* ---------- тема (тёмная ↔ светлая), луна/солнце в шапке ---------- */
+/* Плашки safe-area в mini-app (фон под системным баром и полоса при оттягивании экрана) —
+   из токенов АКТИВНОГО скина: header = --hero-sk1, background = --bg. Базовый — как раньше
+   (эталон), минимализм — тёплые свои, Тёма — свои. Фолбэки = прежние константы base. */
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (v) return v;
+  } catch (e) {}
+  return fallback;
+}
 function applyTgColors() {
   try {
     if (window.Telegram && Telegram.WebApp) {
       const light = document.documentElement.dataset.theme === "light";
-      Telegram.WebApp.setHeaderColor(light ? "#cfe3f5" : "#0b1220");
-      Telegram.WebApp.setBackgroundColor(light ? "#eef2f7" : "#0b1220");
+      Telegram.WebApp.setHeaderColor(cssVar("--hero-sk1", light ? "#cfe3f5" : "#0b1220"));
+      Telegram.WebApp.setBackgroundColor(cssVar("--bg", light ? "#eef2f7" : "#0b1220"));
     }
   } catch (e) {}
 }
@@ -491,8 +501,9 @@ function homeUpdatedLabel(recs) {
   if (!recs.length) { el.hidden = true; return; }
   const oldest = Math.min.apply(null, recs.map(r => r.ts));
   const d = new Date(oldest);
-  el.textContent = "Обновлено " + String(d.getHours()).padStart(2, "0") + ":" +
-    String(d.getMinutes()).padStart(2, "0");
+  const p2 = n => String(n).padStart(2, "0");
+  el.textContent = "Обновлено " + p2(d.getHours()) + ":" + p2(d.getMinutes()) +
+    " · " + p2(d.getDate()) + "." + p2(d.getMonth() + 1) + "." + String(d.getFullYear()).slice(-2);
   el.hidden = false;
 }
 
@@ -815,7 +826,7 @@ function renderLibrary(filter) {
         </div>
         ${on
           ? `<button class="lib-on" data-rm="${p.id}">на главной ✓</button>`
-          : `<button class="lib-add" data-add="${p.id}">Добавить</button>`}
+          : `<button class="lib-add" data-add="${p.id}">+ Добавить</button>`}
       </div>`;
   });
   const emptyText = libTab === "mine"
@@ -1333,7 +1344,7 @@ const ICONS = Object.assign({}, WIC, {
   gear: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
   globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`,
   lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5.5" y="10.5" width="13" height="9" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>`,
-  share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1"/></svg>`,
+  share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>`,
   pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 21.2s-6.6-5.5-6.6-10.2a6.6 6.6 0 1 1 13.2 0c0 4.7-6.6 10.2-6.6 10.2z"/><circle cx="12" cy="10.6" r="2.3"/></svg>`,
   palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1 0 1.7-.7 1.7-1.6 0-.5-.18-.85-.45-1.13-.26-.29-.45-.64-.45-1.07 0-.9.73-1.6 1.6-1.6h1.9a3.7 3.7 0 0 0 3.7-3.7c0-3.9-4-6.5-8-6.5z"/><circle cx="7.4" cy="11" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.8" cy="7.8" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6l4.8 4.8L19.5 6.8"/></svg>`,
@@ -1341,11 +1352,11 @@ const ICONS = Object.assign({}, WIC, {
   badge: BADGE_FALLBACK,
   telegram: TG_ICON,
 });
-/* Слоты быстрого ряда «Поиск/Добавить/Скин»: по умолчанию = базовые globe/pin/palette.
+/* Слоты быстрого ряда «Поиск/Добавить/Скин»: по умолчанию = базовые globe/plus/palette.
    Отдельные слоты, чтобы скин мог рисовать в ряду свои иконки (currentColor/токены),
    не подменяя слот globe у кнопки «карта» на экране точки. */
 ICONS["qa-search"] = ICONS.globe;
-ICONS["qa-add"] = ICONS.pin;
+ICONS["qa-add"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 ICONS["qa-skin"] = ICONS.palette;
 function badgeHtml(p) {
   return p.verified === false ? "" : `<span class="badge-verified" title="Точка от разработчиков">${ICONS.badge}</span>`;
@@ -1557,7 +1568,7 @@ async function renderStyleList() {
       : (s.author ? `<div class="st-author">${esc(s.author)}</div>` : "");
     const isSaved = s.id === savedId;
     const isPreview = skinPreview && s.id === SKIN_ID && !isSaved;
-    return `<div class="style-card${isSaved || isPreview ? " active" : ""}">
+    return `<div class="style-card${isSaved || isPreview ? " active" : ""}" data-vibe="${esc(s.id)}">
       <div class="st-prev">${hero}${themesChip}</div>
       <div class="st-name">${esc(s.name || s.id)}${skinBadgeHtml(s)}</div>
       ${authorHtml}

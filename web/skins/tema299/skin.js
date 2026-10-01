@@ -234,7 +234,10 @@ window.KP_SKINS = window.KP_SKINS || {};
   icons["qa-add"] = '<svg viewBox="0 0 24 24" fill="none">' + nut2() + "</svg>";
   icons["qa-skin"] = '<svg viewBox="0 0 24 24" fill="none">' + helmet2() + "</svg>";
 
-  /* ---------- §5: temp_color (порт 1:1, округление как в python) + формат «+27°» ---------- */
+  /* ---------- v3.27 §2.8: НОВАЯ шкала (отменяет Д-Р1 ±50): насыщенность 0…±30 ----------
+     ≥+30 — один насыщенный красный; к 0 красный светлеет (+1 по яркости = прежнему +7);
+     0 — лёгкий голубой (как прежний −7); к −30 синий темнеет; ≤−30 — один тёмно-синий.
+     Якоря +1/−1 посчитаны pyRound-точно по прежней шкале. */
   function pyRound(x) {
     var fl = Math.floor(x), d = x - fl;
     if (d < 0.5) return fl;
@@ -250,15 +253,20 @@ window.KP_SKINS = window.KP_SKINS || {};
     return out;
   }
   function tempColor(t, dark) {
+    var P30 = dark ? "#FF4757" : "#C81E3E";
+    var P1 = dark ? "#F4AEA0" : "#D36247";
+    var N0 = dark ? "#C2EBF8" : "#5198D4";
+    var N30 = dark ? "#4664B8" : "#16338C";
     if (t > 0) {
-      var k = Math.min(t / 50, 1);
-      return dark ? lerp("#F2BCA8", "#FF5A6E", k) : lerp("#E2704B", "#7A0E2B", k);
+      if (t >= 30) return P30;
+      if (t < 1) return P1;
+      return lerp(P1, P30, (t - 1) / 29);
     }
     if (t < 0) {
-      var k2 = Math.min(-t / 50, 1);
-      return dark ? lerp("#CFE9F8", "#6FA8F5", k2) : lerp("#5BA8E0", "#16338C", k2);
+      if (t <= -30) return N30;
+      return lerp(N30, N0, (t + 30) / 29);
     }
-    return dark ? "#CFE9F8" : "#6FB9E8";
+    return N0;
   }
   function tempText(t) {
     if (t > 0) return "+" + t + "°";
@@ -313,58 +321,51 @@ window.KP_SKINS = window.KP_SKINS || {};
   };
 
   /* ---------- §3: арт шапки + тап-зоны; §6: полоски/рамки; типографика; донат ---------- */
-  var RED_L = "#E04556", RED_D = "#FF4457", BLUE_L = "#3E8FE0", BLUE_D = "#4E9BE6", W = "#FFFFFF";
-  function tri(c1, c2, c3) { return "linear-gradient(90deg," + c1 + " 0%," + c2 + " 50%," + c3 + " 100%)"; }
+  /* Фирменный градиент проекта v3.27: фиолетовый → синий → белый → красный, плавно */
+  var BRAND = "linear-gradient(90deg,#B45CF0 0%,#8B5CF6 15%,#6366F1 30%,#3B82F6 44%,#93C5FD 52%,#FFFFFF 60%,#FBCFE8 68%,#F472B6 76%,#EF4444 87%,#DC2650 100%)";
+  var BRAND_REV = "linear-gradient(90deg,#DC2650 0%,#EF4444 13%,#F472B6 24%,#FBCFE8 32%,#FFFFFF 40%,#93C5FD 48%,#3B82F6 56%,#6366F1 70%,#8B5CF6 85%,#B45CF0 100%)";
+  var BRAND_DIAG = "linear-gradient(135deg,#B45CF0 0%,#8B5CF6 15%,#6366F1 30%,#3B82F6 44%,#93C5FD 52%,#FFFFFF 60%,#FBCFE8 68%,#F472B6 76%,#EF4444 87%,#DC2650 100%)";
 
   var css = [
     '@font-face { font-family: "Nunito"; src: url("skins/tema299/assets/Nunito-400.ttf") format("truetype"); font-weight: 400; font-display: swap; }',
     '@font-face { font-family: "Nunito"; src: url("skins/tema299/assets/Nunito-700.ttf") format("truetype"); font-weight: 700; font-display: swap; }',
     '@font-face { font-family: "Nunito"; src: url("skins/tema299/assets/Nunito-800.ttf") format("truetype"); font-weight: 800; font-display: swap; }',
     '[data-skin="tema299"] body { font-family: "Nunito", system-ui, sans-serif; }',
-    /* ---- §3: шапка Э-1 — арт 130px, вуаль в фон, контент с 104px ---- */
-    '[data-skin="tema299"] .hero { height: 104px; overflow: visible; border-radius: 0; }',
+    /* ---- §3: шапка Э-1 — арт 140px во всю hero, фирменное скругление снизу (как base) ---- */
+    '[data-skin="tema299"] .hero { height: 140px; overflow: hidden; border-radius: 0 0 var(--r-hero) var(--r-hero); }',
     '[data-skin="tema299"] .hero-mountains, [data-skin="tema299"] .hero-text, [data-skin="tema299"] .hero-info, [data-skin="tema299"] .theme-toggle { display: none; }',
-    '[data-skin="tema299"] #t299-art { position: absolute; top: 0; left: 0; right: 0; height: 130px; background-size: cover; background-position: center 32%; transition: opacity .12s ease; }',
+    '[data-skin="tema299"] #t299-art { position: absolute; top: 0; left: 0; right: 0; height: 100%; background-size: cover; background-position: center 30%; transition: opacity .12s ease; }',
     '[data-skin="tema299"] #t299-art.t299-press { opacity: .6; }',
     '[data-skin="tema299"] .t299-veil { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); pointer-events: none; }',
     '[data-skin="tema299"] .t299-zone { position: absolute; cursor: pointer; -webkit-tap-highlight-color: transparent; }',
-    /* мотоциклист: центральные ~50% арта — переключение темы */
+    /* мотоциклист: центральные ~56% арта — переключение темы */
     '[data-skin="tema299"] .t299-z-moto { left: 22%; width: 56%; top: 0; height: 100%; }',
     /* день: знак 299 в руке — «О проекте» */
-    '[data-skin="tema299"] .t299-z-299 { left: 36%; width: 22%; top: 0; height: 34%; }',
+    '[data-skin="tema299"] .t299-z-299 { left: 38%; width: 18%; top: 0; height: 32%; }',
     '[data-skin="tema299"][data-theme="dark"] .t299-z-299 { display: none; }',
-    /* ночь: неон @tema.polyana — Instagram; красная «i» — «О проекте» */
+    /* ночь: неон @tema.polyana — Instagram. Круглой кнопки «i» в ночном арте НЕТ (v3.27) */
     '[data-skin="tema299"] .t299-z-ig { left: 62%; width: 34%; top: 26%; height: 36%; }',
-    '[data-skin="tema299"] .t299-z-i { left: 8%; width: 18%; top: 6%; height: 42%; }',
-    '[data-skin="tema299"][data-theme="light"] .t299-z-ig, [data-skin="tema299"][data-theme="light"] .t299-z-i { display: none; }',
-    /* ---- §6.2: quick row — градиентные рамки (double-background), непрозрачная сердцевина ---- */
+    /* ---- §6.2: quick row — рамки фирменным градиентом (3 направления), непрозрачная сердцевина ---- */
     '[data-skin="tema299"] .top-actions { gap: 10px; margin: 2px 0 4px; }',
-    '[data-skin="tema299"] .top-actions .ha-btn { height: 40px; border-radius: 13px; border: 1.5px solid transparent; color: var(--text); font-size: 13.5px; font-weight: 800; gap: 6px; font-family: "Nunito", system-ui, sans-serif; box-shadow: 0 0 12px rgba(78,155,230,.28), 0 0 12px rgba(255,70,80,.22), inset 0 0 5px rgba(255,255,255,.06); }',
-    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + tri(BLUE_L, W, RED_L) + ' border-box; }',
-    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn { background: linear-gradient(#17191E, #17191E) padding-box, ' + tri(BLUE_D, W, RED_D) + ' border-box; }',
-    '[data-skin="tema299"] .top-actions .ha-btn:nth-child(1) { }',
-    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn:nth-child(2) { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + tri(W, RED_L, BLUE_L) + ' border-box; }',
-    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn:nth-child(2) { background: linear-gradient(#17191E, #17191E) padding-box, ' + tri(W, RED_D, BLUE_D) + ' border-box; }',
-    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn:nth-child(3) { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + tri(RED_L, BLUE_L, W) + ' border-box; }',
-    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn:nth-child(3) { background: linear-gradient(#17191E, #17191E) padding-box, ' + tri(RED_D, BLUE_D, W) + ' border-box; }',
+    '[data-skin="tema299"] .top-actions .ha-btn { height: 40px; border-radius: 13px; border: 1.5px solid transparent; color: var(--text); font-size: 13.5px; font-weight: 800; gap: 6px; font-family: "Nunito", system-ui, sans-serif; box-shadow: 0 0 12px rgba(139,92,246,.22), 0 0 12px rgba(239,68,68,.18), inset 0 0 5px rgba(255,255,255,.06); }',
+    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + BRAND + ' border-box; }',
+    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn { background: linear-gradient(#17191E, #17191E) padding-box, ' + BRAND + ' border-box; }',
+    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn:nth-child(2) { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + BRAND_REV + ' border-box; }',
+    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn:nth-child(2) { background: linear-gradient(#17191E, #17191E) padding-box, ' + BRAND_REV + ' border-box; }',
+    '[data-skin="tema299"][data-theme="light"] .top-actions .ha-btn:nth-child(3) { background: linear-gradient(#FBFAF7, #FBFAF7) padding-box, ' + BRAND_DIAG + ' border-box; }',
+    '[data-skin="tema299"][data-theme="dark"] .top-actions .ha-btn:nth-child(3) { background: linear-gradient(#17191E, #17191E) padding-box, ' + BRAND_DIAG + ' border-box; }',
     '[data-skin="tema299"] .top-actions .ha-btn:active { opacity: .6; transition: opacity .12s; }',
     '[data-skin="tema299"] .top-actions .sic { width: 19px; height: 19px; }',
     '[data-skin="tema299"] .top-actions .sic svg { width: 100%; height: 100%; display: block; }',
-    /* ---- §6.1: трёхцветные полоски 2.5px над виджетами (порядки по росписи) ---- */
-    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before, [data-skin="tema299"] .hours-strip::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2.5px; border-radius: 2px 2px 0 0; opacity: .9; pointer-events: none; }',
+    /* ---- §6.1: тонкие элегантные линии над виджетами (эталон формы — design-minimalism/Образец-полоски.jpg),
+       цвета — фирменный градиент, направления перетасованы: карточки odd → / even ←, «Сейчас» →, неделя ← ---- */
+    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 3px 3px; opacity: .9; pointer-events: none; box-shadow: 0 0 8px rgba(139,92,246,.35), 0 0 8px rgba(239,68,68,.25); }',
     '[data-skin="tema299"] #point-content .card { position: relative; }',
-    /* Э-1: карточка 1 r→w→b, карточка 2 b→w→r */
-    '[data-skin="tema299"][data-theme="light"] .point-btn:nth-of-type(odd)::before { background: ' + tri(RED_L, W, BLUE_L) + '; }',
-    '[data-skin="tema299"][data-theme="light"] .point-btn:nth-of-type(even)::before { background: ' + tri(BLUE_L, W, RED_L) + '; }',
-    '[data-skin="tema299"][data-theme="dark"] .point-btn:nth-of-type(odd)::before { background: ' + tri(RED_D, W, BLUE_D) + '; }',
-    '[data-skin="tema299"][data-theme="dark"] .point-btn:nth-of-type(even)::before { background: ' + tri(BLUE_D, W, RED_D) + '; }',
-    /* «Сейчас» w→b→r; неделя w→r→b; часы b→r→w */
-    '[data-skin="tema299"][data-theme="light"] #point-content .card:has(.now-main)::before { background: ' + tri(W, BLUE_L, RED_L) + '; }',
-    '[data-skin="tema299"][data-theme="dark"] #point-content .card:has(.now-main)::before { background: ' + tri(W, BLUE_D, RED_D) + '; }',
-    '[data-skin="tema299"][data-theme="light"] #point-content .card:has(.day-block)::before { background: ' + tri(W, RED_L, BLUE_L) + '; }',
-    '[data-skin="tema299"][data-theme="dark"] #point-content .card:has(.day-block)::before { background: ' + tri(W, RED_D, BLUE_D) + '; }',
-    '[data-skin="tema299"][data-theme="light"] .hours-strip::before { background: ' + tri(BLUE_L, RED_L, W) + '; }',
-    '[data-skin="tema299"][data-theme="dark"] .hours-strip::before { background: ' + tri(BLUE_D, RED_D, W) + '; }',
+    '[data-skin="tema299"] .point-btn:nth-of-type(odd)::before { background: ' + BRAND + '; }',
+    '[data-skin="tema299"] .point-btn:nth-of-type(even)::before { background: ' + BRAND_REV + '; }',
+    '[data-skin="tema299"] #point-content .card:has(.now-main)::before { background: ' + BRAND + '; }',
+    '[data-skin="tema299"] #point-content .card:has(.day-block)::before { background: ' + BRAND_REV + '; }',
+    /* почасовой прогноз внутри дня: градиентной линии сверху НЕТ (v3.27 §2.9) */
     /* ---- карточки без обводок, тени; общая форма ---- */
     '[data-skin="tema299"] .point-btn, [data-skin="tema299"] .card, [data-skin="tema299"] .donate-panel, [data-skin="tema299"] .community-panel { border: none; box-shadow: var(--card-sh); border-radius: 20px; }',
     '[data-skin="tema299"] .point-btn:active { opacity: .7; transition: opacity .12s; }',
@@ -382,12 +383,30 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .p-wicon svg { width: 34px; height: 34px; }',
     '[data-skin="tema299"] .p-temp { position: absolute; right: 12px; top: 52px; font-size: 19px; font-weight: 800; }',
     '[data-skin="tema299"] .point-btn .p-temp::before { content: none; }',
-    /* ---- §6.4 (Д-Р2): донат — белая кнопка, голубой неон, обе темы ---- */
-    '[data-skin="tema299"] .dp-go, [data-skin="tema299"] .dp-sbp { background: #FFFFFF; color: #23262B; border: 1.5px solid rgba(94,177,255,.85); box-shadow: 0 0 16px rgba(94,177,255,.5), 0 0 4px rgba(94,177,255,.35); border-radius: 13px; font-weight: 800; }',
+    /* ---- v3.27 §2.6: порядок «название → регион → метры»; карточки без метров — без пустой строчки ---- */
+    '[data-skin="tema299"] .point-btn .p-region { order: 2; }',
+    '[data-skin="tema299"] .point-btn .p-ele { order: 3; display: flex; flex-direction: column; align-items: flex-start; }',
+    /* ---- §6.4 (Д-Р2) + v3.27 §2.7: «Поддержать проект» и «Написать автору» — белые на голубом неоне,
+       одна гамма, обе темы; «Поддержать (СБП)» и «Добавить точку» — серые с фирменной рамкой ---- */
+    '[data-skin="tema299"] .dp-go, [data-skin="tema299"] .community-panel { background: #FFFFFF; color: #23262B; border: 1.5px solid rgba(94,177,255,.85); box-shadow: 0 0 16px rgba(94,177,255,.5), 0 0 4px rgba(94,177,255,.35); border-radius: 13px; font-weight: 800; }',
+    '[data-skin="tema299"] .dp-sbp, [data-skin="tema299"] .fb-go { border: 1.5px solid transparent; border-radius: 13px; font-weight: 800; }',
+    '[data-skin="tema299"][data-theme="light"] .dp-sbp, [data-skin="tema299"][data-theme="light"] .fb-go { background: linear-gradient(#EDEAE3, #EDEAE3) padding-box, ' + BRAND + ' border-box; color: #3A3E45; }',
+    '[data-skin="tema299"][data-theme="dark"] .dp-sbp, [data-skin="tema299"][data-theme="dark"] .fb-go { background: linear-gradient(#232529, #232529) padding-box, ' + BRAND + ' border-box; color: #E6E8EB; }',
+    /* ---- v3.27 §2.9: рамка выбранного часа — нежная градиентная, приглушённая ---- */
+    '[data-skin="tema299"] .h-mid { border: 1.5px solid transparent; border-radius: 13px; opacity: .38; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)) padding-box, ' + BRAND + ' border-box; }',
+    /* ---- v3.27 §2.5: цветовая дисциплина — красный только в фирменных градиентах ---- */
+    '[data-skin="tema299"] .back-btn { color: var(--muted); }',
+    '[data-skin="tema299"][data-theme="light"] .point-btn .p-ele, [data-skin="tema299"][data-theme="light"] .pt-globe { color: #6E93BD; }',
+    '[data-skin="tema299"][data-theme="dark"] .point-btn .p-ele, [data-skin="tema299"][data-theme="dark"] .pt-globe { color: #7FA3CF; }',
+    '[data-skin="tema299"] .h-cell.now .h-time { color: var(--text2); }',
+    '[data-skin="tema299"] .link-btn { color: var(--text); }',
+    '[data-skin="tema299"] .fb-modal a, [data-skin="tema299"] #consent-banner a, [data-skin="tema299"] .sk-consent a { color: var(--muted); }',
+    '[data-skin="tema299"] .err-retry, [data-skin="tema299"] .edit-done { background: var(--bg2); color: var(--text); border: 1px solid var(--line); }',
+    '[data-skin="tema299"] .cb-yes { background: var(--bg2); color: var(--text); border: 1px solid var(--line); }',
+    '[data-skin="tema299"] .dp-thanks { color: var(--text); }',
+    '[data-skin="tema299"] .foot-link:active { color: var(--muted); }',
     /* ---- мелкая стилизация общих элементов ---- */
-    '[data-skin="tema299"] .home-updated { font-weight: 700; }',
     '[data-skin="tema299"] .ha-hint, [data-skin="tema299"] .d-date, [data-skin="tema299"] .h-time { font-weight: 700; }',
-    '[data-skin="tema299"] .h-mid { border-radius: 13px; }',
     '[data-skin="tema299"] .fb-input { border-radius: 13px; }'
   ].join("\n");
 
@@ -404,8 +423,7 @@ window.KP_SKINS = window.KP_SKINS || {};
       art.innerHTML = '<div class="t299-veil"></div>' +
         '<div class="t299-zone t299-z-moto" role="button" aria-label="Сменить тему" title=""></div>' +
         '<div class="t299-zone t299-z-299" role="button" aria-label="О проекте" title=""></div>' +
-        '<div class="t299-zone t299-z-ig" role="button" aria-label="Instagram Тёмы" title=""></div>' +
-        '<div class="t299-zone t299-z-i" role="button" aria-label="О проекте" title=""></div>';
+        '<div class="t299-zone t299-z-ig" role="button" aria-label="Instagram Тёмы" title=""></div>';
       hero.appendChild(art);
       /* pressed-состояние: opacity .6 на 120мс */
       art.addEventListener("pointerdown", function () {
@@ -414,7 +432,6 @@ window.KP_SKINS = window.KP_SKINS || {};
       });
       art.querySelector(".t299-z-moto").addEventListener("click", function () { toggleTheme(); });
       art.querySelector(".t299-z-299").addEventListener("click", function () { openAbout(); });
-      art.querySelector(".t299-z-i").addEventListener("click", function () { openAbout(); });
       art.querySelector(".t299-z-ig").addEventListener("click", function () {
         window.open(IG_URL, "_blank", "noopener");
       });

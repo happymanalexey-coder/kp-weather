@@ -387,11 +387,30 @@ console.log("\n== Карточки главной: current temperature (общи
     "base: температура текстом в сервисной строке, иконки нет");
   ok(/\.p-temp\[hidden\], \.p-wicon\[hidden\] \{ display: none; \}/.test(ssrc),
     "пустые слоты не занимают место ([hidden] не пробивается display скинов)");
-  ok(/data-skin="minimalism"\] \.p-temp \{ position: absolute; right: 12px; top: 62px; font-size: 19px/.test(msrc) &&
+  ok(/data-skin="minimalism"\] \.p-temp \{ position: absolute; right: 12px; top: 10px; font-family: "Playfair Display", serif; font-weight: 500; font-size: 23px/.test(msrc) &&
+     /data-skin="minimalism"\] \.p-wicon \{ display: block; position: absolute; right: 12px; top: 46px; \}/.test(msrc) &&
      /data-skin="minimalism"\] \.p-wicon svg \{ width: 30px; height: 30px/.test(msrc),
-    "minimalism К-04: справа температура 19px/700 + иконка 30px (скин только отображает)");
+    "minimalism К-04 (макет дизайнера): крупная серифная температура 23px/500 справа сверху + иконка 30px под ней");
   ok(/Math\.min\.apply\(null, recs\.map\(r => r\.ts\)\)/.test(asrc),
     "«Обновлено» = самый ранний ts среди ПОКАЗАННых температур (честная семантика при partial success)");
+  /* ---- v3.27: изоляция скинов + фундамент (фирменная рамка, дисциплина красного, плашки) ---- */
+  ok(/" · " \+ p2\(d\.getDate\(\)\) \+ "\." \+ p2\(d\.getMonth\(\) \+ 1\) \+ "\." \+ String\(d\.getFullYear\(\)\)\.slice\(-2\)/.test(asrc),
+    "«Обновлено»: формат «18:15 · 02.10.26» (время · дата ДД.ММ.ГГ)");
+  ok(/share: `<svg viewBox="0 0 24 24"[^`]*M21\.5 3\.5 L14\.5 21\.5/.test(asrc),
+    "иконка «поделиться» = самолётик в стиле Telegram (общий слот, все скины)");
+  ok(/ICONS\["qa-add"\] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2\.2"/.test(asrc),
+    "быстрый ряд базового: плюсик = Добавить");
+  ok(/data-vibe="\$\{esc\(s\.id\)\}"/.test(asrc), "карточки Э-5 несут data-vibe своего скина");
+  ok(/\+ Добавить</.test(asrc), "поиск: кнопки «+ Добавить»");
+  ok(/--brand-grad: linear-gradient\(95deg, #b45cf0/.test(ssrc),
+    "фирменная рамка проекта: фиолетовый → синий → белый → красный (--brand-grad)");
+  ok(/\.dp-sbp \{[\s\S]*?background: linear-gradient\(var\(--bg2\), var\(--bg2\)\) padding-box, var\(--brand-grad\) border-box/.test(ssrc),
+    "«Поддержать (СБП)» — сдержанная заливка + фирменная рамка");
+  ok(/\.style-card\.active \{[\s\S]*?var\(--brand-grad\) border-box/.test(ssrc),
+    "активная карточка Э-5 — фирменная рамка (не красная)");
+  ok(/\.lib-add \{[\s\S]*?background: var\(--bg2\); border: 1px solid var\(--line\); color: var\(--text\)/.test(ssrc),
+    "кнопки «+ Добавить» сдержанные серые");
+  ok(/cssVar\("--hero-sk1"/.test(asrc), "плашки safe-area Telegram из токенов активного скина");
   const wasrc = fs.readFileSync(root + "web/app.js", "utf8");
   ok(/async function getCurrentFor\(points\)/.test(wasrc),
     "зеркало web/app.js содержит общий слой (ровно 4 серверных отличия — см. блок зеркала)");
@@ -407,15 +426,22 @@ console.log("\n== Скин «Тёма 299» (draft): состав, шкала, �
   const t9src = fs.readFileSync(root + "skins/tema299/skin.js", "utf8");
   const needKeys = ["sun","moon","sunCloud","moonCloud","cloud","overcast","fog","drizzle","rain","moonRain","rainShowers","rainSnow","snow","moonSnow","blizzard","hail","thunder","thunderHail","wind","wave"];
   ok(needKeys.every(k => new RegExp(k + ":").test(t9src)), "все 20 погодных слотов К-01…К-20 (ключи WIC)");
-  ok(/tempColor[\s\S]*?#7A0E2B/.test(t9src) && /tempColor[\s\S]*?#16338C/.test(t9src) && t9src.includes("#6FB9E8"),
-    "temp_color Д-Р1: якоря шкалы +50 бордо / −50 тёмно-синий / 0 светло-голубой");
-  ok(/"#F2BCA8"/.test(t9src) && /"#CFE9F8"/.test(t9src), "тёмная тема шкалы — осветлённые варианты");
+  ok(/tempColor[\s\S]*?#C81E3E/.test(t9src) && /tempColor[\s\S]*?#16338C/.test(t9src) && t9src.includes("#5198D4"),
+    "temp_color v3.27 §2.8 (отменяет Д-Р1): +30 насыщенный красный / −30 тёмно-синий / 0 светло-голубой (как прежний −7)");
+  ok(/"#FF4757"/.test(t9src) && /"#4664B8"/.test(t9src) && /"#C2EBF8"/.test(t9src),
+    "тёмная тема шкалы v3.27 — свои якоря (красный/тёмно-синий/лёгкий голубой)");
+  ok(/tempColor[\s\S]*?\(t - 1\) \/ 29/.test(t9src) && /"\#D36247"|#D36247/.test(t9src),
+    "шкала v3.27: +1 по яркости = прежнему +7 (непрерывная линия 1…30)");
   ok(/tempText[\s\S]*?"\+"/.test(t9src) && /"−"/.test(t9src), "формат «+27°»/«−12°» (типографский минус)");
   ok(/function pyRound/.test(t9src), "округление шкалы — как в эталонной реализации");
   ok((t9src.match(/@font-face/g) || []).length === 3 && /Nunito-400\.ttf/.test(t9src) && /Nunito-800\.ttf/.test(t9src),
     "Nunito 400/700/800 локально через @font-face");
   ok(!/fonts\.googleapis|fonts\.gstatic|cdn\./.test(t9src), "без внешних CDN");
   ok(/w2t|w2m/.test(t9src) && /n2/.test(t9src) && /h2s|h2v/.test(t9src), "иконки быстрого ряда: колесо/гайка/шлем (§6.3)");
+  ok(!/t299-z-i\b/.test(t9src), "ночная неоновая кнопка «i» в шапке удалена (v3.27 §2.2)");
+  ok(/data-skin="tema299"\] \.h-mid \{[\s\S]*?opacity: \.38/.test(t9src),
+    "рамка выбранного часа — градиентная, нежная, приглушённая (v3.27 §2.9)");
+  ok(!/hours-strip::before/.test(t9src), "у почасового внутри дня градиентной линии сверху НЕТ (v3.27 §2.9)");
   ok(/"qa-search"|qa-search:/.test(t9src), "ряд Поиск/Добавить/Скин стилизуется через qa-слоты");
   ok(/rgba\(94,177,255,\.85\)/.test(t9src) && /#FFFFFF/.test(t9src), "донат Д-Р2: белая заливка + голубой неон");
   ok(/t299-z-moto/.test(t9src) && /t299-z-299/.test(t9src) && /t299-z-ig/.test(t9src) && /t299-z-i/.test(t9src),

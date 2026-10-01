@@ -30,6 +30,8 @@
   /* типографика */
   --fs-base: 16px; --fs-small: 13px; --fs-title: 24px; --lh-base: 1.45;
   --fw-bold: 800; --fw-semi: 650;
+  /* фирменная рамка проекта: плавный градиент фиолетовый → синий → белый → красный (Instagram-настроение) */
+  --brand-grad: linear-gradient(95deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
 }
 /* светлая тема + хиро-сцена — вариант «день» */
 [data-theme="light"] {
@@ -82,7 +84,8 @@ body {
 
 .points-list { padding: var(--pad) var(--pad) 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); }
 .loading, .error-box { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0; }
-.error-box { color: var(--red); }
+/* ошибка сети — приглушённый серый (цветовая дисциплина: без красных надписей) */
+.error-box { color: var(--muted); }
 
 .point-btn {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
@@ -104,8 +107,8 @@ body {
 .point-btn .p-temp[data-ele="1"]::before { content: " · "; color: var(--muted); font-weight: 400; }
 .point-btn .p-wicon { display: none; }
 .p-temp[hidden], .p-wicon[hidden] { display: none; }
-/* честная метка «Обновлено» над виджетами, под быстрым рядом */
-.home-updated { padding: 0 var(--pad); margin: -2px 0 2px; text-align: right; font-size: 11px; color: var(--muted); }
+/* честная метка «Обновлено» над виджетами, под быстрым рядом: отдельная строка, левый край, аккуратная серость */
+.home-updated { grid-column: 1 / -1; margin: 2px 0 8px; text-align: left; font-size: 11px; color: var(--muted); }
 
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 18px var(--pad) 0; }
 
@@ -283,7 +286,8 @@ body {
 }
 .dp-custom:focus { outline: none; border-color: var(--accent); }
 .dp-go {
-  width: 100%; background: var(--accent); color: var(--on-accent2); border: none;
+  width: 100%; border: 1.5px solid transparent; color: var(--text);
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
   border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
 }
 .dp-thanks { font-size: 26px; font-weight: var(--fw-bold); color: var(--accent); animation: dpThanks .45s ease; }
@@ -317,7 +321,7 @@ body {
 @keyframes wiggle { from { transform: rotate(-.4deg); } to { transform: rotate(.4deg); } }
 .p-remove {
   display: none; position: absolute; top: -7px; right: -7px; width: 24px; height: 24px;
-  border-radius: 50%; background: var(--red); color: #fff; font-size: 13px; font-weight: 700;
+  border-radius: 50%; background: var(--muted); color: var(--bg); font-size: 13px; font-weight: 700;
   align-items: center; justify-content: center; box-shadow: 0 2px 8px var(--shadow2);
 }
 .points-list.editing .p-remove { display: flex; }
@@ -385,8 +389,8 @@ body {
 .lib-name { font-size: 15px; font-weight: var(--fw-semi); cursor: pointer; } /* название = предпросмотр погоды */
 .lib-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .lib-add {
-  background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--r-btn);
-  padding: 8px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; flex: 0 0 auto;
+  background: var(--bg2); border: 1px solid var(--line); color: var(--text);
+  border-radius: var(--r-pill); padding: 8px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; flex: 0 0 auto;
 }
 .lib-on {
   background: none; border: 1px solid var(--line); color: var(--muted); border-radius: var(--r-btn);
@@ -416,7 +420,8 @@ body {
 .fb-text { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
 .fb-text b { color: var(--text); }
 .fb-go {
-  width: 100%; background: var(--accent); color: var(--on-accent); border: none;
+  width: 100%; border: 1.5px solid transparent; color: var(--text);
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
   border-radius: var(--r-xs); padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
 }
 .fb-cancel {
@@ -433,7 +438,7 @@ body {
 .fb-input.fb-soon { cursor: pointer; } /* поле-заготовка: видно, но неактивно */
 #fb-form .fb-go { margin-bottom: 12px; } /* зазор между двумя зелёными кнопками */
 .fb-err {
-  background: var(--red-soft); color: var(--red); border-radius: var(--r-btn);
+  background: var(--bg2); color: var(--text); border-radius: var(--r-btn);
   padding: 8px 12px; font-size: 13px; margin-bottom: 8px; text-align: left;
 }
 .fb-card .fb-text { margin-top: 4px; }
@@ -449,7 +454,7 @@ body {
   border-radius: var(--r-pill); padding: 8px 6px; font-size: 13px; font-weight: var(--fw-semi); cursor: pointer;
   white-space: nowrap;
 }
-.lib-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.lib-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 /* ---------- v2.2: действия на экране точки, выбор карты ---------- */
 .pt-actions { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -495,7 +500,8 @@ button.community-panel {
 
 /* ---------- v2.2: СБП / подписка ---------- */
 .dp-sbp {
-  width: 100%; background: var(--accent); border: none; color: var(--on-accent2);
+  width: 100%; border: 1.5px solid transparent; color: var(--text);
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
   border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
   margin-bottom: 12px;
 }
@@ -580,7 +586,21 @@ body { touch-action: pan-y; }
   background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
   padding: 14px; margin-bottom: 12px;
 }
-.style-card.active { border-color: var(--accent); }
+/* активная карточка — фирменная градиентная рамка проекта (одинаково во всех скинах) */
+.style-card.active {
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--brand-grad) border-box;
+}
+/* «Применить» и авторские ссылки — в цвете ВАЙБА карточки, а не активного скина:
+   карточки чужих скинов не перекрашиваются активной темой */
+.style-card[data-vibe="base"] .st-apply { background: #0e9488; color: #ffffff; }
+.style-card[data-vibe="minimalism"] .st-apply { background: #8a6b3a; color: #fffdf8; }
+.style-card[data-vibe="tema299"] .st-apply {
+  background: #ffffff; color: #23262b; border: 1.5px solid rgba(94,177,255,.85);
+  box-shadow: 0 0 14px rgba(94,177,255,.45);
+}
+.style-card[data-vibe="minimalism"] a.st-author-link { color: #8a6b3a; }
+.style-card[data-vibe="tema299"] a.st-author-link { color: #3e8fe0; }
 .st-prev { border-radius: var(--r-xs); overflow: hidden; margin-bottom: 10px; position: relative; }
 .st-prev svg { display: block; width: 100%; height: auto; }
 /* реальное превью-шапка скина: тонкая рамка, чтобы не сливалось с карточкой на светлой теме */
