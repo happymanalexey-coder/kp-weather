@@ -3,13 +3,14 @@
   {
    "id": "base",
    "name": "Базовый",
-   "author": "От разработчиков",
    "type": "official",
    "badge": "none",
    "erid": "",
    "status": "active",
    "file": "skins/base/skin.js",
    "badgeSvg": "skins/base/badge.svg",
+   "previewImg": "skins/base/preview.png",
+   "themesLabel": "white + black",
    "preview": {
     "sky0": "#101c30",
     "sky1": "#0b1220",
@@ -27,13 +28,16 @@
   {
    "id": "minimalism",
    "name": "Minimalism",
-   "author": "Алексей × Kimi",
+   "authorName": "Алексей",
+   "authorLink": "https://t.me/go_ride_bro",
    "type": "official",
    "badge": "none",
    "erid": "",
    "status": "active",
    "file": "skins/minimalism/skin.js",
    "badgeSvg": "skins/minimalism/badge.svg",
+   "previewImg": "skins/minimalism/preview.png",
+   "themesLabel": "white + black",
    "preview": {
     "sky0": "#F8F6F1",
     "sky1": "#EFEBE2",

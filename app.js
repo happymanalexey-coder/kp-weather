@@ -1221,7 +1221,7 @@ async function loadSkinsReg() {
     const j = await r.json();
     SKINS_REG = Array.isArray(j.skins) ? j.skins : [];
   } catch (e) { SKINS_REG = []; }
-  if (!SKINS_REG.length) SKINS_REG = [{ id: "base", name: "Базовый", author: "От разработчиков" }];
+  if (!SKINS_REG.length) SKINS_REG = [{ id: "base", name: "Базовый" }];
   return SKINS_REG;
 }
 function loadSkinFile(id) {
@@ -1338,11 +1338,16 @@ function skinBadgeHtml(s) {
   }
   return "";
 }
+/* Экран «Сменить стиль»: карточка «Закажи свой скин» и строка вкладок скрыты —
+   заказы не принимаем, авторских скинов нет (вкладки показывали бы одно и то же).
+   Код карточки и вкладок сохранён: вернуть = true обоим флагам. */
+const SHOW_SKIN_ORDER = false;
+const SHOW_STYLE_TABS = false;
 async function renderStyleList() {
   const box = document.getElementById("style-list");
   if (!box) return;
   const tabs = document.getElementById("style-tabs-wrap");
-  if (tabs) tabs.innerHTML = styleTabsHtml();
+  if (tabs) tabs.innerHTML = SHOW_STYLE_TABS ? styleTabsHtml() : "";
   /* draft-скины нигде не показываем; активные — по вкладкам */
   const skins = (await loadSkinsReg()).filter(s => (s.status || "active") !== "draft");
   const inTab = s =>
@@ -1378,19 +1383,33 @@ async function renderStyleList() {
   const cards = skins.filter(inTab).map(s => {
     const pv = s.preview || {};
     const dots = (pv.palette || []).map(c => `<span class="st-dot" style="background:${esc(String(c))}"></span>`).join("");
-    const hero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
-      `<defs><linearGradient id="psky-${esc(s.id)}" x1="0" y1="0" x2="0" y2="1">` +
-      `<stop offset="0" stop-color="${esc(pv.sky0 || "#101c30")}"/><stop offset="1" stop-color="${esc(pv.sky1 || "#0b1220")}"/></linearGradient></defs>` +
-      `<rect width="400" height="160" fill="url(#psky-${esc(s.id)})"/>` +
-      `<path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="${esc(pv.mt1 || "#16243c")}"/>` +
-      `<path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
-      `<path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="${esc(pv.mt3 || "#0a1120")}"/></svg>`;
+    /* превью: реальный снимок шапки скина (previewImg из реестра) или нарисованные горы (фолбэк) */
+    const hero = s.previewImg
+      ? `<img class="st-prev-img" src="${esc(s.previewImg)}" alt="" loading="lazy">`
+      : `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+        `<defs><linearGradient id="psky-${esc(s.id)}" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="${esc(pv.sky0 || "#101c30")}"/><stop offset="1" stop-color="${esc(pv.sky1 || "#0b1220")}"/></linearGradient></defs>` +
+        `<rect width="400" height="160" fill="url(#psky-${esc(s.id)})"/>` +
+        `<path d="M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z" fill="${esc(pv.mt1 || "#16243c")}"/>` +
+        `<path d="M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
+        `<path d="M0 160 L120 132 L220 160 L320 138 L400 160 Z" fill="${esc(pv.mt3 || "#0a1120")}"/></svg>`;
+    /* пометка о парах тем из реестра: themesLabel пустое/нет — чип не рисуется */
+    const themesChip = s.themesLabel ? `<span class="st-themes">${esc(s.themesLabel)}</span>` : "";
+    /* подписи автора из реестра: authorName + authorLink (t.me) → «Автор …» + «@…»-ссылка;
+       только author — обычной строкой; полей нет — без подписи (base) */
+    const tgHandle = s.authorLink
+      ? "@" + String(s.authorLink).replace(/^https?:\/\/t\.me\//, "").replace(/\/+$/, "")
+      : "";
+    const authorHtml = s.authorLink
+      ? `${s.authorName ? `<div class="st-author">Автор ${esc(s.authorName)}</div>` : ""}` +
+        `<a class="st-author st-author-link" href="${esc(s.authorLink)}" target="_blank" rel="noopener">${esc(tgHandle)}</a>`
+      : (s.author ? `<div class="st-author">${esc(s.author)}</div>` : "");
     const isSaved = s.id === savedId;
     const isPreview = skinPreview && s.id === SKIN_ID && !isSaved;
     return `<div class="style-card${isSaved || isPreview ? " active" : ""}">
-      <div class="st-prev">${hero}</div>
+      <div class="st-prev">${hero}${themesChip}</div>
       <div class="st-name">${esc(s.name || s.id)}${skinBadgeHtml(s)}</div>
-      <div class="st-author">${esc(s.author || "")}</div>
+      ${authorHtml}
       <div class="st-dots">${dots}</div>
       ${isSaved
         ? `<button class="st-apply done">Применён ✓</button>`
@@ -1400,7 +1419,7 @@ async function renderStyleList() {
   const emptyText = styleTab === "author"
     ? "Пока только официальные стили. Свой можно заказать — вкладка «Все», первая карточка"
     : "Здесь появятся новые стили";
-  box.innerHTML = (styleTab === "all" ? orderCard : "") +
+  box.innerHTML = (styleTab === "all" && SHOW_SKIN_ORDER ? orderCard : "") +
     (cards || `<div class="lib-empty">${emptyText}</div>`) + donateBtnHtml();
 }
 

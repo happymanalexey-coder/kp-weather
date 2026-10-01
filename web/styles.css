@@ -574,10 +574,21 @@ body { touch-action: pan-y; }
   padding: 14px; margin-bottom: 12px;
 }
 .style-card.active { border-color: var(--accent); }
-.st-prev { border-radius: var(--r-xs); overflow: hidden; margin-bottom: 10px; }
+.st-prev { border-radius: var(--r-xs); overflow: hidden; margin-bottom: 10px; position: relative; }
 .st-prev svg { display: block; width: 100%; height: auto; }
+/* реальное превью-шапка скина: тонкая рамка, чтобы не сливалось с карточкой на светлой теме */
+.st-prev-img { display: block; width: 100%; height: auto; border: 1px solid var(--line); box-sizing: border-box; }
+/* чип «white + black» — правый нижний угол превью; на тёмной подложке читается на любом скине и теме */
+.st-themes {
+  position: absolute; right: 8px; bottom: 8px;
+  font-size: 10px; font-weight: var(--fw-semi); letter-spacing: .04em;
+  color: #fff; background: rgba(12, 14, 18, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  padding: 3px 8px; border-radius: var(--r-pill); pointer-events: none;
+}
 .st-name { font-size: 15px; font-weight: 700; }
 .st-author { font-size: 12px; color: var(--muted); margin-top: 1px; }
+a.st-author-link { color: var(--accent); text-decoration: none; display: inline-block; }
+a.st-author-link:active { opacity: .7; }
 .st-dots { display: flex; gap: 6px; margin: 10px 0 12px; }
 .st-dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); }
 .st-apply {

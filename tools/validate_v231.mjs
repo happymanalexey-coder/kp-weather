@@ -331,6 +331,36 @@ console.log("\n== Почасовая лента: свободные ячейки
   ok(!/bali/.test(fs.readFileSync(root + "sw.js", "utf8")), "Service Worker не кэширует bali (архив) — по-прежнему");
 }
 
+console.log("\n== Э-5 «Сменить стиль»: карточки скинов (превью, автор, чип тем, заказ скрыт) ==");
+{
+  const ssrc = fs.readFileSync(root + "styles.css", "utf8");
+  ok(/const SHOW_SKIN_ORDER = false/.test(asrc) && /const SHOW_STYLE_TABS = false/.test(asrc),
+    "карточка «Закажи свой скин» и строка вкладок скрыты флагами (код сохранён)");
+  ok(/styleTab === "all" && SHOW_SKIN_ORDER \? orderCard/.test(asrc) &&
+     /SHOW_STYLE_TABS \? styleTabsHtml\(\) : ""/.test(asrc),
+    "скрытие реализовано условием рендера, карточка нигде не «просвечивает»");
+  ok(/s\.previewImg\s*\?/.test(asrc) && /class="st-prev-img"/.test(asrc),
+    "превью карточки — реальный снимок шапки (previewImg из реестра, горы — фолбэк)");
+  ok(/s\.themesLabel \? `<span class="st-themes">/.test(asrc),
+    "чип тем рисуется только при непустом themesLabel в реестре");
+  ok(/Автор \$\{esc\(s\.authorName\)\}/.test(asrc) && /st-author-link" href="\$\{esc\(s\.authorLink\)\}"/.test(asrc),
+    "подписи автора из реестра: «Автор …» + ссылка на t.me (не хардкод в вёрстке)");
+  const reg2 = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
+  const b = reg2.find(x => x.id === "base"), m = reg2.find(x => x.id === "minimalism");
+  ok(b && !b.author && b.previewImg === "skins/base/preview.png" && b.themesLabel === "white + black",
+    "base: без подписи «От разработчиков», превью и чип в реестре");
+  ok(m && m.authorName === "Алексей" && m.authorLink === "https://t.me/go_ride_bro" &&
+     m.previewImg === "skins/minimalism/preview.png" && m.themesLabel === "white + black",
+    "minimalism: автор + t.me-ссылка, превью и чип в реестре");
+  ok(fs.existsSync(root + "skins/base/preview.png") && fs.existsSync(root + "skins/minimalism/preview.png"),
+    "файлы preview.png существуют");
+  const sw2 = fs.readFileSync(root + "sw.js", "utf8");
+  ok(sw2.includes("skins/base/preview.png") && sw2.includes("skins/minimalism/preview.png"),
+    "SW кэширует оба preview.png");
+  ok(/\.st-themes\s*\{[\s\S]*?position: absolute; right: 8px; bottom: 8px/.test(ssrc),
+    "чип тем — правый нижний угол превью (styles.css)");
+}
+
 console.log("\n== Этап 9: семантика осадков (форматтер) ==");
 ok(F.precipMmText(0).text === "нет" && !F.precipMmText(0).present, "0 → «нет» (осадков нет)");
 ok(F.precipMmText(0.01).traces && F.precipMmText(0.01).present && F.precipMmText(0.01).text === "морось",
