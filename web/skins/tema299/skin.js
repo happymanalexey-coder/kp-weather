@@ -331,20 +331,21 @@ window.KP_SKINS = window.KP_SKINS || {};
     '@font-face { font-family: "Nunito"; src: url("skins/tema299/assets/Nunito-700.ttf") format("truetype"); font-weight: 700; font-display: swap; }',
     '@font-face { font-family: "Nunito"; src: url("skins/tema299/assets/Nunito-800.ttf") format("truetype"); font-weight: 800; font-display: swap; }',
     '[data-skin="tema299"] body { font-family: "Nunito", system-ui, sans-serif; }',
-    /* ---- §3: шапка Э-1 — арт 140px во всю hero, фирменное скругление снизу (как base) ---- */
-    '[data-skin="tema299"] .hero { height: 140px; overflow: hidden; border-radius: 0 0 var(--r-hero) var(--r-hero); }',
+    /* ---- §3: шапка Э-1 — арт ЦЕЛИКОМ (aspect-ratio арта 1170×539: знак 299 с зазором
+       сверху, ноги и мотоцикл снизу, без обрезов), скругление как у base, высота единая в обеих темах ---- */
+    '[data-skin="tema299"] .hero { height: auto; aspect-ratio: 1170 / 539; overflow: hidden; border-radius: 0 0 var(--r-hero) var(--r-hero); }',
     '[data-skin="tema299"] .hero-mountains, [data-skin="tema299"] .hero-text, [data-skin="tema299"] .hero-info, [data-skin="tema299"] .theme-toggle { display: none; }',
-    '[data-skin="tema299"] #t299-art { position: absolute; top: 0; left: 0; right: 0; height: 100%; background-size: cover; background-position: center 30%; transition: opacity .12s ease; }',
+    '[data-skin="tema299"] #t299-art { position: absolute; top: 0; left: 0; right: 0; height: 100%; background-size: cover; background-position: center; transition: opacity .12s ease; }',
     '[data-skin="tema299"] #t299-art.t299-press { opacity: .6; }',
-    '[data-skin="tema299"] .t299-veil { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; background: linear-gradient(180deg, transparent 40%, var(--bg) 100%); pointer-events: none; }',
+    '[data-skin="tema299"] .t299-veil { position: absolute; left: 0; right: 0; bottom: 0; height: 42%; background: linear-gradient(180deg, transparent 30%, var(--bg) 96%); pointer-events: none; }',
     '[data-skin="tema299"] .t299-zone { position: absolute; cursor: pointer; -webkit-tap-highlight-color: transparent; }',
     /* мотоциклист: центральные ~56% арта — переключение темы */
     '[data-skin="tema299"] .t299-z-moto { left: 22%; width: 56%; top: 0; height: 100%; }',
-    /* день: знак 299 в руке — «О проекте» */
-    '[data-skin="tema299"] .t299-z-299 { left: 38%; width: 18%; top: 0; height: 32%; }',
+    /* день: знак 299 в руке (x 41–52%, y 6–30% арта) — «О проекте» */
+    '[data-skin="tema299"] .t299-z-299 { left: 37%; width: 17%; top: 2%; height: 32%; }',
     '[data-skin="tema299"][data-theme="dark"] .t299-z-299 { display: none; }',
-    /* ночь: неон @tema.polyana — Instagram. Круглой кнопки «i» в ночном арте НЕТ (v3.27) */
-    '[data-skin="tema299"] .t299-z-ig { left: 62%; width: 34%; top: 26%; height: 36%; }',
+    /* ночь: неон @tema.polyana (x 72–91%, y 38–46% арта) — Instagram. Круглой кнопки «i» в ночном арте НЕТ (v3.27, вопрос закрыт владельцем) */
+    '[data-skin="tema299"] .t299-z-ig { left: 68%; width: 25%; top: 33%; height: 28%; }',
     /* ---- §6.2: quick row — рамки фирменным градиентом (3 направления), непрозрачная сердцевина ---- */
     '[data-skin="tema299"] .top-actions { gap: 10px; margin: 2px 0 4px; }',
     '[data-skin="tema299"] .top-actions .ha-btn { height: 40px; border-radius: 13px; border: 1.5px solid transparent; color: var(--text); font-size: 13.5px; font-weight: 800; gap: 6px; font-family: "Nunito", system-ui, sans-serif; box-shadow: 0 0 12px rgba(139,92,246,.22), 0 0 12px rgba(239,68,68,.18), inset 0 0 5px rgba(255,255,255,.06); }',
@@ -357,9 +358,10 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .top-actions .ha-btn:active { opacity: .6; transition: opacity .12s; }',
     '[data-skin="tema299"] .top-actions .sic { width: 19px; height: 19px; }',
     '[data-skin="tema299"] .top-actions .sic svg { width: 100%; height: 100%; display: block; }',
-    /* ---- §6.1: тонкие элегантные линии над виджетами (эталон формы — design-minimalism/Образец-полоски.jpg),
-       цвета — фирменный градиент, направления перетасованы: карточки odd → / even ←, «Сейчас» →, неделя ← ---- */
-    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 3px 3px; opacity: .9; pointer-events: none; box-shadow: 0 0 8px rgba(139,92,246,.35), 0 0 8px rgba(239,68,68,.25); }',
+    /* ---- §6.1: тонкая элегантная линия на верхней кромке виджета (эталон формы —
+       design-minimalism/Образец-полоски.jpg): линия растворяется вниз, карточка продолжает её;
+       цвета — фирменный градиент, направления перетасованы: odd → / even ←, «Сейчас» →, неделя ← ---- */
+    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: -1px; left: 10px; right: 10px; height: 6px; border-radius: 6px; background: ' + BRAND + '; opacity: .95; pointer-events: none; box-shadow: 0 0 10px 2px rgba(139,92,246,.28), 0 0 14px 2px rgba(239,68,68,.22); -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 55%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 55%, transparent 100%); }',
     '[data-skin="tema299"] #point-content .card { position: relative; }',
     '[data-skin="tema299"] .point-btn:nth-of-type(odd)::before { background: ' + BRAND + '; }',
     '[data-skin="tema299"] .point-btn:nth-of-type(even)::before { background: ' + BRAND_REV + '; }',
@@ -376,19 +378,20 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .day-icon .wic, [data-skin="tema299"] .dp-ico .wic { width: 28px; height: 28px; }',
     '[data-skin="tema299"] .d-right .wic { width: 20px; height: 20px; }',
     '[data-skin="tema299"] .pt-title { font-size: 16px; font-weight: 800; }',
-    /* ---- Э-1 карточки избранного: температура 19px/800 справа + иконка 34px (К-04/§7) ---- */
+    /* ---- Э-1 карточки избранного: единый лейаут — температура 19px/800 сверху справа,
+       под ней иконка 34px (§7); порядок как в эталоне minimalism ---- */
     '[data-skin="tema299"] .point-btn { padding-right: 64px; min-height: 104px; }',
     '[data-skin="tema299"] .p-name { font-size: 13px; font-weight: 800; }',
-    '[data-skin="tema299"] .p-wicon { display: block; position: absolute; right: 12px; top: 14px; }',
-    '[data-skin="tema299"] .p-wicon svg { width: 34px; height: 34px; }',
-    '[data-skin="tema299"] .p-temp { position: absolute; right: 12px; top: 52px; font-size: 19px; font-weight: 800; }',
-    '[data-skin="tema299"] .point-btn .p-temp::before { content: none; }',
+    '[data-skin="tema299"] .p-temp { right: 12px; top: 12px; font-size: 19px; font-weight: 800; }',
+    '[data-skin="tema299"] .p-wicon { display: block; position: absolute; right: 12px; top: 46px; width: 34px; height: 34px; }',
+    '[data-skin="tema299"] .p-wicon svg { width: 100%; height: 100%; }',
     /* ---- v3.27 §2.6: порядок «название → регион → метры»; карточки без метров — без пустой строчки ---- */
     '[data-skin="tema299"] .point-btn .p-region { order: 2; }',
     '[data-skin="tema299"] .point-btn .p-ele { order: 3; display: flex; flex-direction: column; align-items: flex-start; }',
-    /* ---- §6.4 (Д-Р2) + v3.27 §2.7: «Поддержать проект» и «Написать автору» — белые на голубом неоне,
-       одна гамма, обе темы; «Поддержать (СБП)» и «Добавить точку» — серые с фирменной рамкой ---- */
-    '[data-skin="tema299"] .dp-go, [data-skin="tema299"] .community-panel { background: #FFFFFF; color: #23262B; border: 1.5px solid rgba(94,177,255,.85); box-shadow: 0 0 16px rgba(94,177,255,.5), 0 0 4px rgba(94,177,255,.35); border-radius: 13px; font-weight: 800; }',
+    /* ---- v3.28 §3.5: «Поддержать проект» и «Написать автору» — НЕ белые, без голубого неона:
+       спокойная заливка в тон темы + фирменная радужная рамка ---- */
+    '[data-skin="tema299"] .dp-go, [data-skin="tema299"] .community-panel { border: 1.5px solid transparent; border-radius: 13px; font-weight: 800; background: linear-gradient(#EDEAE3, #EDEAE3) padding-box, ' + BRAND + ' border-box; color: #3A3E45; }',
+    '[data-skin="tema299"][data-theme="dark"] .dp-go, [data-skin="tema299"][data-theme="dark"] .community-panel { background: linear-gradient(#232529, #232529) padding-box, ' + BRAND + ' border-box; color: #E6E8EB; }',
     '[data-skin="tema299"] .dp-sbp, [data-skin="tema299"] .fb-go { border: 1.5px solid transparent; border-radius: 13px; font-weight: 800; }',
     '[data-skin="tema299"][data-theme="light"] .dp-sbp, [data-skin="tema299"][data-theme="light"] .fb-go { background: linear-gradient(#EDEAE3, #EDEAE3) padding-box, ' + BRAND + ' border-box; color: #3A3E45; }',
     '[data-skin="tema299"][data-theme="dark"] .dp-sbp, [data-skin="tema299"][data-theme="dark"] .fb-go { background: linear-gradient(#232529, #232529) padding-box, ' + BRAND + ' border-box; color: #E6E8EB; }',

@@ -9,7 +9,7 @@
    "status": "active",
    "file": "skins/base/skin.js",
    "badgeSvg": "skins/base/badge.svg",
-   "previewImg": "skins/base/preview.png",
+   "previewImg": "skins/base/preview.jpg",
    "themesLabel": "white + black",
    "preview": {
     "sky0": "#101c30",
@@ -79,18 +79,19 @@
   {
    "id": "tema299",
    "name": "Тёма 299",
-   "authorName": "Тёма",
+   "authorName": "Артём",
    "authorLink": "https://www.instagram.com/tema.polyana",
    "type": "official",
    "badge": "none",
    "erid": "",
-   "status": "draft",
+   "status": "active",
    "themes": [
     "light",
     "dark"
    ],
    "file": "skins/tema299/skin.js",
    "badgeSvg": "skins/tema299/badge.svg",
+   "previewImg": "skins/tema299/preview.jpg",
    "preview": {
     "sky0": "#0B0C0E",
     "sky1": "#E9E7E1",

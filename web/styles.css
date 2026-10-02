@@ -32,6 +32,12 @@
   --fw-bold: 800; --fw-semi: 650;
   /* фирменная рамка проекта: плавный градиент фиолетовый → синий → белый → красный (Instagram-настроение) */
   --brand-grad: linear-gradient(95deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  /* те же стопы, фаза сдвинута на +90°/+180°/+270° — идущие подряд рамки не повторяют перелив */
+  --brand-grad-2: linear-gradient(185deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  --brand-grad-3: linear-gradient(275deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  --brand-grad-4: linear-gradient(5deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  /* рамка карточек Э-5 — палитра АКТИВНОГО скина (переопределяется ниже по data-skin; base — здесь) */
+  --card-frame: linear-gradient(135deg, #7fb2e5 0%, #63d6d0 45%, #e07856 100%);
 }
 /* светлая тема + хиро-сцена — вариант «день» */
 [data-theme="light"] {
@@ -102,10 +108,12 @@ body {
 }
 .point-btn .p-ele { font-size: 12.5px; color: var(--accent); font-weight: 600; }
 .point-btn .p-region { font-size: 11px; color: var(--muted); }
-/* текущая температура на карточках (общий слой; в base — текстом в сервисной строке, иконки нет) */
-.point-btn .p-temp { font-size: 12.5px; font-weight: 600; color: var(--text); }
-.point-btn .p-temp[data-ele="1"]::before { content: " · "; color: var(--muted); font-weight: 400; }
-.point-btn .p-wicon { display: none; }
+/* ЕДИНЫЙ лейаот карточки (эталон — minimalism): крупная температура справа сверху, под ней иконка.
+   Шрифты/цвета/размеры подстраивают скины; слоты общие. */
+.point-btn { padding-right: 60px; min-height: 96px; }
+.point-btn .p-temp { position: absolute; right: 12px; top: 12px; font-size: 19px; font-weight: 700; color: var(--text); }
+.point-btn .p-wicon { display: block; position: absolute; right: 12px; top: 44px; width: 30px; height: 30px; }
+.point-btn .p-wicon svg { width: 100%; height: 100%; display: block; }
 .p-temp[hidden], .p-wicon[hidden] { display: none; }
 /* честная метка «Обновлено» над виджетами, под быстрым рядом: отдельная строка, левый край, аккуратная серость */
 .home-updated { grid-column: 1 / -1; margin: 2px 0 8px; text-align: left; font-size: 11px; color: var(--muted); }
@@ -287,7 +295,7 @@ body {
 .dp-custom:focus { outline: none; border-color: var(--accent); }
 .dp-go {
   width: 100%; border: 1.5px solid transparent; color: var(--text);
-  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box;
   border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
 }
 .dp-thanks { font-size: 26px; font-weight: var(--fw-bold); color: var(--accent); animation: dpThanks .45s ease; }
@@ -352,8 +360,10 @@ body {
 /* ---------- v2.1: библиотека виджетов ---------- */
 .lib-overlay {
   position: fixed; inset: 0; z-index: 100; background: var(--bg);
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
 }
+/* оверлей открыт — скроллится ТОЛЬКО он; подложка (body) заморожена, iOS-бонс уходит */
+body.lock { overflow: hidden; overscroll-behavior: none; }
 /* единый липкий блок библиотеки: крестик + поиск + вкладки */
 .lib-sticky {
   position: sticky; top: 0; z-index: 30;
@@ -421,9 +431,12 @@ body {
 .fb-text b { color: var(--text); }
 .fb-go {
   width: 100%; border: 1.5px solid transparent; color: var(--text);
-  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box;
   border-radius: var(--r-xs); padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
 }
+/* идущие подряд фирменные рамки (модалка «Добавить точку»): следующая — со сдвигом фазы ~90° */
+.fb-modal .fb-go { --frame-grad: var(--brand-grad); }
+.fb-modal .dp-sbp { --frame-grad: var(--brand-grad-2); }
 .fb-cancel {
   width: 100%; background: none; border: none; color: var(--muted);
   padding: 10px; font-size: 13.5px; cursor: pointer; margin-top: 4px;
@@ -501,7 +514,7 @@ button.community-panel {
 /* ---------- v2.2: СБП / подписка ---------- */
 .dp-sbp {
   width: 100%; border: 1.5px solid transparent; color: var(--text);
-  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--brand-grad) border-box;
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box;
   border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
   margin-bottom: 12px;
 }
@@ -564,7 +577,8 @@ body { touch-action: pan-y; }
 /* голубая звезда «От разработчиков» (подменяется файлом skins/<id>/badge.svg) */
 .badge-verified { display: inline-flex; flex: 0 0 auto; }
 .badge-verified svg { width: 100%; height: 100%; display: block; }
-.point-btn .badge-verified { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; }
+/* звезда на карточке главной — inline в конец названия точки (все скины, не угол карточки) */
+.point-btn .badge-verified { width: 13px; height: 13px; vertical-align: -1.5px; margin-left: 3px; }
 .points-list.editing .point-btn .badge-verified { display: none; }
 .lib-name .badge-verified { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; }
 #sticky-badge { width: 15px; height: 15px; flex: 0 0 auto; }
@@ -582,15 +596,15 @@ body { touch-action: pan-y; }
 .set-row:active { background: var(--card2); }
 .set-row .sic { width: 22px; height: 22px; color: var(--accent); }
 /* экран «Сменить стиль» */
+/* экран «Сменить стиль»: рамка — вокруг КАЖДОЙ карточки, цвет = палитра АКТИВНОГО скина;
+   маркер выбора — только кнопка «Применён ✓» */
 .style-card {
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+  border: 1.5px solid transparent; border-radius: var(--r-lg);
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--card-frame) border-box;
   padding: 14px; margin-bottom: 12px;
 }
-/* активная карточка — фирменная градиентная рамка проекта (одинаково во всех скинах) */
-.style-card.active {
-  border: 1.5px solid transparent;
-  background: linear-gradient(var(--card), var(--card)) padding-box, var(--brand-grad) border-box;
-}
+[data-skin="minimalism"] { --card-frame: linear-gradient(135deg, #e3cfa8 0%, #c99a55 45%, #8a6b3a 100%); }
+[data-skin="tema299"] { --card-frame: var(--brand-grad); }
 /* «Применить» и авторские ссылки — в цвете ВАЙБА карточки, а не активного скина:
    карточки чужих скинов не перекрашиваются активной темой */
 .style-card[data-vibe="base"] .st-apply { background: #0e9488; color: #ffffff; }

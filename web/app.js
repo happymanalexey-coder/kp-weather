@@ -268,6 +268,7 @@ function applyTheme(theme) {
   try { localStorage.setItem("kp_theme", theme); } catch (e) {}
   cloudSet("kp_theme", theme); // дублируем в облако Telegram (тихо, если вне mini-app)
   applySkinTokens(); // перекладывает токены активного стиля под новую тему (+ applyTgColors внутри)
+  rerenderCurrent(); // инлайн-цвета (шкала температур) и DOM — под новую тему, без действий пользователя
 }
 function toggleTheme() {
   const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
@@ -583,8 +584,7 @@ function renderHome() {
       if (!p) return "";
       return `
       <button class="point-btn" data-id="${p.id}">
-        ${badgeHtml(p)}
-        <span class="p-name">${esc(p.name)}</span>
+        <span class="p-name">${esc(p.name)}${badgeHtml(p)}</span>
         <span class="p-ele">${p.ele != null ? p.ele + " м" : ""}<span class="p-temp" hidden></span><span class="p-wicon" hidden></span></span>
         <span class="p-region">${esc(p.region)}</span>
         <span class="p-remove" data-rm="${p.id}" title="Убрать с главной">✕</span>
@@ -853,7 +853,7 @@ const FB_BAD_WORDS = ["хуй","хуя","хуе","хуи","пизд","бляд",
 function openFeedback() {
   if (paidGate("point_add")) return; // платное добавление точки (сейчас выключено — бесплатно)
   const m = document.getElementById("fb-modal");
-  if (m) m.classList.remove("hidden");
+  if (m) { m.classList.remove("hidden"); syncBodyLock(); }
   const form = document.getElementById("fb-form");
   const sent = document.getElementById("fb-sent");
   if (form) form.classList.remove("hidden"); // всегда открываем на форме, не на «Отправлено»
@@ -866,6 +866,7 @@ function resetScrollX() { // анти-«залипание»: страница �
 function closeFeedback() {
   const m = document.getElementById("fb-modal");
   if (m) m.classList.add("hidden");
+  syncBodyLock();
   resetScrollX();
 }
 function fbShowError(text) {
@@ -1092,7 +1093,7 @@ async function loadPoint(id) {
       <a class="link-btn" href="${mfLink(p)}" target="_blank" rel="noopener">Mountain-Forecast</a>
     </div>` : ""}
     <div class="card">
-      <h3>5 дней · нажмите на день — прогноз по часам</h3>
+      <h3>Нажми на день — прогноз по часам</h3>
       ${daysHtml}
     </div>
   `;
@@ -1324,11 +1325,12 @@ function donateGo() {
 }
 function showDonateFallback() {
   const m = document.getElementById("dn-modal");
-  if (m) m.classList.remove("hidden");
+  if (m) { m.classList.remove("hidden"); syncBodyLock(); }
 }
 function closeDonateFallback() {
   const m = document.getElementById("dn-modal");
   if (m) m.classList.add("hidden");
+  syncBodyLock();
   resetScrollX();
 }
 function donateCopy() {
@@ -1445,6 +1447,7 @@ function applySkinTokens() {
   if (skin && skin.onApply) { try { skin.onApply(); } catch (e) {} }
   appliedSkinId = SKIN_ID;
   applyTgColors();
+  forceRepaint(); // WebView iOS: дорисовать всё В ТУ ЖЕ СЕКУНДУ, без действия пользователя
 }
 function fillStaticIcons() {
   document.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = ICONS[el.dataset.icon] || ""; });
@@ -1454,7 +1457,18 @@ function rerenderCurrent() {
   if (h === "#library") renderLibrary(document.getElementById("lib-search").value);
   else if (h.indexOf("#point/") === 0) loadPoint(h.slice(7));
   else if (h === "" || h === "#") renderHome();
+  renderPanels(); // донат/«Написать автору» — тоже видимая поверхность: перерисовываем при смене скина
   fillStaticIcons();
+}
+/* iOS (Telegram WebView) не перерисовывает скомпонованные слои — градиентные рамки,
+   тени, backdrop-filter — после смены CSS-токенов скина, пока не произойдёт действие
+   (модалка/скролл). Лечим корень: принудительный reflow+repaint всей поверхности. */
+function forceRepaint() {
+  const app = document.getElementById("app");
+  if (!app) return;
+  app.style.display = "none";
+  void app.offsetHeight;
+  app.style.display = "";
 }
 async function initSkin() {
   const skins = await loadSkinsReg();
@@ -1566,7 +1580,7 @@ async function renderStyleList() {
     /* подписи автора из реестра: authorName + authorLink (t.me) → «Автор …» + «@…»-ссылка;
        только author — обычной строкой; полей нет — без подписи (base) */
     const tgHandle = s.authorLink
-      ? "@" + String(s.authorLink).replace(/^https?:\/\/t\.me\//, "").replace(/\/+$/, "")
+      ? "@" + String(s.authorLink).replace(/^https?:\/\/(www\.)?[^/]+\//, "").replace(/\/+$/, "")
       : "";
     const authorHtml = s.authorLink
       ? `${s.authorName ? `<div class="st-author">Автор ${esc(s.authorName)}</div>` : ""}` +
@@ -1597,6 +1611,7 @@ function openSkinRequest() {
   const m = document.getElementById("sk-modal");
   if (!m) return;
   m.classList.remove("hidden");
+  syncBodyLock();
   const form = document.getElementById("sk-form");
   const sent = document.getElementById("sk-sent");
   if (form) form.classList.remove("hidden"); // всегда открываем на форме, не на «Отправлено»
@@ -1606,6 +1621,7 @@ function openSkinRequest() {
 function closeSkinRequest() {
   const m = document.getElementById("sk-modal");
   if (m) m.classList.add("hidden");
+  syncBodyLock();
   resetScrollX();
 }
 function skShowError(text) {
@@ -1817,10 +1833,29 @@ function backFromPoint() {
   else goHome();
 }
 
+/* Оверлеи и модалки поверх главной: скроллится ТОЛЬКО их содержимое — подложка
+   (body) блокируется, iOS-бонс уходит. Состояние скролла сохраняем/возвращаем. */
+let bgScrollLockPos = 0;
+function syncBodyLock() {
+  const open = document.querySelector(
+    ".lib-overlay:not(.hidden), .fb-modal:not(.hidden), .stl-modal:not(.hidden)"
+  );
+  const want = !!open;
+  const has = document.body.classList.contains("lock");
+  if (want === has) return;
+  if (want) {
+    bgScrollLockPos = window.scrollY;
+    document.body.classList.add("lock");
+  } else {
+    document.body.classList.remove("lock");
+    window.scrollTo(0, bgScrollLockPos);
+  }
+}
 function route() {
   const h = location.hash;
   // защита от горизонтального смещения страницы после закрытия оверлеев
   resetScrollX();
+  syncBodyLock();
   const home = document.getElementById("home-screen");
   const point = document.getElementById("point-screen");
   const lib = document.getElementById("lib-screen");

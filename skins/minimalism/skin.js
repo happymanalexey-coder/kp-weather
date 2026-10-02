@@ -172,7 +172,6 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="minimalism"] .p-temp { position: absolute; right: 12px; top: 10px; font-family: "Playfair Display", serif; font-weight: 500; font-size: 23px; color: var(--text); }',
     '[data-skin="minimalism"] .p-wicon { display: block; position: absolute; right: 12px; top: 46px; }',
     '[data-skin="minimalism"] .p-wicon svg { width: 30px; height: 30px; }',
-    '[data-skin="minimalism"] .point-btn .p-temp::before { content: none; }',
     '/* ---- К-05 «Сейчас»: Playfair 56px, иконка 52px ---- */',
     '[data-skin="minimalism"] .now-t { font-family: "Playfair Display", serif; font-weight: 500; font-size: 56px; }',
     '[data-skin="minimalism"] .now-icon .wic { width: 52px; height: 52px; }',

@@ -275,7 +275,7 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
     "#style — настоящий экран скинов (renderStyleList)");
   const reg = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
   const active = reg.filter(x => (x.status || "active") !== "draft").map(x => x.id);
-  ok(JSON.stringify(active) === JSON.stringify(["base", "minimalism"]),
+  ok(JSON.stringify(active) === JSON.stringify(["base", "minimalism", "tema299"]),
     `в выдаче только активные скины реестра (сейчас: ${active.join(", ")})`);
   ok(reg.find(x => x.id === "bali") && reg.find(x => x.id === "bali").status === "draft",
     "bali — архив (draft), файлы в репозитории остались");
@@ -347,16 +347,16 @@ console.log("\n== Э-5 «Сменить стиль»: карточки скин�
     "подписи автора из реестра: «Автор …» + ссылка на t.me (не хардкод в вёрстке)");
   const reg2 = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
   const b = reg2.find(x => x.id === "base"), m = reg2.find(x => x.id === "minimalism");
-  ok(b && !b.author && b.previewImg === "skins/base/preview.png" && b.themesLabel === "white + black",
-    "base: без подписи «От разработчиков», превью и чип в реестре");
+  ok(b && !b.author && b.previewImg === "skins/base/preview.jpg" && b.themesLabel === "white + black",
+    "base: без подписи «От разработчиков», светлое превью (jpg) и чип в реестре");
   ok(m && m.authorName === "Алексей" && m.authorLink === "https://t.me/go_ride_bro" &&
      m.previewImg === "skins/minimalism/preview.png" && m.themesLabel === "white + black",
     "minimalism: автор + t.me-ссылка, превью и чип в реестре");
-  ok(fs.existsSync(root + "skins/base/preview.png") && fs.existsSync(root + "skins/minimalism/preview.png"),
-    "файлы preview.png существуют");
+  ok(fs.existsSync(root + "skins/base/preview.jpg") && fs.existsSync(root + "skins/minimalism/preview.png"),
+    "файлы превью существуют (base — светлый jpg, minimalism — png)");
   const sw2 = fs.readFileSync(root + "sw.js", "utf8");
-  ok(sw2.includes("skins/base/preview.png") && sw2.includes("skins/minimalism/preview.png"),
-    "SW кэширует оба preview.png");
+  ok(sw2.includes("skins/base/preview.jpg") && sw2.includes("skins/minimalism/preview.png"),
+    "SW кэширует оба превью");
   ok(/\.st-themes\s*\{[\s\S]*?position: absolute; right: 8px; bottom: 8px/.test(ssrc),
     "чип тем — правый нижний угол превью (styles.css)");
 }
@@ -383,8 +383,9 @@ console.log("\n== Карточки главной: current temperature (общи
     "после loadPoint карточка синхронизируется из payload.current (CARD TEMP === POINT TEMP)");
   ok(/<span class="p-temp" hidden><\/span><span class="p-wicon" hidden><\/span>/.test(asrc),
     "карточки несут ОБЩИЕ нейтральные слоты .p-temp/.p-wicon (без skin-структуры)");
-  ok(/\.point-btn \.p-wicon \{ display: none; \}/.test(ssrc),
-    "base: температура текстом в сервисной строке, иконки нет");
+  ok(/\.point-btn \.p-temp \{ position: absolute; right: 12px; top: 12px; font-size: 19px/.test(ssrc) &&
+     /\.point-btn \.p-wicon \{ display: block; position: absolute; right: 12px; top: 44px; width: 30px/.test(ssrc),
+    "base: единый лейаот карточки — крупная температура справа сверху, под ней иконка (эталон minimalism)");
   ok(/\.p-temp\[hidden\], \.p-wicon\[hidden\] \{ display: none; \}/.test(ssrc),
     "пустые слоты не занимают место ([hidden] не пробивается display скинов)");
   ok(/data-skin="minimalism"\] \.p-temp \{ position: absolute; right: 12px; top: 10px; font-family: "Playfair Display", serif; font-weight: 500; font-size: 23px/.test(msrc) &&
@@ -404,10 +405,24 @@ console.log("\n== Карточки главной: current temperature (общи
   ok(/\+ Добавить</.test(asrc), "поиск: кнопки «+ Добавить»");
   ok(/--brand-grad: linear-gradient\(95deg, #b45cf0/.test(ssrc),
     "фирменная рамка проекта: фиолетовый → синий → белый → красный (--brand-grad)");
-  ok(/\.dp-sbp \{[\s\S]*?background: linear-gradient\(var\(--bg2\), var\(--bg2\)\) padding-box, var\(--brand-grad\) border-box/.test(ssrc),
-    "«Поддержать (СБП)» — сдержанная заливка + фирменная рамка");
-  ok(/\.style-card\.active \{[\s\S]*?var\(--brand-grad\) border-box/.test(ssrc),
-    "активная карточка Э-5 — фирменная рамка (не красная)");
+  ok(/\.dp-sbp \{[\s\S]*?background: linear-gradient\(var\(--bg2\), var\(--bg2\)\) padding-box, var\(--frame-grad, var\(--brand-grad\)\) border-box/.test(ssrc),
+    "«Поддержать (СБП)» — сдержанная заливка + фирменная рамка (с фазовыми вариантами)");
+  ok(/replace\(\/\^https\?/.test(asrc) && /\[\^\/\]\+\\\//.test(asrc),
+    "Этап 4.1: авторская ссылка любого домена → «@handle» (Instagram и т.п.)");
+  ok(/\.style-card \{[\s\S]*?var\(--card-frame\) border-box/.test(ssrc) &&
+     /\[data-skin="minimalism"\] \{ --card-frame/.test(ssrc) && /\[data-skin="tema299"\] \{ --card-frame: var\(--brand-grad\)/.test(ssrc),
+    "Э-5: рамка вокруг КАЖДОЙ карточки, цвет = палитра активного скина (base/minimalism/tema299)");
+  ok(/Нажми на день — прогноз по часам/.test(asrc) && !/5 дней · нажмите/i.test(asrc),
+    "заголовок дней: «Нажми на день — прогноз по часам» (v3.28 §1.1)");
+  ok(/function forceRepaint/.test(asrc) && /forceRepaint\(\); \/\/ WebView iOS/.test(asrc),
+    "Этап 0: принудительный repaint в момент применения скина (без действия пользователя)");
+  ok(/function syncBodyLock/.test(asrc) && /body\.classList\.add\("lock"\)/.test(asrc),
+    "Этап 1.2: подложка блокируется под оверлеями/модалками (body.lock)");
+  ok(/<span class=\"p-name\">\$\{esc\(p\.name\)\}\$\{badgeHtml\(p\)\}<\/span>/.test(asrc) &&
+     /\.point-btn \.badge-verified \{ width: 13px; height: 13px; vertical-align: -1\.5px; margin-left: 3px; \}/.test(ssrc),
+    "Этап 1.3: звезда verified — inline в конец названия точки (не угол карточки)");
+  ok(/--brand-grad-2: linear-gradient\(185deg/.test(ssrc) && /\.fb-modal \.dp-sbp \{ --frame-grad: var\(--brand-grad-2\)/.test(ssrc),
+    "Этап 1.5: идущие подряд фирменные рамки — со сдвигом фазы (~90°)");
   ok(/\.lib-add \{[\s\S]*?background: var\(--bg2\); border: 1px solid var\(--line\); color: var\(--text\)/.test(ssrc),
     "кнопки «+ Добавить» сдержанные серые");
   ok(/cssVar\("--hero-sk1"/.test(asrc), "плашки safe-area Telegram из токенов активного скина");
@@ -416,12 +431,14 @@ console.log("\n== Карточки главной: current temperature (общи
     "зеркало web/app.js содержит общий слой (ровно 4 серверных отличия — см. блок зеркала)");
 }
 
-console.log("\n== Скин «Тёма 299» (draft): состав, шкала, арт, зоны ==");
+console.log("\n== Скин «Тёма 299» (active, опубликован): состав, шкала, арт, зоны ==");
 {
   const reg3 = JSON.parse(fs.readFileSync(root + "skins/skins.json", "utf8")).skins;
   const t9 = reg3.find(x => x.id === "tema299");
-  ok(!!t9 && (t9.status || "active") === "draft" && t9.name === "Тёма 299",
-    "tema299 зарегистрирован как draft (на экране скинов не появляется)");
+  ok(!!t9 && (t9.status || "active") === "active" && t9.name === "Тёма 299" &&
+     t9.authorName === "Артём" && /instagram\.com\/tema\.polyana/.test(t9.authorLink || "") &&
+     !!t9.previewImg,
+    "Этап 4.1: tema299 ОПУБЛИКОВАН (active), автор «Артём @tema.polyana», светлое превью");
   ok(reg3.filter(x => x.id === "tema299").length === 1, "ровно одна запись tema299, существующие не дублированы");
   const t9src = fs.readFileSync(root + "skins/tema299/skin.js", "utf8");
   const needKeys = ["sun","moon","sunCloud","moonCloud","cloud","overcast","fog","drizzle","rain","moonRain","rainShowers","rainSnow","snow","moonSnow","blizzard","hail","thunder","thunderHail","wind","wave"];
@@ -438,14 +455,25 @@ console.log("\n== Скин «Тёма 299» (draft): состав, шкала, �
     "Nunito 400/700/800 локально через @font-face");
   ok(!/fonts\.googleapis|fonts\.gstatic|cdn\./.test(t9src), "без внешних CDN");
   ok(/w2t|w2m/.test(t9src) && /n2/.test(t9src) && /h2s|h2v/.test(t9src), "иконки быстрого ряда: колесо/гайка/шлем (§6.3)");
-  ok(!/t299-z-i\b/.test(t9src), "ночная неоновая кнопка «i» в шапке удалена (v3.27 §2.2)");
+  ok(!/t299-z-i\b/.test(t9src), "ночная неоновая кнопка «i» в шапке удалена (v3.27 §2.2, вопрос закрыт владельцем)");
   ok(/data-skin="tema299"\] \.h-mid \{[\s\S]*?opacity: \.38/.test(t9src),
-    "рамка выбранного часа — градиентная, нежная, приглушённая (v3.27 §2.9)");
+    "рамка выбранного часа — градиентная, нежная, приглушённая (принято владельцем, не трогать)");
   ok(!/hours-strip::before/.test(t9src), "у почасового внутри дня градиентной линии сверху НЕТ (v3.27 §2.9)");
   ok(/"qa-search"|qa-search:/.test(t9src), "ряд Поиск/Добавить/Скин стилизуется через qa-слоты");
-  ok(/rgba\(94,177,255,\.85\)/.test(t9src) && /#FFFFFF/.test(t9src), "донат Д-Р2: белая заливка + голубой неон");
-  ok(/t299-z-moto/.test(t9src) && /t299-z-299/.test(t9src) && /t299-z-ig/.test(t9src) && /t299-z-i/.test(t9src),
-    "4 тап-зоны шапки (тема / 299 / Instagram / i)");
+  ok(!/rgba\(94,177,255/.test(t9src), "v3.28 §3.5: голубой неон у доната/автора УБРАН (п.2.7 v3.27 отменён)");
+  ok(/data-skin="tema299"\] \.dp-go, \[data-skin="tema299"\] \.community-panel \{[\s\S]*?padding-box/.test(t9src),
+    "v3.28 §3.5: «Поддержать проект» и «Написать автору» — нейтральная заливка + фирменная рамка");
+  ok(/data-skin="tema299"\] \.hero \{[^}]*aspect-ratio: 1170 \/ 539/.test(t9src),
+    "v3.28 §3.1: шапка — арт ЦЕЛИКОМ (aspect-ratio 1170×539, без обрезов, высота единая в обеих темах)");
+  ok(/mask-image: linear-gradient\(180deg, transparent 0%, #000 38%/.test(t9src),
+    "v3.28 §3.2: полоска — тонкое свечение на кромке (эталон Образец-полоски.jpg), не «крыша»");
+  ok(/data-skin="tema299"\] \.p-temp \{ right: 12px; top: 12px;/.test(t9src) &&
+     /data-skin="tema299"\] \.p-wicon \{ display: block; position: absolute; right: 12px; top: 46px/.test(t9src),
+    "v3.28 §1.4: на карточке Тёмы температура сверху, иконка под ней (единый лейаут)");
+  ok(/t299-z-moto/.test(t9src) && /t299-z-299/.test(t9src) && /t299-z-ig/.test(t9src) && !/t299-z-i\b/.test(t9src),
+    "тап-зоны шапки: тема / 299 / Instagram (без «i»)");
+  ok(fs.readFileSync(root + "skins/tema299/badge.svg", "utf8").includes("#6D28D9"),
+    "v3.28 §3.3: звезда Тёмы — контрастный градиент фиолетовый → розовый → красный");
   ok(/instagram\.com\/tema\.polyana/.test(t9src), "Instagram Д-Р4: внешняя ссылка из ночного арта");
   ok(/skins\/tema299\/assets\/header-" \+ \(dark \? "night" : "day"\) \+ "\.jpg/.test(t9src),
     "арт шапки день/ночь монтируется по теме");
@@ -454,7 +482,9 @@ console.log("\n== Скин «Тёма 299» (draft): состав, шкала, �
   });
   const sw3 = fs.readFileSync(root + "sw.js", "utf8");
   ok(/skins\/tema299\/skin\.js/.test(sw3) && /skins\/tema299\/assets\/header-day\.jpg/.test(sw3) &&
-     /skins\/tema299\/assets\/Nunito-800\.ttf/.test(sw3), "SW кэширует файлы скина (существующие записи не тронуты)");
+     /skins\/tema299\/assets\/Nunito-800\.ttf/.test(sw3) && /skins\/tema299\/preview\.jpg/.test(sw3) &&
+     /skins\/base\/preview\.jpg/.test(sw3),
+    "SW кэширует файлы скина + светлые превью (существующие записи не тронуты)");
   ok(/skins\/base\/skin\.js/.test(sw3) && /skins\/minimalism\/skin\.js/.test(sw3) && !/bali/.test(sw3),
     "записи base/minimalism в кэше целы, bali по-прежнему не кэшируется");
   const asrc2 = fs.readFileSync(root + "app.js", "utf8");
