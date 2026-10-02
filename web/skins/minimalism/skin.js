@@ -66,11 +66,7 @@ window.KP_SKINS = window.KP_SKINS || {};
     wind: svg('<g stroke="' + K + '"><path d="M3.5 8.5 h9 a2.6 2.6 0 1 0-2.6-2.8"/><path d="M3.5 12.7 h12.6 a2.6 2.6 0 1 1-2.6 2.8"/><path d="M3.5 16.9 h6.5"/></g>'),
     wave: svg('<g stroke="' + K + '"><path d="M2.5 9.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/><path d="M2.5 15.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/></g>'),
     /* UI: «поделиться» — бумажный самолётик (К-03), мастер 24×24, stroke 1.8 */
-    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>',
-    /* UI: быстрый ряд (Д-Р2) — линейные иконки, красятся через currentColor (токен --accent) */
-    "qa-search": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><line x1="15.2" y1="15.2" x2="20" y2="20"/></svg>',
-    "qa-add": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
-    "qa-skin": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 21a9 9 0 0 0 9-9"/><circle cx="7.5" cy="10.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/></svg>'
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>'
   };
 
   /* ---------- 16 цветовых ролей (§2 спеки) → токены приложения ---------- */

@@ -30,12 +30,13 @@
   /* типографика */
   --fs-base: 16px; --fs-small: 13px; --fs-title: 24px; --lh-base: 1.45;
   --fw-bold: 800; --fw-semi: 650;
-  /* фирменная рамка проекта: плавный градиент фиолетовый → синий → белый → красный (Instagram-настроение) */
-  --brand-grad: linear-gradient(95deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
-  /* те же стопы, фаза сдвинута на +90°/+180°/+270° — идущие подряд рамки не повторяют перелив */
-  --brand-grad-2: linear-gradient(185deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
-  --brand-grad-3: linear-gradient(275deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
-  --brand-grad-4: linear-gradient(5deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  /* фирменная рамка = СОБСТВЕННОСТЬ скина (v3.29 0.4): у каждого скина СВОЯ палитра рамок.
+     base — небо → бирюза → терракота (по умолчанию); minimalism — оливково-медный;
+     tema299 — радуга фиолетовый → синий → белый → красный (см. [data-skin] ниже). */
+  --brand-grad: linear-gradient(95deg, #16223a 0%, #0f9a8e 32%, #63d6d0 52%, #e07856 100%);
+  /* те же стопы активного скина, фаза сдвинута; у Тёмы — зеркальная по диагонали (белый участок
+     первой рамки — левый верх, второй — правый низ) */
+  --brand-grad-2: linear-gradient(185deg, #16223a 0%, #0f9a8e 32%, #63d6d0 52%, #e07856 100%);
   /* рамка карточек Э-5 — палитра АКТИВНОГО скина (переопределяется ниже по data-skin; base — здесь) */
   --card-frame: linear-gradient(135deg, #7fb2e5 0%, #63d6d0 45%, #e07856 100%);
 }
@@ -51,6 +52,17 @@
   --hi-border: #0d8f88; --hi-color: #0b7a74; --hi-bg: rgba(255,255,255,.35); --hi-glow: rgba(13,143,136,.25);
   --info-border: rgba(24,42,68,.6); --info-color: #182a44;
   --i-cloud: #8296ae; --i-moon: #7d92ac; --i-snow: #7aa8d8; --i-fog: #6e8199; --i-wind: #6e8199;
+}
+/* v3.29 0.4 — изоляция на корню: палитра рамок ТОЛЬКО своя у каждого скина.
+   Одна общая переменная --brand-grad, переопределяемая атрибутом активного скина:
+   утечка чужой рамки невозможна структурно. */
+[data-skin="minimalism"] {
+  --brand-grad: linear-gradient(95deg, #7a6230 0%, #c99a55 40%, #e3cfa8 62%, #c99a55 100%);
+  --brand-grad-2: linear-gradient(185deg, #7a6230 0%, #c99a55 40%, #e3cfa8 62%, #c99a55 100%);
+}
+[data-skin="tema299"] {
+  --brand-grad: linear-gradient(95deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
+  --brand-grad-2: linear-gradient(315deg, #b45cf0 0%, #8b5cf6 15%, #6366f1 30%, #3b82f6 44%, #93c5fd 52%, #ffffff 60%, #fbcfe8 68%, #f472b6 76%, #ef4444 87%, #dc2650 100%);
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; background: var(--bg); }
@@ -109,8 +121,11 @@ body {
 .point-btn .p-ele { font-size: 12.5px; color: var(--accent); font-weight: 600; }
 .point-btn .p-region { font-size: 11px; color: var(--muted); }
 /* ЕДИНЫЙ лейаот карточки (эталон — minimalism): крупная температура справа сверху, под ней иконка.
-   Шрифты/цвета/размеры подстраивают скины; слоты общие. */
+   Шрифты/цвета/размеры подстраивают скины; слоты общие.
+   Единый порядок контента (v3.29 1.3, все скины): название → регион → высота. */
 .point-btn { padding-right: 60px; min-height: 96px; }
+.point-btn .p-region { order: 2; }
+.point-btn .p-ele { order: 3; display: flex; flex-direction: column; align-items: flex-start; }
 .point-btn .p-temp { position: absolute; right: 12px; top: 12px; font-size: 19px; font-weight: 700; color: var(--text); }
 .point-btn .p-wicon { display: block; position: absolute; right: 12px; top: 44px; width: 30px; height: 30px; }
 .point-btn .p-wicon svg { width: 100%; height: 100%; display: block; }
@@ -303,7 +318,8 @@ body {
 .dp-change { margin-top: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; text-decoration: underline; }
 .community-panel {
   display: block; text-align: center; text-decoration: none;
-  background: var(--card); border: 1px solid var(--line); color: var(--accent);
+  border: 1.5px solid transparent; color: var(--text);
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box;
   border-radius: var(--r-lg); padding: var(--pad); font-size: 15px; font-weight: var(--fw-bold); margin-bottom: 12px;
 }
 
@@ -519,6 +535,14 @@ button.community-panel {
   margin-bottom: 12px;
 }
 .dp-sbp:active { filter: brightness(1.12); }
+/* v3.29 1.1 — кнопка-переключатель внизу экрана точки: «Добавить» на главную / «Удалить точку» */
+.pt-toggle {
+  width: 100%; border: 1.5px solid transparent; color: var(--text);
+  background: linear-gradient(var(--bg2), var(--bg2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box;
+  border-radius: var(--r-sm); padding: 12px; font-size: 15px; font-weight: var(--fw-bold); cursor: pointer;
+  margin-bottom: 12px; font-family: inherit;
+}
+.pt-toggle.on { background: linear-gradient(var(--card2), var(--card2)) padding-box, var(--frame-grad, var(--brand-grad)) border-box; }
 .dp-sub-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .dp-thanks + .dp-change { margin-bottom: 12px; }
 
@@ -574,12 +598,10 @@ body { touch-action: pan-y; }
 /* слот иконки интерфейса */
 .sic { display: inline-flex; flex: 0 0 auto; }
 .sic svg { width: 100%; height: 100%; display: block; }
-/* голубая звезда «От разработчиков» (подменяется файлом skins/<id>/badge.svg) */
+/* голубая звезда «От разработчиков» (подменяется файлом skins/<id>/badge.svg).
+   v3.29 1.2: на карточках главной звёзд НЕТ — только в поиске (.lib-name) и у названия на экране точки */
 .badge-verified { display: inline-flex; flex: 0 0 auto; }
 .badge-verified svg { width: 100%; height: 100%; display: block; }
-/* звезда на карточке главной — inline в конец названия точки (все скины, не угол карточки) */
-.point-btn .badge-verified { width: 13px; height: 13px; vertical-align: -1.5px; margin-left: 3px; }
-.points-list.editing .point-btn .badge-verified { display: none; }
 .lib-name .badge-verified { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; }
 #sticky-badge { width: 15px; height: 15px; flex: 0 0 auto; }
 /* кнопка «Настройки» на главной */

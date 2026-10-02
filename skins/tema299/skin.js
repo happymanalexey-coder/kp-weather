@@ -176,64 +176,6 @@ window.KP_SKINS = window.KP_SKINS || {};
     hail: wic(hail()), thunderHail: wic(thunderhail())
   };
 
-  /* ---------- §6.3: иконки быстрого ряда (колесо / гайка / шлем), мастер 24×24 ---------- */
-  function wheel2() {
-    var uid = "t299";
-    var tread = "", spokes = "";
-    for (var a = 0; a < 360; a += 24) {
-      tread += '<line x1="' + f1(12 + 9.2 * Math.cos(rad(a))) + '" y1="' + f1(12 + 9.2 * Math.sin(rad(a))) +
-               '" x2="' + f1(12 + 11 * Math.cos(rad(a))) + '" y2="' + f1(12 + 11 * Math.sin(rad(a))) +
-               '" stroke="#3A3D42" stroke-width="1.7" stroke-linecap="round"/>';
-    }
-    for (var a2 = 0; a2 < 360; a2 += 72) {
-      spokes += '<path d="M12 12 L' + f1(12 + 5.4 * Math.cos(rad(a2 - 14))) + ' ' + f1(12 + 5.4 * Math.sin(rad(a2 - 14))) +
-                ' L' + f1(12 + 5.4 * Math.cos(rad(a2 + 14))) + ' ' + f1(12 + 5.4 * Math.sin(rad(a2 + 14))) +
-                ' Z" fill="url(#w2m' + uid + ')"/>';
-    }
-    return '<radialGradient id="w2t' + uid + '" cx="35%" cy="30%"><stop offset="0%" stop-color="#4A4E54"/>' +
-           '<stop offset="100%" stop-color="#1C1E22"/></radialGradient>' +
-           '<linearGradient id="w2m' + uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F0F2F5"/>' +
-           '<stop offset="55%" stop-color="#B9BEC6"/><stop offset="100%" stop-color="#848B94"/></linearGradient>' +
-           tread + '<circle cx="12" cy="12" r="8.8" fill="url(#w2t' + uid + ')"/>' +
-           '<circle cx="12" cy="12" r="6.1" fill="url(#w2m' + uid + ')"/>' +
-           '<circle cx="12" cy="12" r="4.9" fill="#2E3238"/>' +
-           '<g>' + spokes + '</g>' +
-           '<circle cx="12" cy="12" r="1.7" fill="url(#w2m' + uid + ')"/>' +
-           '<circle cx="12" cy="12" r="0.7" fill="#5A616A"/>' +
-           '<path d="M16.2 7.4 a6.4 6.4 0 0 1 1.4 3.2" fill="none" stroke="#E04556" stroke-width="1.5" stroke-linecap="round"/>';
-  }
-  function nut2() {
-    var uid = "t299";
-    return '<linearGradient id="n2' + uid + '" x1="0" y1="0" x2="1" y2="1">' +
-           '<stop offset="0%" stop-color="#F4F6F9"/><stop offset="45%" stop-color="#AEB4BD"/>' +
-           '<stop offset="70%" stop-color="#DEE2E8"/><stop offset="100%" stop-color="#7C838D"/></linearGradient>' +
-           '<path d="M12 3.2 L19.6 7.6 L19.6 16.4 L12 20.8 L4.4 16.4 L4.4 7.6 Z" fill="url(#n2' + uid + ')"/>' +
-           '<path d="M12 3.2 L19.6 7.6 L12 11.9 L4.4 7.6 Z" fill="#FFFFFF" opacity=".35"/>' +
-           '<circle cx="12" cy="12" r="3.9" fill="#22252A"/>' +
-           '<circle cx="12" cy="12" r="3.9" fill="none" stroke="#0E1013" stroke-width=".8"/>' +
-           '<circle cx="12" cy="12" r="2.6" fill="none" stroke="#3A3E45" stroke-width=".7"/>' +
-           '<path d="M5.6 8.2 L12 4.5 L18.4 8.2" fill="none" stroke="#FFFFFF" stroke-width="1" opacity=".7" stroke-linecap="round"/>' +
-           '<circle cx="12" cy="12" r="1" fill="#E04556"/>';
-  }
-  function helmet2() {
-    var uid = "t299";
-    return '<linearGradient id="h2s' + uid + '" x1="0" y1="0" x2="0" y2="1">' +
-           '<stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C9CDD4"/></linearGradient>' +
-           '<linearGradient id="h2v' + uid + '" x1="0" y1="0" x2="1" y2="1">' +
-           '<stop offset="0%" stop-color="#3A4150"/><stop offset="100%" stop-color="#0D1015"/></linearGradient>' +
-           '<path d="M3.2 14 C3.2 6.8 7.6 3.2 12 3.2 C16.4 3.2 20.8 6.8 20.8 14 L20.8 15.6 L3.2 15.6 Z" fill="url(#h2s' + uid + ')"/>' +
-           '<path d="M3.2 14 C3.2 6.8 7.6 3.2 12 3.2 C13.2 3.2 14.4 3.5 15.5 4 ' +
-           'C11 5.4 8.6 8.4 8.2 12.6 L3.2 13.4 Z" fill="#2F6FBF" opacity=".9"/>' +
-           '<path d="M15.5 4 C17.8 5 19.8 7.4 20.5 10.6 L17.4 11.4 C16.9 8.6 16 6 15.5 4 Z" fill="#E04556" opacity=".9"/>' +
-           '<path d="M12.8 10.2 L20.2 10.2 L20.2 15 L12.8 15 Q11.6 12.6 12.8 10.2 Z" fill="url(#h2v' + uid + ')"/>' +
-           '<path d="M13.6 11.4 L17.4 11.4" stroke="#8FA3BC" stroke-width="1" stroke-linecap="round" opacity=".8"/>' +
-           '<path d="M3.2 15.6 L20.8 15.6 L20.8 17.6 Q12 20 3.2 17.6 Z" fill="#B9BEC6"/>' +
-           '<path d="M3.2 15.6 L20.8 15.6" stroke="#9AA0A8" stroke-width=".6"/>';
-  }
-  icons["qa-search"] = '<svg viewBox="0 0 24 24" fill="none">' + wheel2() + "</svg>";
-  icons["qa-add"] = '<svg viewBox="0 0 24 24" fill="none">' + nut2() + "</svg>";
-  icons["qa-skin"] = '<svg viewBox="0 0 24 24" fill="none">' + helmet2() + "</svg>";
-
   /* ---------- v3.27 §2.8: НОВАЯ шкала (отменяет Д-Р1 ±50): насыщенность 0…±30 ----------
      ≥+30 — один насыщенный красный; к 0 красный светлеет (+1 по яркости = прежнему +7);
      0 — лёгкий голубой (как прежний −7); к −30 синий темнеет; ≤−30 — один тёмно-синий.
@@ -337,7 +279,7 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .hero-mountains, [data-skin="tema299"] .hero-text, [data-skin="tema299"] .hero-info, [data-skin="tema299"] .theme-toggle { display: none; }',
     '[data-skin="tema299"] #t299-art { position: absolute; top: 0; left: 0; right: 0; height: 100%; background-size: cover; background-position: center; transition: opacity .12s ease; }',
     '[data-skin="tema299"] #t299-art.t299-press { opacity: .6; }',
-    '[data-skin="tema299"] .t299-veil { position: absolute; left: 0; right: 0; bottom: 0; height: 42%; background: linear-gradient(180deg, transparent 30%, var(--bg) 96%); pointer-events: none; }',
+    /* v3.29 2.2: туманной полосы внизу НЕТ — шапка заканчивается чисто, только скругление углов */
     '[data-skin="tema299"] .t299-zone { position: absolute; cursor: pointer; -webkit-tap-highlight-color: transparent; }',
     /* мотоциклист: центральные ~56% арта — переключение темы */
     '[data-skin="tema299"] .t299-z-moto { left: 22%; width: 56%; top: 0; height: 100%; }',
@@ -358,10 +300,10 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .top-actions .ha-btn:active { opacity: .6; transition: opacity .12s; }',
     '[data-skin="tema299"] .top-actions .sic { width: 19px; height: 19px; }',
     '[data-skin="tema299"] .top-actions .sic svg { width: 100%; height: 100%; display: block; }',
-    /* ---- §6.1: тонкая элегантная линия на верхней кромке виджета (эталон формы —
-       design-minimalism/Образец-полоски.jpg): линия растворяется вниз, карточка продолжает её;
-       цвета — фирменный градиент, направления перетасованы: odd → / even ←, «Сейчас» →, неделя ← ---- */
-    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: -1px; left: 10px; right: 10px; height: 6px; border-radius: 6px; background: ' + BRAND + '; opacity: .95; pointer-events: none; box-shadow: 0 0 10px 2px rgba(139,92,246,.28), 0 0 14px 2px rgba(239,68,68,.22); -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 55%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 55%, transparent 100%); }',
+    /* ---- v3.29 2.3: полоска = начало карточки — без зазора, верхние углы как у карточки,
+       плавное свечение вниз; в СВЕТЛОЙ теме — в 3 раза тоньше + скошенные края слева/справа ---- */
+    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; border-radius: var(--r-lg) var(--r-lg) 0 0; background: ' + BRAND + '; opacity: .95; pointer-events: none; box-shadow: 0 1px 8px rgba(139,92,246,.30), 0 1px 10px rgba(239,68,68,.22); -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%); mask-image: linear-gradient(180deg, #000 40%, transparent 100%); }',
+    '[data-skin="tema299"][data-theme="light"] .point-btn::before, [data-skin="tema299"][data-theme="light"] #point-content .card::before { height: 2px; clip-path: polygon(10px 0, calc(100% - 10px) 0, calc(100% - 3px) 100%, 3px 100%); }',
     '[data-skin="tema299"] #point-content .card { position: relative; }',
     '[data-skin="tema299"] .point-btn:nth-of-type(odd)::before { background: ' + BRAND + '; }',
     '[data-skin="tema299"] .point-btn:nth-of-type(even)::before { background: ' + BRAND_REV + '; }',
@@ -379,22 +321,16 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .d-right .wic { width: 20px; height: 20px; }',
     '[data-skin="tema299"] .pt-title { font-size: 16px; font-weight: 800; }',
     /* ---- Э-1 карточки избранного: единый лейаут — температура 19px/800 сверху справа,
-       под ней иконка 34px (§7); порядок как в эталоне minimalism ---- */
+       под ней иконка 34px (§7); порядок «название → регион → высота» — общий (v3.29 1.3) ---- */
     '[data-skin="tema299"] .point-btn { padding-right: 64px; min-height: 104px; }',
     '[data-skin="tema299"] .p-name { font-size: 13px; font-weight: 800; }',
-    '[data-skin="tema299"] .p-temp { right: 12px; top: 12px; font-size: 19px; font-weight: 800; }',
+    '[data-skin="tema299"] .p-temp { right: 12px; top: 12px; font-size: 19px; font-weight: 800; font-family: "Nunito", system-ui, sans-serif; }',
     '[data-skin="tema299"] .p-wicon { display: block; position: absolute; right: 12px; top: 46px; width: 34px; height: 34px; }',
     '[data-skin="tema299"] .p-wicon svg { width: 100%; height: 100%; }',
-    /* ---- v3.27 §2.6: порядок «название → регион → метры»; карточки без метров — без пустой строчки ---- */
-    '[data-skin="tema299"] .point-btn .p-region { order: 2; }',
-    '[data-skin="tema299"] .point-btn .p-ele { order: 3; display: flex; flex-direction: column; align-items: flex-start; }',
-    /* ---- v3.28 §3.5: «Поддержать проект» и «Написать автору» — НЕ белые, без голубого неона:
-       спокойная заливка в тон темы + фирменная радужная рамка ---- */
-    '[data-skin="tema299"] .dp-go, [data-skin="tema299"] .community-panel { border: 1.5px solid transparent; border-radius: 13px; font-weight: 800; background: linear-gradient(#EDEAE3, #EDEAE3) padding-box, ' + BRAND + ' border-box; color: #3A3E45; }',
-    '[data-skin="tema299"][data-theme="dark"] .dp-go, [data-skin="tema299"][data-theme="dark"] .community-panel { background: linear-gradient(#232529, #232529) padding-box, ' + BRAND + ' border-box; color: #E6E8EB; }',
-    '[data-skin="tema299"] .dp-sbp, [data-skin="tema299"] .fb-go { border: 1.5px solid transparent; border-radius: 13px; font-weight: 800; }',
-    '[data-skin="tema299"][data-theme="light"] .dp-sbp, [data-skin="tema299"][data-theme="light"] .fb-go { background: linear-gradient(#EDEAE3, #EDEAE3) padding-box, ' + BRAND + ' border-box; color: #3A3E45; }',
-    '[data-skin="tema299"][data-theme="dark"] .dp-sbp, [data-skin="tema299"][data-theme="dark"] .fb-go { background: linear-gradient(#232529, #232529) padding-box, ' + BRAND + ' border-box; color: #E6E8EB; }',
+    /* ---- v3.29: донат/автор — общая механика рамок (палитра активного скина); Тёме вернём
+       только скругление и жирность, заливку/рамку даёт общий слой ---- */
+    '[data-skin="tema299"] .community-panel, [data-skin="tema299"] .dp-sbp, [data-skin="tema299"] .fb-go, [data-skin="tema299"] .dp-go { border-radius: 13px; font-weight: 800; }',
+    '[data-skin="tema299"] .community-panel { border: 1.5px solid transparent; }',
     /* ---- v3.27 §2.9: рамка выбранного часа — нежная градиентная, приглушённая ---- */
     '[data-skin="tema299"] .h-mid { border: 1.5px solid transparent; border-radius: 13px; opacity: .38; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)) padding-box, ' + BRAND + ' border-box; }',
     /* ---- v3.27 §2.5: цветовая дисциплина — красный только в фирменных градиентах ---- */
@@ -423,7 +359,7 @@ window.KP_SKINS = window.KP_SKINS || {};
     if (!art) {
       art = document.createElement("div");
       art.id = "t299-art";
-      art.innerHTML = '<div class="t299-veil"></div>' +
+      art.innerHTML =
         '<div class="t299-zone t299-z-moto" role="button" aria-label="Сменить тему" title=""></div>' +
         '<div class="t299-zone t299-z-299" role="button" aria-label="О проекте" title=""></div>' +
         '<div class="t299-zone t299-z-ig" role="button" aria-label="Instagram Тёмы" title=""></div>';

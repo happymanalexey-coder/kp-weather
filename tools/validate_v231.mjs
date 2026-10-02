@@ -266,9 +266,9 @@ console.log("\n== Этап 8Б: интерфейс и ссылки ==");
      /onclick="openFeedback\(\)"><span class="sic">\$\{ICONS\["qa-add"\]\}<\/span>Добавить<\/button>/.test(asrc) &&
      /onclick="openStyle\(\)"><span class="sic">\$\{ICONS\["qa-skin"\]\}<\/span>Скин<\/button>/.test(asrc),
     "ряд «Поиск / Добавить / Скин» над виджетами на главной (слоты qa-*)");
-  ok(/ICONS\["qa-search"\] = ICONS\.globe/.test(asrc) &&
+  ok(/ICONS\["qa-search"\] = `<svg viewBox="0 0 24 24"[^`]*circle cx="12"/.test(asrc) &&
      /"qa-search", "qa-add", "qa-skin"/.test(asrc),
-    "qa-слоты дефолтятся на base-иконки и подменяются скином через UI_ICON_SLOTS (currentColor/токены, без data-URI)");
+    "qa-слоты: единый набор (глобус/плюс/футболка), подмены скинами нет (v3.29 1.4)");
   ok(!/function styleLocked/.test(asrc) && !/PUBLIC_SKINS/.test(asrc) && !/id="stl-modal"/.test(hsrc),
     "модалка-замок стилей убрана, PUBLIC_SKINS нет — экран строится по реестру");
   ok(/if \(h === "#style"\) \{ if \(window\.KP_ANALYTICS\) KP_ANALYTICS\.track\("skin_view"\); renderStyleList\(\); return; \}/.test(asrc),
@@ -301,8 +301,8 @@ console.log("\n== Скин Minimalism: публикация, состав ==");
   const m = reg.find(x => x.id === "minimalism");
   ok(!!m && (m.status || "active") === "active", "minimalism опубликован (active) — карточка видна на экране «Скин» рядом с base");
   const msrc = fs.readFileSync(root + "skins/minimalism/skin.js", "utf8");
-  ok(/"qa-search":/.test(msrc) && /"qa-add":/.test(msrc) && /"qa-skin":/.test(msrc),
-    "minimalism рисует свой набор иконок быстрого ряда (qa-слоты)");
+  ok(!/"qa-search":/.test(msrc) && !/"qa-add":/.test(msrc) && !/"qa-skin":/.test(msrc),
+    "v3.29 1.4: minimalism НЕ рисует свои иконки ряда — единый набор проекта");
   ok(/draft=1/.test(msrc) || true, "");
   ok(/data-skin=\\?"minimalism\\?"/.test(msrc) || /data-skin="minimalism"/.test(msrc), "скин несёт css под атрибутом data-skin (не течёт в base)");
   ok(/PlayfairDisplay\.ttf/.test(msrc) && /@font-face/.test(msrc), "Playfair Display подключён локальным @font-face");
@@ -399,8 +399,8 @@ console.log("\n== Карточки главной: current temperature (общи
     "«Обновлено»: формат «18:15 · 02.10.26» (время · дата ДД.ММ.ГГ)");
   ok(/share: `<svg viewBox="0 0 24 24"[^`]*M21\.5 3\.5 L14\.5 21\.5/.test(asrc),
     "иконка «поделиться» = самолётик в стиле Telegram (общий слот, все скины)");
-  ok(/ICONS\["qa-add"\] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2\.2"/.test(asrc),
-    "быстрый ряд базового: плюсик = Добавить");
+  ok(/ICONS\["qa-add"\] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1\.8"/.test(asrc),
+    "быстрый ряд: плюсик = Добавить (единый набор, stroke 1.8)");
   ok(/data-vibe="\$\{esc\(s\.id\)\}"/.test(asrc), "карточки Э-5 несут data-vibe своего скина");
   ok(/\+ Добавить</.test(asrc), "поиск: кнопки «+ Добавить»");
   ok(/--brand-grad: linear-gradient\(95deg, #b45cf0/.test(ssrc),
@@ -418,9 +418,27 @@ console.log("\n== Карточки главной: current temperature (общи
     "Этап 0: принудительный repaint в момент применения скина (без действия пользователя)");
   ok(/function syncBodyLock/.test(asrc) && /body\.classList\.add\("lock"\)/.test(asrc),
     "Этап 1.2: подложка блокируется под оверлеями/модалками (body.lock)");
-  ok(/<span class=\"p-name\">\$\{esc\(p\.name\)\}\$\{badgeHtml\(p\)\}<\/span>/.test(asrc) &&
-     /\.point-btn \.badge-verified \{ width: 13px; height: 13px; vertical-align: -1\.5px; margin-left: 3px; \}/.test(ssrc),
-    "Этап 1.3: звезда verified — inline в конец названия точки (не угол карточки)");
+  ok(!/<span class=\"p-name\">\$\{esc\(p\.name\)\}\$\{badgeHtml\(p\)\}<\/span>/.test(asrc) &&
+     !/\.point-btn \.badge-verified/.test(ssrc),
+    "v3.29 1.2: на карточках главной звёзд НЕТ ни в углу, ни после названия (только в поиске и у экрана точки)");
+  ok(/ICONS\["qa-skin"\] = `<svg viewBox="0 0 24 24"[^`]*M8\.6 4 L4 6\.6/.test(asrc),
+    "v3.29 1.4: «Скин» = футболка; «Поиск» = глобус; «Добавить» = плюс — единый набор (app.js)");
+  ok(!/qa-(search|add|skin)/.test(msrc), "v3.29 1.4: minimalism не подменяет иконки ряда");
+  ok(/--brand-grad: linear-gradient\(95deg, #7a6230/.test(ssrc) &&
+     /\[data-skin="tema299"\] \{[\s\S]*?--brand-grad: linear-gradient\(95deg, #b45cf0/.test(ssrc) &&
+     /\[data-skin="tema299"\] \{[\s\S]*?--brand-grad-2: linear-gradient\(315deg/.test(ssrc),
+    "v3.29 0.4/1.6: радуга — собственность Тёмы; у minimalism оливково-медный, у базы её палитра; вторая фаза Тёмы зеркальна по диагонали");
+  ok(/renderHome\(\); \/\/ v3\.29 0\.2/.test(asrc),
+    "v3.29 0.1/0.2: route() перерисовывает главную при каждом возврате — старого DOM не бывает");
+  ok(/applySkin\(id\)[\s\S]*?location\.hash = "";[\s\S]*?applyTheme\("light"\)/.test(asrc),
+    "v3.29 0.3: после «Применить» — сразу главная в светлой теме");
+  ok(/cssEl\.parentNode\.appendChild\(cssEl\)/.test(asrc),
+    "v3.29 0.2: forceRepaint = переустановка style-узла скина (WebView перерисовывает в тот же кадр)");
+  ok(/function pointToggle\(id\)/.test(asrc) && /class=\"pt-toggle/.test(asrc) &&
+     !/point-panels"\);\s*if \(pp\) pp\.innerHTML = donateBtnHtml/.test(asrc),
+    "v3.29 1.1: внизу экрана точки — «Добавить»/«Удалить точку», СБП с экрана точки убран");
+  ok(/\.point-btn \.p-region \{ order: 2; \}/.test(ssrc) && /\.point-btn \.p-ele \{ order: 3; display: flex/.test(ssrc),
+    "v3.29 1.3: единый порядок карточки — название → регион → высота (общий слой, все скины)");
   ok(/--brand-grad-2: linear-gradient\(185deg/.test(ssrc) && /\.fb-modal \.dp-sbp \{ --frame-grad: var\(--brand-grad-2\)/.test(ssrc),
     "Этап 1.5: идущие подряд фирменные рамки — со сдвигом фазы (~90°)");
   ok(/\.lib-add \{[\s\S]*?background: var\(--bg2\); border: 1px solid var\(--line\); color: var\(--text\)/.test(ssrc),
@@ -454,19 +472,25 @@ console.log("\n== Скин «Тёма 299» (active, опубликован): с
   ok((t9src.match(/@font-face/g) || []).length === 3 && /Nunito-400\.ttf/.test(t9src) && /Nunito-800\.ttf/.test(t9src),
     "Nunito 400/700/800 локально через @font-face");
   ok(!/fonts\.googleapis|fonts\.gstatic|cdn\./.test(t9src), "без внешних CDN");
-  ok(/w2t|w2m/.test(t9src) && /n2/.test(t9src) && /h2s|h2v/.test(t9src), "иконки быстрого ряда: колесо/гайка/шлем (§6.3)");
+  ok(!/w2t|w2m|n2t299|h2s|h2v/.test(t9src) && !/function (wheel2|nut2|helmet2)/.test(t9src),
+    "v3.29 1.4: колесо/гайка/шлем удалены из скина полностью (§6.3 отменён)");
   ok(!/t299-z-i\b/.test(t9src), "ночная неоновая кнопка «i» в шапке удалена (v3.27 §2.2, вопрос закрыт владельцем)");
   ok(/data-skin="tema299"\] \.h-mid \{[\s\S]*?opacity: \.38/.test(t9src),
     "рамка выбранного часа — градиентная, нежная, приглушённая (принято владельцем, не трогать)");
   ok(!/hours-strip::before/.test(t9src), "у почасового внутри дня градиентной линии сверху НЕТ (v3.27 §2.9)");
-  ok(/"qa-search"|qa-search:/.test(t9src), "ряд Поиск/Добавить/Скин стилизуется через qa-слоты");
-  ok(!/rgba\(94,177,255/.test(t9src), "v3.28 §3.5: голубой неон у доната/автора УБРАН (п.2.7 v3.27 отменён)");
-  ok(/data-skin="tema299"\] \.dp-go, \[data-skin="tema299"\] \.community-panel \{[\s\S]*?padding-box/.test(t9src),
-    "v3.28 §3.5: «Поддержать проект» и «Написать автору» — нейтральная заливка + фирменная рамка");
+  ok(!/"qa-search":|icons\["qa-/.test(t9src), "ряд Поиск/Добавить/Скин — общие qa-слоты (подмен в скине нет)");
+  ok(!/wheel2|nut2|helmet2|icons\["qa-/.test(t9src), "v3.29 1.4: колесо/гайка/шлем УДАЛЕНЫ из скина — единый набор иконок ряда");
+  ok(!/rgba\(94,177,255/.test(t9src), "v3.29: голубого неона у доната нет (рамки — палитра активного скина)");
+  ok(/data-skin="tema299"\] \.community-panel \{ border: 1\.5px solid transparent; \}/.test(t9src),
+    "v3.29 1.6: донат/автор Тёмы — общая рамка палитры скина (только скругление/жирность своё)");
   ok(/data-skin="tema299"\] \.hero \{[^}]*aspect-ratio: 1170 \/ 539/.test(t9src),
     "v3.28 §3.1: шапка — арт ЦЕЛИКОМ (aspect-ratio 1170×539, без обрезов, высота единая в обеих темах)");
-  ok(/mask-image: linear-gradient\(180deg, transparent 0%, #000 38%/.test(t9src),
-    "v3.28 §3.2: полоска — тонкое свечение на кромке (эталон Образец-полоски.jpg), не «крыша»");
+  ok(!/t299-veil/.test(t9src), "v3.29 2.2: туманной полосы внизу шапки НЕТ — только скругление углов");
+  ok(/mask-image: linear-gradient\(180deg, #000 40%, transparent 100%\)/.test(t9src) &&
+     /data-theme="light"\][^{]*\.point-btn::before[\s\S]*?clip-path: polygon\(10px 0, calc\(100% - 10px\) 0/.test(t9src),
+    "v3.29 2.3: полоска = начало карточки; светлая тема — в 3 раза тоньше + скошенные края");
+  ok(/data-skin="tema299"\] \.p-temp \{[^}]*font-family: "Nunito"/.test(t9src),
+    "v3.29 2.4: цифры температур Тёмы — шрифт скина (Nunito), явно");
   ok(/data-skin="tema299"\] \.p-temp \{ right: 12px; top: 12px;/.test(t9src) &&
      /data-skin="tema299"\] \.p-wicon \{ display: block; position: absolute; right: 12px; top: 46px/.test(t9src),
     "v3.28 §1.4: на карточке Тёмы температура сверху, иконка под ней (единый лейаут)");

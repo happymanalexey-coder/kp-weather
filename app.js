@@ -263,6 +263,9 @@ function applyTheme(theme) {
   cloudSet("kp_theme", theme); // дублируем в облако Telegram (тихо, если вне mini-app)
   applySkinTokens(); // перекладывает токены активного стиля под новую тему (+ applyTgColors внутри)
   rerenderCurrent(); // инлайн-цвета (шкала температур) и DOM — под новую тему, без действий пользователя
+  /* applySkinTokens восстанавливает UI-слоты из базовых запасных значений — бейдж скина
+     подменяем заново, иначе звезда остаётся базовой (синей) до следующего экрана */
+  loadBadge().then(() => rerenderCurrent());
 }
 function toggleTheme() {
   const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
@@ -578,7 +581,7 @@ function renderHome() {
       if (!p) return "";
       return `
       <button class="point-btn" data-id="${p.id}">
-        <span class="p-name">${esc(p.name)}${badgeHtml(p)}</span>
+        <span class="p-name">${esc(p.name)}</span>
         <span class="p-ele">${p.ele != null ? p.ele + " м" : ""}<span class="p-temp" hidden></span><span class="p-wicon" hidden></span></span>
         <span class="p-region">${esc(p.region)}</span>
         <span class="p-remove" data-rm="${p.id}" title="Убрать с главной">✕</span>
@@ -998,6 +1001,7 @@ function windRange(cur) {
 async function loadPoint(id) {
   const box = document.getElementById("point-content");
   const point = POINTS.find(p => p.id === id);
+  currentPointId = point ? id : null; // кнопка внизу экрана: «Добавить»/«Удалить точку»
   if (point && window.KP_ANALYTICS) KP_ANALYTICS.track("point_select", { id: point.id, name: point.name });
   if (!point && !POINTS.length && !homeFailed) { // холодный вход по прямой ссылке: каталог ещё грузится
     box.innerHTML = SK_POINT;
@@ -1343,23 +1347,21 @@ const TG_ICON = `<svg class="tg-ico" viewBox="0 0 24 24" aria-hidden="true"><pat
    подменяет её своим символом. Ниже — встроенный запасной вариант (= base). */
 const BADGE_FALLBACK = `<svg viewBox="0 0 24 24"><defs><linearGradient id="bs-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f9be8"/></linearGradient></defs><path fill="url(#bs-g)" stroke="url(#bs-g)" stroke-width="1.4" stroke-linejoin="round" d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/><ellipse cx="9.3" cy="7.6" rx="2.1" ry="1.15" fill="#ffe58a" opacity=".9" transform="rotate(-28 9.3 7.6)"/></svg>`;
 const ICONS = Object.assign({}, WIC, {
-  gear: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
   globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`,
   lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5.5" y="10.5" width="13" height="9" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>`,
   share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 L10.8 14.2"/><path d="M21.5 3.5 L14.5 21.5 L10.8 14.2 L2.5 10.5 Z"/></svg>`,
   pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 21.2s-6.6-5.5-6.6-10.2a6.6 6.6 0 1 1 13.2 0c0 4.7-6.6 10.2-6.6 10.2z"/><circle cx="12" cy="10.6" r="2.3"/></svg>`,
-  palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1 0 1.7-.7 1.7-1.6 0-.5-.18-.85-.45-1.13-.26-.29-.45-.64-.45-1.07 0-.9.73-1.6 1.6-1.6h1.9a3.7 3.7 0 0 0 3.7-3.7c0-3.9-4-6.5-8-6.5z"/><circle cx="7.4" cy="11" r="1.15" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.8" cy="7.8" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6l4.8 4.8L19.5 6.8"/></svg>`,
   wave: `<svg class="wic wv-ico" viewBox="0 0 24 24"><g class="wnd"><path d="M2.5 9.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/><path d="M2.5 15.2c1.9-2 3.8-2 5.7 0s3.8 2 5.7 0 3.8-2 5.7 0"/></g></svg>`,
   badge: BADGE_FALLBACK,
   telegram: TG_ICON,
 });
-/* Слоты быстрого ряда «Поиск/Добавить/Скин»: по умолчанию = базовые globe/plus/palette.
-   Отдельные слоты, чтобы скин мог рисовать в ряду свои иконки (currentColor/токены),
-   не подменяя слот globe у кнопки «карта» на экране точки. */
-ICONS["qa-search"] = ICONS.globe;
-ICONS["qa-add"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-ICONS["qa-skin"] = ICONS.palette;
+/* Слоты быстрого ряда «Поиск/Добавить/Скин»: ЕДИНЫЙ набор для всех скинов (v3.29 1.4) —
+   глобус / плюс / футболка, тонкие линии 1.8, красятся currentColor в тонах скина.
+   Скины больше НЕ подменяют эти слоты: наследовать чужие иконки невозможно структурно. */
+ICONS["qa-search"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`;
+ICONS["qa-add"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+ICONS["qa-skin"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4 L4 6.6 L6.1 9.8 L8.4 8.5 V20 H15.6 V8.5 L17.9 9.8 L20 6.6 L15.4 4 A2.7 2.7 0 0 1 8.6 4 Z"/></svg>`;
 function badgeHtml(p) {
   return p.verified === false ? "" : `<span class="badge-verified" title="Точка от разработчиков">${ICONS.badge}</span>`;
 }
@@ -1411,7 +1413,7 @@ async function loadBadge() {
   return false;
 }
 /* Слоты UI-иконок (не погодные): скин может подменять и их — при смене скина восстанавливаем базу */
-const UI_ICON_SLOTS = ["gear", "globe", "pin", "palette", "check", "badge", "telegram", "share", "qa-search", "qa-add", "qa-skin"];
+const UI_ICON_SLOTS = ["globe", "pin", "check", "badge", "telegram", "share", "qa-search", "qa-add", "qa-skin"];
 const UI_BASE_ICONS = {};
 UI_ICON_SLOTS.forEach(k => { UI_BASE_ICONS[k] = ICONS[k]; });
 let appliedSkinId = "base"; // для хука onRemove прежнего скина
@@ -1455,14 +1457,14 @@ function rerenderCurrent() {
   fillStaticIcons();
 }
 /* iOS (Telegram WebView) не перерисовывает скомпонованные слои — градиентные рамки,
-   тени, backdrop-filter — после смены CSS-токенов скина, пока не произойдёт действие
-   (модалка/скролл). Лечим корень: принудительный reflow+repaint всей поверхности. */
+   тени, backdrop-filter — после смены CSS-токенов скина, пока не произойдёт действие.
+   Лечим корень: (1) переустановка style-узла скина — WebView пересчитывает и перерисовывает;
+   (2) reflow всей страницы. Подмена display в одном кадре композитору незаметна —
+   поэтому именно re-attach узла, а не мгновенный туда-обратно тоггл. */
 function forceRepaint() {
-  const app = document.getElementById("app");
-  if (!app) return;
-  app.style.display = "none";
-  void app.offsetHeight;
-  app.style.display = "";
+  const cssEl = document.getElementById("kp-skin-css");
+  if (cssEl && cssEl.parentNode) cssEl.parentNode.appendChild(cssEl); // move-to-end = remove+insert
+  void document.body.offsetHeight;
 }
 async function initSkin() {
   const skins = await loadSkinsReg();
@@ -1488,8 +1490,13 @@ async function applySkin(id) {
   if (id !== "base") await loadSkinFile(id);
   applySkinTokens(); // мгновенно, без шага предпросмотра
   await loadBadge();
-  rerenderCurrent();
+  /* v3.29 0.3: после «Применить» — сразу на главную, в СВЕТЛОЙ теме, дом главной свежий */
+  if (location.hash !== "") location.hash = "";
+  applyTheme("light"); // тема + токены + rerenderCurrent (теперь рендерит главную)
+  renderHome();        // страховка: главная пересобрана ПОСЛЕ смены темы
+  renderPanels();
   renderStyleList();
+  forceRepaint();
   soonHint("Стиль применён");
 }
 let styleTab = "all";
@@ -1779,11 +1786,25 @@ function donateBtnHtml(pre) {
   return `<button class="dp-sbp" onclick="${pre || ""}donateGo()">Поддержать проект (СБП)</button>`;
 }
 
+/* v3.29 1.1 — внизу экрана точки кнопка-переключатель «Добавить»/«Удалить точку»
+   (вместо СБП — донат с экрана точки убран полностью) */
+let currentPointId = null;
+function pointToggleHtml(id) {
+  const on = homeBaseIds().includes(id);
+  return `<button class="pt-toggle${on ? " on" : ""}" onclick="pointToggle('${esc(id)}')">${on ? "Удалить точку" : "Добавить"}</button>`;
+}
+function pointToggle(id) {
+  if (homeBaseIds().includes(id)) libRemove(id);
+  else libAdd(id);
+  const pp = document.getElementById("point-panels");
+  if (pp && currentPointId) pp.innerHTML = pointToggleHtml(currentPointId);
+  soonHint(homeBaseIds().includes(id) ? "На главной ✓" : "Убрано с главной");
+}
 function renderPanels() {
   const hp = document.getElementById("home-panels");
   if (hp) hp.innerHTML = donateHtml() + communityHtml(); // главная: донат + «Написать автору» в самом низу
   const pp = document.getElementById("point-panels");
-  if (pp) pp.innerHTML = donateBtnHtml(); // вторичный экран — та же залитая кнопка
+  if (pp) pp.innerHTML = currentPointId ? pointToggleHtml(currentPointId) : ""; // экран точки — добавить/удалить
   loadDonateUrl(); // прогреем donate_url из конфига воркера (тихо, фолбэк — константа)
 }
 
@@ -1880,6 +1901,7 @@ function route() {
     point.classList.add("hidden");
     home.classList.remove("hidden");
     document.title = "Погода в горах, на море и дома — Красная Поляна";
+    renderHome(); // v3.29 0.2/0.1: главная пересобирается при КАЖДОМ возврате — никакого «старого DOM»
     placeHeroInfo();
   }
 }
