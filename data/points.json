@@ -2,7 +2,7 @@
  "meta": {
   "version": 3,
   "source": "ТЗ v2.2: +20 спотов Бали (verified=false), остальные verified=true",
-  "count": 55
+  "count": 54
  },
  "points": [
   {
@@ -525,19 +525,6 @@
    "ele": 558,
    "region": "Красная Поляна",
    "verified": true
-  },
-  {
-   "id": "shkola-65",
-   "name": "Школа 65",
-   "lat": 43.6905,
-   "lon": 40.1953,
-   "ele": 664,
-   "region": "Красная Поляна",
-   "verified": false,
-   "added_by": "web:14a9ff70f27c7d0a",
-   "added_by_username": "@go_ride_bro",
-   "added_ts": 1791259236,
-   "via": "web"
   }
  ]
 }
