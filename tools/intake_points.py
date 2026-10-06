@@ -28,6 +28,8 @@ POINTS_PATH = "data/points.json"
 STATE_PATH = "data/intake_state.json"
 ADMINS_PATH = "data/admins.json"
 INBOX_PATH = "data/web_inbox.json"  # заявки с сайта/mini-app через Cloudflare Worker
+LOG_PATH = "data/points_log.json"   # v3.30 3.2: журнал добавлений (append-only, удаления не стирают)
+SKIN_REQ_PATH = "data/skin_requests.json"  # v3.30 4.4: заявки на авторский скин (воркер → intake → владелец)
 
 NAME_RE = re.compile(r"^[А-Яа-яЁёA-Za-z0-9 \-]+$")
 MSG_RE = re.compile(
@@ -191,6 +193,24 @@ def notify(chat_id, text):
         print(f"notify {chat_id} failed: {type(e).__name__}")
 
 
+def log_point_append(now, entry, via):
+    """v3.30 3.2: журнал добавлений append-only (удалённые точки из журнала НЕ удаляются)."""
+    try:
+        log = load(LOG_PATH, {"log": []})
+        log.setdefault("log", []).append({
+            "ts": now,
+            "name": entry.get("name"),
+            "lat": entry.get("lat"),
+            "lon": entry.get("lon"),
+            "region": entry.get("region"),
+            "author": entry.get("added_by_username") or str(entry.get("added_by")),
+            "via": via,
+        })
+        save(LOG_PATH, log)
+    except Exception as e:
+        print(f"points_log append failed: {type(e).__name__}")
+
+
 def accept_point(points, state, name_raw, lat, lon, user, via, now):
     """Полный цикл одной заявки. Возвращает (ok, reply_text)."""
     existing_names = {p["name"].strip().lower() for p in points.get("points", [])}
@@ -223,9 +243,11 @@ def accept_point(points, state, name_raw, lat, lon, user, via, now):
     if probe_marine(lat, lon):
         entry["marine"] = True
     points["points"].append(entry)
+    log_point_append(now, entry, via)  # v3.30 3.2: журнал добавлений
     print(f"ok {via}: {name} — {lat}, {lon} — {ele} м, {entry['region']}, "
           f"marine={entry.get('marine', False)} от @{user.get('username') or user.get('id')}")
-    return True, f"Готово! «{name}» добавлена и появится в приложении в течение ~30 минут 🏔"
+    # v3.30 3.1: сообщение о публикации — единый текст для всех каналов
+    return True, f"Ваша точка «{name}» опубликована в Погоде-про 🏔"
 
 
 def delete_point(points, name_raw):
@@ -260,8 +282,39 @@ def process_inbox(points, state, now):
         added += 1 if ok else 0
         skipped += 0 if ok else 1
         print(f"inbox {'ok' if ok else 'skip'}: {name_raw!r} — {reply.split(chr(10))[0]}")
+        # v3.30 3.1: публикация → сообщение пользователю. tg_user_id знает только mini-app;
+        # голый ник без запуска бота не работает (Telegram не даёт писать первым) — тогда молчим.
+        if ok and item.get("tg_uid"):
+            notify(item["tg_uid"], reply)
     save(INBOX_PATH, {**inbox, "inbox": []})  # meta с пояснением сохраняем
     return added, skipped
+
+
+def process_skin_requests(admins):
+    """v3.30 4.4: заявки на авторский скин (воркер кладёт в data/skin_requests.json) —
+    каждые 15 минут шлём владельцу (всем админам) и помечаем sent. Уведомления о точках
+    владельцу НЕ нужны — только эти заявки."""
+    reqs = load(SKIN_REQ_PATH, {"requests": []})
+    items = reqs.get("requests", [])
+    fresh = [r for r in items if not r.get("sent")]
+    if not fresh:
+        return 0
+    sent_n = 0
+    for r in fresh:
+        dt = time.strftime("%d.%m.%Y %H:%M", time.localtime(int(r.get("ts") or time.time())))
+        text = ("Заявка на авторский скин!\n"
+                f"Дата/время: {dt}\n"
+                f"Телефон: {r.get('phone') or '—'}\n"
+                f"Telegram: {r.get('nick') or '—'}"
+                + (f"\nСкин пользователя: {r.get('skin') or '—'}" if r.get("skin") else "")
+                + (f" · {r.get('channel')}" if r.get("channel") else ""))
+        for admin_id in admins:
+            notify(admin_id, text)
+        r["sent"] = True
+        r["sent_ts"] = int(time.time())
+        sent_n += 1
+    save(SKIN_REQ_PATH, reqs)
+    return sent_n
 
 
 def main():
@@ -272,6 +325,11 @@ def main():
 
     # 1) заявки с сайта/mini-app — не зависят от бота
     web_added, web_skipped = process_inbox(points, state, now0)
+
+    # 2) заявки на авторский скин → владельцу (v3.30 4.4); без токена остаются невысланными
+    skin_sent = process_skin_requests(admins) if TOKEN else 0
+    if skin_sent:
+        print(f"skin_requests: отправлено владельцу {skin_sent}")
 
     # 2) очередь бота — только если задан токен
     if not TOKEN:

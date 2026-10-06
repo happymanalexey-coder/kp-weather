@@ -91,9 +91,9 @@ function validate(name, lat, lon) {
     return { error: "Координаты 0,0" };
   return { name };
 }
-async function githubGetSha(token) {
+async function githubGetSha(token, path) {
   const r = await fetch(
-    `https://api.github.com/repos/${REPO}/contents/${INBOX_PATH}?ref=main`,
+    `https://api.github.com/repos/${REPO}/contents/${path}?ref=main`,
     { headers: { Authorization: `Bearer ${token}`, "User-Agent": "pogoda-intake",
                  Accept: "application/vnd.github+json" } });
   if (!r.ok) throw new Error("github get " + r.status);
@@ -102,20 +102,35 @@ async function githubGetSha(token) {
     Uint8Array.from(atob(d.content.replace(/\n/g, "")), c => c.charCodeAt(0))));
   return { sha: d.sha, content };
 }
-async function githubPutSha(token, sha, content) {
+async function githubPutSha(token, path, sha, content, message) {
   const body = {
-    message: "inbox: заявка с сайта/mini-app",
+    message: message || "inbox: заявка с сайта/mini-app",
     content: btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(content)))),
     sha,
     branch: "main",
   };
   const r = await fetch(
-    `https://api.github.com/repos/${REPO}/contents/${INBOX_PATH}`,
+    `https://api.github.com/repos/${REPO}/contents/${path}`,
     { method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "User-Agent": "pogoda-intake",
                  Accept: "application/vnd.github+json", "Content-Type": "application/json" },
       body: JSON.stringify(body) });
   if (!r.ok) throw new Error("github put " + r.status);
+}
+/* append-only запись в json-файл репо (inbox / skin_requests) с ретраями */
+async function githubAppend(token, path, listKey, entry, message) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { sha, content } = await githubGetSha(token, path);
+      content[listKey] = Array.isArray(content[listKey]) ? content[listKey] : [];
+      content[listKey].push(entry);
+      await githubPutSha(token, path, sha, content, message);
+      return true;
+    } catch (e) {
+      if (attempt === 2) throw e;
+      await new Promise(r => setTimeout(r, 700));
+    }
+  }
 }
 const TG_NICK_RE = /^[A-Za-z0-9_]{4,32}$/; // правила ника Telegram, без @
 async function handleIntake(request, env, origin) {
@@ -144,20 +159,15 @@ async function handleIntake(request, env, origin) {
     ts: Math.floor(Date.now() / 1000),
   };
   if (tg) { entry.tg = tg; entry.consent = true; }
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const { sha, content } = await githubGetSha(env.GITHUB_TOKEN);
-      content.inbox = Array.isArray(content.inbox) ? content.inbox : [];
-      content.inbox.push(entry);
-      await githubPutSha(env.GITHUB_TOKEN, sha, content);
-      return jsonResp({ ok: true }, 200, origin);
-    } catch (e) {
-      if (attempt === 2) {
-        console.error("inbox write failed:", e.message);
-        return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
-      }
-      await new Promise(r => setTimeout(r, 700));
-    }
+  /* v3.30 3.1: id Telegram из mini-app — intake сообщит о публикации (вне mini-app не бывает) */
+  const tgUserId = parseInt(String(payload.tg_user_id || ""), 10);
+  if (tgUserId > 0 && String(tgUserId).length <= 15) entry.tg_uid = tgUserId;
+  try {
+    await githubAppend(env.GITHUB_TOKEN, INBOX_PATH, "inbox", entry);
+    return jsonResp({ ok: true }, 200, origin);
+  } catch (e) {
+    console.error("inbox write failed:", e.message);
+    return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
   }
 }
 
@@ -230,6 +240,35 @@ async function handleSkinRequest(request, env, origin) {
 
   // honeypot: скрытое поле заполнил только бот — тихо «проглатываем», как будто отправлено
   if (String(p.hp || "").trim() !== "") return jsonResp({ ok: true }, 200, origin);
+
+  /* v3.30 4.4: «Авторский скин на заказ» — {phone, nick} → append-only data/skin_requests.json;
+     владельцу пишет intake каждые 15 минут (здесь Telegram не дёргаем). Старый формат ниже — как был. */
+  const phone = String(p.phone || "").trim().slice(0, 20);
+  const nick = String(p.nick || "").trim().replace(/^@/, "").slice(0, 33);
+  if (phone || nick || p.author_skin === true) {
+    if (p.consent !== true) return jsonResp({ error: "Нужно согласие на обработку данных" }, 400, origin);
+    if (!phone && !nick) return jsonResp({ error: "Оставьте телефон или ник в Telegram" }, 400, origin);
+    if (/[\u0000-\u001f\u007f]/.test(phone + nick)) return jsonResp({ error: "Недопустимые символы" }, 400, origin);
+    if (nick && !/^[A-Za-z0-9_]{4,32}$/.test(nick))
+      return jsonResp({ error: "Ник в Telegram: латиница, цифры и «_», 4–32 символа" }, 400, origin);
+    if (!env.GITHUB_TOKEN) return jsonResp({ error: "Приём заявок перезапускается — попробуйте позже" }, 503, origin);
+    const entry = {
+      ts: Math.floor(Date.now() / 1000),
+      phone: phone || null,
+      nick: nick ? "@" + nick : null,
+      skin: String(p.skin || "").slice(0, 30) || null,
+      channel: p.channel === "miniapp" ? "miniapp" : "site",
+      sent: false,
+    };
+    try {
+      await githubAppend(env.GITHUB_TOKEN, "data/skin_requests.json", "requests", entry,
+        "skin-request: авторский скин на заказ");
+    } catch (e) {
+      console.error("skin_requests write failed:", e.message);
+      return jsonResp({ error: "Не получилось отправить — попробуйте ещё раз" }, 502, origin);
+    }
+    return jsonResp({ ok: true }, 200, origin);
+  }
 
   const name = String(p.name || "").trim().replace(/\s+/g, " ").slice(0, 60);
   const description = String(p.description || "").trim().slice(0, 1000);

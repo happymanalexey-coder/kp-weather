@@ -331,14 +331,14 @@ console.log("\n== Почасовая лента: свободные ячейки
   ok(!/bali/.test(fs.readFileSync(root + "sw.js", "utf8")), "Service Worker не кэширует bali (архив) — по-прежнему");
 }
 
-console.log("\n== Э-5 «Сменить стиль»: карточки скинов (превью, автор, чип тем, заказ скрыт) ==");
+console.log("\n== Э-5 «Сменить стиль»: карточки скинов (превью, автор, чип тем) + «Авторский скин на заказ» ==");
 {
   const ssrc = fs.readFileSync(root + "styles.css", "utf8");
-  ok(/const SHOW_SKIN_ORDER = false/.test(asrc) && /const SHOW_STYLE_TABS = false/.test(asrc),
-    "карточка «Закажи свой скин» и строка вкладок скрыты флагами (код сохранён)");
-  ok(/styleTab === "all" && SHOW_SKIN_ORDER \? orderCard/.test(asrc) &&
+  ok(/const SHOW_SKIN_ORDER = true/.test(asrc) && /const SHOW_STYLE_TABS = false/.test(asrc),
+    "v3.30: карточка «Авторский скин» показывается всем; вкладки по-прежнему скрыты (код сохранён)");
+  ok(/styleTab === "all" && SHOW_SKIN_ORDER \? authorSkinCardHtml\(\)/.test(asrc) &&
      /SHOW_STYLE_TABS \? styleTabsHtml\(\) : ""/.test(asrc),
-    "скрытие реализовано условием рендера, карточка нигде не «просвечивает»");
+    "карточка заказа рендерится условием — лишних экранов нет");
   ok(/s\.previewImg\s*\?/.test(asrc) && /class="st-prev-img"/.test(asrc),
     "превью карточки — реальный снимок шапки (previewImg из реестра, горы — фолбэк)");
   ok(/s\.themesLabel \? `<span class="st-themes">/.test(asrc),
@@ -421,8 +421,8 @@ console.log("\n== Карточки главной: current temperature (общи
   ok(!/<span class=\"p-name\">\$\{esc\(p\.name\)\}\$\{badgeHtml\(p\)\}<\/span>/.test(asrc) &&
      !/\.point-btn \.badge-verified/.test(ssrc),
     "v3.29 1.2: на карточках главной звёзд НЕТ ни в углу, ни после названия (только в поиске и у экрана точки)");
-  ok(/ICONS\["qa-skin"\] = `<svg viewBox="0 0 24 24"[^`]*M8\.6 4 L4 6\.6/.test(asrc),
-    "v3.29 1.4: «Скин» = футболка; «Поиск» = глобус; «Добавить» = плюс — единый набор (app.js)");
+  ok(/ICONS\["qa-skin"\] = `<svg viewBox="0 0 24 24"[^`]*M9\.4 3\.8 L4\.4 6\.4/.test(asrc),
+    "v3.29/30 1.4: «Скин» = футболка; «Поиск» = глобус; «Добавить» = плюс — единый набор (app.js)");
   ok(!/qa-(search|add|skin)/.test(msrc), "v3.29 1.4: minimalism не подменяет иконки ряда");
   ok(/--brand-grad: linear-gradient\(95deg, #7a6230/.test(ssrc) &&
      /\[data-skin="tema299"\] \{[\s\S]*?--brand-grad: linear-gradient\(95deg, #b45cf0/.test(ssrc) &&
@@ -439,6 +439,49 @@ console.log("\n== Карточки главной: current temperature (общи
     "v3.29 1.1: внизу экрана точки — «Добавить»/«Удалить точку», СБП с экрана точки убран");
   ok(/\.point-btn \.p-region \{ order: 2; \}/.test(ssrc) && /\.point-btn \.p-ele \{ order: 3; display: flex/.test(ssrc),
     "v3.29 1.3: единый порядок карточки — название → регион → высота (общий слой, все скины)");
+  /* ---- v3.30: строка внизу, шеринг, ссылки без диалога, футболка, журналы, авторский скин ---- */
+  const hs = fs.readFileSync(root + "index.html", "utf8");
+  const ps = fs.readFileSync(root + "tools/intake_points.py", "utf8");
+  const ws = fs.readFileSync(root + "tools/cloudflare-worker.js", "utf8");
+  const t9s = fs.readFileSync(root + "skins/tema299/skin.js", "utf8");
+  ok(/Прогноз погоды обновлён /.test(asrc) && !/list\.innerHTML =[\s\S]*?home-updated/.test(asrc) &&
+     /<div class="home-updated" id="home-updated" hidden><\/div>[\s\S]*?<footer/.test(hs),
+    "v3.30 1.1: «Прогноз погоды обновлён …» — внизу главной (под «Написать автору», над футером, по центру)");
+  ok(!/openTelegramLink\("https:\/\/t\.me\/share\/url/.test(asrc) &&
+     /navigator\.share\(\{ title: "Погода на " \+ name/.test(asrc),
+    "v3.30 1.2: «Поделиться» — системное меню navigator.share (TG-диалог убран), фолбэк — копирование");
+  ok(/function openExternal\(url\)/.test(asrc) && /Telegram\.WebApp\.openLink\(u\.toString\(\)\)/.test(asrc) &&
+     /location\.assign\(u\.toString\(\)\)/.test(asrc) &&
+     /closest\('a\[href\^="http"\]'\)/.test(asrc) && /openExternal\(IG_URL\)/.test(t9s),
+    "v3.30 1.3: внешние ссылки без окна «Открыть ссылку?» (openLink / внутренняя навигация своих)");
+  ok(/data-skin="minimalism"\] \.community-panel \{ border: 1\.5px solid transparent; \}/.test(msrc),
+    "v3.30 1.4: у minimalism «Написать автору» — фирменная рамка");
+  ok(/M9\.4 3\.8 L4\.4 6\.4 L6\.6 9\.8/.test(asrc),
+    "v3.30 1.5: футболка перерисована — явное расстояние подмышка–ворот");
+  ok(/M12 ' \+ \(33 \+ dy\) \+ ' a7 7 0 0 1 -1\.4-13\.9/.test(t9s),
+    "v3.30 1.6/2.1-осн: облака Тёмы симметричные, нижний край ровный");
+  ok(!/box-shadow: 0 1px 8px rgba\(139,92,246/.test(t9s),
+    "v3.30 2.1: у полосок Тёмы концы по контуру карточки — боковое свечение убрано, толщина не тронута");
+  ok(/LOG_PATH = "data\/points_log\.json"/.test(ps) && /def log_point_append/.test(ps) &&
+     /log_point_append\(now, entry, via\)/.test(ps),
+    "v3.30 3.2: data/points_log.json — журнал добавлений append-only");
+  ok(/tg_uid/.test(ws) && /body\.tg_user_id/.test(asrc),
+    "v3.30 3.1: chat_id из mini-app (tg_user_id) — уведомление о публикации");
+  ok(/Ваша точка «\{name\}» опубликована в Погоде-про/.test(ps),
+    "v3.30 3.1: текст уведомления о публикации");
+  ok(/function authorSkinCardHtml/.test(asrc) && /Авторский скин<\/div>/.test(asrc) &&
+     />Заказать<\/button>/.test(asrc) && /SHOW_SKIN_ORDER = true/.test(asrc),
+    "v3.30 4.1: карточка «Авторский скин» с кнопкой «Заказать» показывается всем");
+  ok(/function skinOrderArt/.test(asrc) && /\["#E04556", 132, 58\]/.test(asrc),
+    "v3.30 4.2: превью — SVG-палитра с красками и кисточками (без сторонних картинок)");
+  ok(/Авторский скин на заказ/.test(hs) && /sk-phone/.test(hs) && /sk-nick/.test(hs) &&
+     /id="sk-send" onclick="skinOrderSubmit\(\)" disabled/.test(hs) &&
+     /function skinOrderValidate/.test(asrc) && /btn\.disabled = !\(agree && \(phone\.length > 0 \|\| nick\.length > 0\)\)/.test(asrc),
+    "v3.30 4.3: экран заказа — телефон ИЛИ ник + согласие, кнопка иначе не активна");
+  ok(/skinOrderSubmit/.test(asrc) && /\/api\/skin-request/.test(asrc) &&
+     /data\/skin_requests\.json/.test(ws) && /process_skin_requests/.test(ps) &&
+     /Заявка на авторский скин!/.test(ps),
+    "v3.30 4.4: заявка → worker → skin_requests.json → intake шлёт владельцу раз в 15 мин");
   ok(/--brand-grad-2: linear-gradient\(185deg/.test(ssrc) && /\.fb-modal \.dp-sbp \{ --frame-grad: var\(--brand-grad-2\)/.test(ssrc),
     "Этап 1.5: идущие подряд фирменные рамки — со сдвигом фазы (~90°)");
   ok(/\.lib-add \{[\s\S]*?background: var\(--bg2\); border: 1px solid var\(--line\); color: var\(--text\)/.test(ssrc),

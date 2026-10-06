@@ -130,8 +130,9 @@ body {
 .point-btn .p-wicon { display: block; position: absolute; right: 12px; top: 44px; width: 30px; height: 30px; }
 .point-btn .p-wicon svg { width: 100%; height: 100%; display: block; }
 .p-temp[hidden], .p-wicon[hidden] { display: none; }
-/* честная метка «Обновлено» над виджетами, под быстрым рядом: отдельная строка, левый край, аккуратная серость */
-.home-updated { grid-column: 1 / -1; margin: 2px 0 8px; text-align: left; font-size: 11px; color: var(--muted); }
+/* честная метка «Обновлено» — теперь внизу главной (v3.30 1.1): под «Написать автору»,
+   над футером, по центру; текст «Прогноз погоды обновлён … · …» */
+.home-updated { display: block; margin: 0 16px 10px; text-align: center; font-size: 11px; color: var(--muted); }
 
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 18px var(--pad) 0; }
 

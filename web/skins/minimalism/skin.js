@@ -161,6 +161,8 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="minimalism"] .top-actions .sic { width: 15px; height: 15px; color: var(--accent); }',
     '/* ---- общие: карточки 20px, без обводок, тень по теме ---- */',
     '[data-skin="minimalism"] .point-btn, [data-skin="minimalism"] .card, [data-skin="minimalism"] .donate-panel, [data-skin="minimalism"] .community-panel { border: none; box-shadow: var(--card-sh); border-radius: 20px; }',
+    /* v3.30 1.4: «Написать автору» — фирменная рамка (общий слой вернул прозрачный бордер) */
+    '[data-skin="minimalism"] .community-panel { border: 1.5px solid transparent; }',
     '[data-skin="minimalism"] .point-btn:active { opacity: .7; transition: opacity .12s; }',
     /* ---- К-04 карточка избранного (макет дизайнера): крупная серифная температура справа сверху,
        под ней иконка состояния 30px; звезда И-15 — бейдж verified ---- */

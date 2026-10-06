@@ -506,7 +506,7 @@ function homeUpdatedLabel(recs) {
   const oldest = Math.min.apply(null, recs.map(r => r.ts));
   const d = new Date(oldest);
   const p2 = n => String(n).padStart(2, "0");
-  el.textContent = "Обновлено " + p2(d.getHours()) + ":" + p2(d.getMinutes()) +
+  el.textContent = "Прогноз погоды обновлён " + p2(d.getHours()) + ":" + p2(d.getMinutes()) +
     " · " + p2(d.getDate()) + "." + p2(d.getMonth() + 1) + "." + String(d.getFullYear()).slice(-2);
   el.hidden = false;
 }
@@ -572,7 +572,6 @@ function renderHome() {
   list.classList.toggle("editing", editMode);
   list.innerHTML =
     homeTopActionsHtml() +
-    `<div class="home-updated" id="home-updated" hidden></div>` +
     promoBannerHtml() +
     (editMode ? `<div class="edit-bar">Тяни карточки, чтобы менять порядок · ✕ убирает с главной
       <button class="edit-done" onclick="exitEditMode()">Готово</button></div>` : "") +
@@ -945,6 +944,11 @@ async function feedbackSubmit() {
   try {
     const body = { name: r.name, lat: r.lat, lon: r.lon };
     if (tgNick) { body.tg = "@" + tgNick; body.consent = true; }
+    /* v3.30 3.1: id Telegram из mini-app — чтобы сообщить о публикации (вне mini-app не бывает) */
+    try {
+      const u = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user;
+      if (u && u.id) body.tg_user_id = u.id;
+    } catch (e) {}
     const resp = await fetch(INTAKE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1361,7 +1365,7 @@ const ICONS = Object.assign({}, WIC, {
    Скины больше НЕ подменяют эти слоты: наследовать чужие иконки невозможно структурно. */
 ICONS["qa-search"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.4 3.7 5.4 3.7 8.6s-1.3 6.2-3.7 8.6c-2.4-2.4-3.7-5.4-3.7-8.6s1.3-6.2 3.7-8.6z"/></svg>`;
 ICONS["qa-add"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-ICONS["qa-skin"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4 L4 6.6 L6.1 9.8 L8.4 8.5 V20 H15.6 V8.5 L17.9 9.8 L20 6.6 L15.4 4 A2.7 2.7 0 0 1 8.6 4 Z"/></svg>`;
+ICONS["qa-skin"] = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 3.8 L4.4 6.4 L6.6 9.8 L8.9 8.5 V20.2 H15.1 V8.5 L17.4 9.8 L19.6 6.4 L14.6 3.8"/><path d="M9.4 3.8 A2.6 2.6 0 0 0 14.6 3.8"/></svg>`;
 function badgeHtml(p) {
   return p.verified === false ? "" : `<span class="badge-verified" title="Точка от разработчиков">${ICONS.badge}</span>`;
 }
@@ -1521,10 +1525,9 @@ function skinBadgeHtml(s) {
   }
   return "";
 }
-/* Экран «Сменить стиль»: карточка «Закажи свой скин» и строка вкладок скрыты —
-   заказы не принимаем, авторских скинов нет (вкладки показывали бы одно и то же).
-   Код карточки и вкладок сохранён: вернуть = true обоим флагам. */
-const SHOW_SKIN_ORDER = false;
+/* Экран «Сменить стиль»: карточка «Авторский скин» показывается всем (v3.30 этап 4);
+   строка вкладок скрыта — активных авторских скинов нет (вкладки показывали бы одно и то же).
+   Код вкладок сохранён: вернуть = true флагу. */
 const SHOW_STYLE_TABS = false;
 async function renderStyleList() {
   const box = document.getElementById("style-list");
@@ -1536,33 +1539,7 @@ async function renderStyleList() {
   const inTab = s =>
     styleTab === "official" ? s.type === "official" :
     styleTab === "author" ? (s.type === "author" || s.type === "partner") : true;
-  /* композитная карточка «Закажи свой скин»: три вертикальные трети — хиро каждого скина */
-  const MT = [
-    "M0 160 L60 84 L95 122 L150 52 L205 128 L245 88 L300 140 L340 100 L400 160 Z",
-    "M0 160 L80 108 L140 150 L210 96 L280 152 L330 122 L400 160 Z",
-    "M0 160 L120 132 L220 160 L320 138 L400 160 Z"
-  ];
-  const trio = skins.slice(0, 3);
-  const thirdW = 400 / 3;
-  const orderHero = `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
-    trio.map((s, i) => {
-      const pv = s.preview || {}, x = (i * thirdW).toFixed(2);
-      return `<defs><linearGradient id="osky-${esc(s.id)}" x1="0" y1="0" x2="0" y2="1">` +
-        `<stop offset="0" stop-color="${esc(pv.sky0 || "#101c30")}"/><stop offset="1" stop-color="${esc(pv.sky1 || "#0b1220")}"/></linearGradient>` +
-        `<clipPath id="oclip-${i}"><rect x="${x}" y="0" width="${thirdW.toFixed(2)}" height="160"/></clipPath></defs>` +
-        `<g clip-path="url(#oclip-${i})"><rect width="400" height="160" fill="url(#osky-${esc(s.id)})"/>` +
-        `<path d="${MT[0]}" fill="${esc(pv.mt1 || "#16243c")}"/>` +
-        `<path d="${MT[1]}" fill="${esc(pv.mt2 || "#0f1930")}"/>` +
-        `<path d="${MT[2]}" fill="${esc(pv.mt3 || "#0a1120")}"/></g>` +
-        (i > 0 ? `<line x1="${x}" y1="0" x2="${x}" y2="160" stroke="rgba(255,255,255,.25)" stroke-width="1"/>` : "");
-    }).join("") + `</svg>`;
-  const orderCard = `<div class="style-card style-order">
-      <div class="st-prev">${orderHero}</div>
-      <div class="st-name">Закажи свой скин</div>
-      <div class="st-author">Сделаем стиль под тебя — как эти, только твой</div>
-      <button class="st-apply" onclick="openSkinRequest()">Заказать стиль</button>
-    </div>`;
-  const savedId = currentSkinId();
+  /* карточка «Авторский скин на заказ» — отдельный блок ниже (skinOrderArt/authorSkinCardHtml) */
   const cards = skins.filter(inTab).map(s => {
     const pv = s.preview || {};
     const dots = (pv.palette || []).map(c => `<span class="st-dot" style="background:${esc(String(c))}"></span>`).join("");
@@ -1602,21 +1579,70 @@ async function renderStyleList() {
   const emptyText = styleTab === "author"
     ? "Пока только официальные стили. Свой можно заказать — вкладка «Все», первая карточка"
     : "Здесь появятся новые стили";
-  box.innerHTML = (styleTab === "all" && SHOW_SKIN_ORDER ? orderCard : "") +
+  box.innerHTML = (styleTab === "all" && SHOW_SKIN_ORDER ? authorSkinCardHtml() : "") +
     (cards || `<div class="lib-empty">${emptyText}</div>`) + donateBtnHtml();
 }
 
-/* ---------- форма заявки на свой скин (карточка «Закажи свой стиль») ---------- */
+/* ---------- авторский скин на заказ (v3.30, этап 4): карточка на Э-5 и экран заказа ---------- */
+const SHOW_SKIN_ORDER = true;
+function skinOrderArt() {
+  /* превью карточки: палитра с красками и кисточками — «картина пишется прямо сейчас» (SVG, без картинок) */
+  const paints = [
+    ["#E04556", 132, 58], ["#F5A300", 176, 40], ["#3E8FE0", 220, 52],
+    ["#8B5CF6", 262, 44], ["#4FB573", 304, 60], ["#F2F3F5", 150, 92], ["#23262B", 288, 96]
+  ].map(c => '<circle cx="' + c[1] + '" cy="' + c[2] + '" r="17" fill="' + c[0] + '"/>').join("");
+  return `<svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+    `<defs><linearGradient id="skya" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#FBF7F0"/><stop offset="1" stop-color="#EFE6D8"/></linearGradient></defs>` +
+    `<rect width="400" height="160" fill="url(#skya)"/>` +
+    `<path d="M46 118 A118 118 0 0 1 282 118 A14 14 0 0 1 254 118 A90 90 0 0 0 74 118 A14 14 0 0 1 46 118 Z" fill="#C99A55"/>` +
+    `<path d="M60 118 A104 104 0 0 1 268 118 Z" fill="#E3CFA8"/>` +
+    `<ellipse cx="164" cy="118" rx="102" ry="10" fill="#8A6B3A" opacity=".35"/>` +
+    paints +
+    `<g transform="rotate(24 330 60)"><rect x="326" y="14" width="7" height="76" rx="3.5" fill="#B9BEC6"/><path d="M322 90 h15 l-7.5 22 Z" fill="#3A3E45"/><path d="M322 90 h15 l-2 6 h-11 Z" fill="#E04556"/></g>` +
+    `<g transform="rotate(-16 352 66)"><rect x="349" y="22" width="6" height="66" rx="3" fill="#D9B98A"/><path d="M345.5 88 h13 l-6.5 19 Z" fill="#3A3E45"/><path d="M345.5 88 h13 l-1.8 5.4 h-9.4 Z" fill="#3E8FE0"/></g>` +
+    `<path d="M96 34 q10 -14 22 -4 q12 -10 20 2" fill="none" stroke="#C99A55" stroke-width="3" stroke-linecap="round" opacity=".7"/>` +
+    `</svg>`;
+}
+function authorSkinCardHtml() {
+  return `<div class="style-card style-author" data-vibe="custom">
+      <div class="st-prev">${skinOrderArt()}</div>
+      <div class="st-name">Авторский скин</div>
+      <div class="st-author">Ваш личный стиль: фирменные цвета, ваши фото, ваш характер</div>
+      <button class="st-apply" onclick="openSkinRequest()">Заказать</button>
+    </div>`;
+}
+/* Кнопка «Мы с вами свяжемся» активна ТОЛЬКО при контакте (телефон ИЛИ ник) + согласии */
+function skinOrderValidate() {
+  const phone = (document.getElementById("sk-phone") || { value: "" }).value.trim();
+  const nick = (document.getElementById("sk-nick") || { value: "" }).value.trim();
+  const agree = !!(document.getElementById("sk-agree") || {}).checked;
+  const btn = document.getElementById("sk-send");
+  if (btn) btn.disabled = !(agree && (phone.length > 0 || nick.length > 0));
+  return { phone, nick, agree };
+}
 function openSkinRequest() {
-  if (paidGate("skin_custom")) return; // платный кастомный скин (сейчас выключено — бесплатно)
   const m = document.getElementById("sk-modal");
   if (!m) return;
   m.classList.remove("hidden");
   syncBodyLock();
   const form = document.getElementById("sk-form");
   const sent = document.getElementById("sk-sent");
-  if (form) form.classList.remove("hidden"); // всегда открываем на форме, не на «Отправлено»
+  if (form) form.classList.remove("hidden");
   if (sent) sent.classList.add("hidden");
+  ["sk-phone", "sk-nick"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  const agree = document.getElementById("sk-agree");
+  if (agree) agree.checked = false;
+  const btn = document.getElementById("sk-send");
+  if (btn) btn.disabled = true;
+  ["sk-phone", "sk-nick", "sk-agree"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains("sk-bound")) {
+      el.classList.add("sk-bound");
+      el.addEventListener("input", skinOrderValidate);
+      el.addEventListener("change", skinOrderValidate);
+    }
+  });
   skShowError("");
 }
 function closeSkinRequest() {
@@ -1631,41 +1657,39 @@ function skShowError(text) {
   el.textContent = text;
   el.classList.toggle("hidden", !text);
 }
-async function skinRequestSubmit() {
-  const val = id => { const el = document.getElementById(id); return el ? el.value : ""; };
-  const name = String(val("sk-name") || "").trim().replace(/\s+/g, " ");
-  const description = String(val("sk-desc") || "").trim();
-  const contact = String(val("sk-contact") || "").trim();
-  const hp = String(val("sk-site") || ""); // honeypot: люди его не видят
-  const agree = !!(document.getElementById("sk-agree") || {}).checked;
-
-  if (name.length < 3) { skShowError("Название: минимум 3 символа"); return; }
-  if (name.length > 60) { skShowError("Название: максимум 60 символов"); return; }
-  if (description.length > 1000) { skShowError("Описание: максимум 1000 символов"); return; }
-  if (contact.length > 80) { skShowError("Контакт: максимум 80 символов"); return; }
+async function skinOrderSubmit() {
+  const { phone, nick, agree } = skinOrderValidate();
+  const hp = (document.getElementById("sk-site") || { value: "" }).value;
   if (!agree) { skShowError("Отметьте согласие на обработку данных"); return; }
-
+  if (!phone && !nick) { skShowError("Оставьте телефон или ник в Telegram — иначе не связаться"); return; }
+  if (hp) { // honeypot: бот — притворяемся, что отправили
+    const f = document.getElementById("sk-form"), s = document.getElementById("sk-sent");
+    if (f) f.classList.add("hidden"); if (s) s.classList.remove("hidden");
+    return;
+  }
+  const btn = document.getElementById("sk-send");
+  if (btn) btn.disabled = true;
   try {
     const resp = await fetch(INTAKE_API + "/api/skin-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name, description, contact,
-        consent: true,
-        hp,
+        phone, nick, consent: true, hp,
+        skin: SKIN_ID, theme: document.documentElement.dataset.theme || "dark",
         channel: window.KP_ANALYTICS ? KP_ANALYTICS.channel() : "site",
         user_key: window.KP_ANALYTICS ? KP_ANALYTICS.userKey() : "anon",
       }),
     });
     const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) { skShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); return; }
-    if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_request_submit", { name });
+    if (!resp.ok) { skShowError(data.error || "Не получилось отправить — попробуйте ещё раз"); if (btn) btn.disabled = false; return; }
+    if (window.KP_ANALYTICS) KP_ANALYTICS.track("skin_request_submit", { via: "author_skin" });
     const form = document.getElementById("sk-form");
     const sent = document.getElementById("sk-sent");
     if (form) form.classList.add("hidden");
-    if (sent) sent.classList.remove("hidden"); // экран «Отправлено» вместо мгновенного закрытия
+    if (sent) sent.classList.remove("hidden");
   } catch (e) {
     skShowError("Не получилось отправить — проверьте соединение и попробуйте ещё раз");
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1680,22 +1704,38 @@ function sharePoint(id) {
   const url = pointShareUrl(id);
   const text = "Погода на " + name + " — консенсус пяти источников";
   const channel = (window.Telegram && Telegram.WebApp) ? "miniapp" : "site";
-  try { // в mini-app — нативный шеринг Telegram
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openTelegramLink) {
-      if (window.KP_ANALYTICS) KP_ANALYTICS.shareClick({ point: id, channel: channel, via: "tg_share" });
-      Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text));
-      return;
-    }
-  } catch (e) {}
   if (window.KP_ANALYTICS) KP_ANALYTICS.shareClick({ point: id, channel: channel, via: navigator.share ? "web_share" : "copy" });
-  if (navigator.share) { // сайт: системное меню «Поделиться»
+  /* v3.30 1.2 — классическое системное меню «Поделиться» (mini-app диалог не используем);
+     в webview без navigator.share — фолбэк: копирование ссылки */
+  if (navigator.share) {
     navigator.share({ title: "Погода на " + name, text: text, url: url }).catch(() => {});
     return;
   }
-  const done = () => soonHint("Ссылка скопирована 📋"); // фолбэк: копирование ссылки
+  const done = () => soonHint("Ссылка скопирована 📋");
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => fallbackCopy(url, done));
   else fallbackCopy(url, done);
 }
+/* v3.30 1.3 — внешние ссылки без окна-подтверждения «Открыть ссылку?»:
+   в mini-app чужой origin → Telegram.WebApp.openLink (нативно, без диалога),
+   свои страницы (pogoda-pro.ru) — внутренней навигацией; на сайте — обычный target=_blank. */
+function openExternal(url) {
+  try {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+      const u = new URL(url, location.href);
+      if (u.origin === location.origin) { location.assign(u.toString()); return; }
+      Telegram.WebApp.openLink(u.toString());
+      return;
+    }
+  } catch (e) {}
+  window.open(url, "_blank", "noopener");
+}
+document.addEventListener("click", e => {
+  const a = e.target && e.target.closest ? e.target.closest('a[href^="http"]') : null;
+  if (!a || !window.Telegram || !Telegram.WebApp) return;
+  if (!(Telegram.WebApp.openLink || Telegram.WebApp.openTelegramLink)) return;
+  e.preventDefault();
+  openExternal(a.href);
+});
 
 /* ---------- deep links: startapp=point_<id>__src_x__skin_y (mini-app), ?skin=/?point= (сайт) ----------
    Ссылка ведёт на конкретную точку; комбинации — через "__". Старые src_/skin_ работают как раньше. */

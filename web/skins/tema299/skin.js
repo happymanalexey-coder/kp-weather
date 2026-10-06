@@ -37,8 +37,9 @@ window.KP_SKINS = window.KP_SKINS || {};
                 '<stop offset="100%" stop-color="#D8E4EE"/></linearGradient>', g: g };
   }
   function cloudShape(dy, fill) {
-    return '<path d="M14 ' + (33 + dy) + ' a7.5 7.5 0 0 1 -1.5-14.8 a9.5 9.5 0 0 1 18.4-2.2 ' +
-           'a6.8 6.8 0 0 1 4.6 12.8 Z" fill="url(#' + fill + ')" stroke="#C9D6E2" stroke-width="1.4"/>';
+    /* v3.30 1.6: облако симметричное, строго горизонтальное — нижний край ровная линия */
+    return '<path d="M12 ' + (33 + dy) + ' a7 7 0 0 1 -1.4-13.9 a9 9 0 0 1 17.6-2 ' +
+           'a6.6 6.6 0 0 1 8.8 8.6 A7 7 0 0 1 36 ' + (33 + dy) + ' Z" fill="url(#' + fill + ')" stroke="#C9D6E2" stroke-width="1.4"/>';
   }
   function cloud() { var c = cloudGrad(); return c.d + cloudShape(0, c.g); }
   function suncloud() {
@@ -131,7 +132,7 @@ window.KP_SKINS = window.KP_SKINS || {};
     return c1.d +
       '<linearGradient id="' + g2 + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C9D3DD"/>' +
       '<stop offset="100%" stop-color="#9FABB8"/></linearGradient>' +
-      '<path d="M10 26 a6 6 0 0 1 -1.2-11.9 a7.6 7.6 0 0 1 14.7-1.8 a5.4 5.4 0 0 1 3.7 10.3 Z" fill="url(#' + g2 + ')" stroke="#8E99A6" stroke-width="1.2"/>' +
+      '<path d="M11 27 a5.5 5.5 0 0 1 -1.1-10.9 a7.2 7.2 0 0 1 14-1.6 a5.2 5.2 0 0 1 7 6.8 A5.5 5.5 0 0 1 30 27 Z" fill="url(#' + g2 + ')" stroke="#8E99A6" stroke-width="1.2"/>' +
       cloudShape(5, c1.g);
   }
   function moonrain() { var c = cloudGrad(); return c.d + moonShape(33, 6, 10) + cloudShape(1, c.g) + drops([[15, 36], [24, 39], [33, 36]]); }
@@ -302,7 +303,7 @@ window.KP_SKINS = window.KP_SKINS || {};
     '[data-skin="tema299"] .top-actions .sic svg { width: 100%; height: 100%; display: block; }',
     /* ---- v3.29 2.3: полоска = начало карточки — без зазора, верхние углы как у карточки,
        плавное свечение вниз; в СВЕТЛОЙ теме — в 3 раза тоньше + скошенные края слева/справа ---- */
-    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; border-radius: var(--r-lg) var(--r-lg) 0 0; background: ' + BRAND + '; opacity: .95; pointer-events: none; box-shadow: 0 1px 8px rgba(139,92,246,.30), 0 1px 10px rgba(239,68,68,.22); -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%); mask-image: linear-gradient(180deg, #000 40%, transparent 100%); }',
+    '[data-skin="tema299"] .point-btn::before, [data-skin="tema299"] #point-content .card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; border-radius: var(--r-lg) var(--r-lg) 0 0; background: ' + BRAND + '; opacity: .95; pointer-events: none; -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%); mask-image: linear-gradient(180deg, #000 40%, transparent 100%); }',
     '[data-skin="tema299"][data-theme="light"] .point-btn::before, [data-skin="tema299"][data-theme="light"] #point-content .card::before { height: 2px; clip-path: polygon(10px 0, calc(100% - 10px) 0, calc(100% - 3px) 100%, 3px 100%); }',
     '[data-skin="tema299"] #point-content .card { position: relative; }',
     '[data-skin="tema299"] .point-btn:nth-of-type(odd)::before { background: ' + BRAND + '; }',
@@ -372,7 +373,7 @@ window.KP_SKINS = window.KP_SKINS || {};
       art.querySelector(".t299-z-moto").addEventListener("click", function () { toggleTheme(); });
       art.querySelector(".t299-z-299").addEventListener("click", function () { openAbout(); });
       art.querySelector(".t299-z-ig").addEventListener("click", function () {
-        window.open(IG_URL, "_blank", "noopener");
+        openExternal(IG_URL); // v3.30 1.3: в mini-app — без окна «Открыть ссылку?»
       });
     }
     art.style.backgroundImage = "url(skins/tema299/assets/header-" + (dark ? "night" : "day") + ".jpg)";
