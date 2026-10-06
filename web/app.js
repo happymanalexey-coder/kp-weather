@@ -1570,6 +1570,7 @@ async function renderStyleList() {
       ? `${s.authorName ? `<div class="st-author">Автор ${esc(s.authorName)}</div>` : ""}` +
         `<a class="st-author st-author-link" href="${esc(s.authorLink)}" target="_blank" rel="noopener">${esc(tgHandle)}</a>`
       : (s.author ? `<div class="st-author">${esc(s.author)}</div>` : "");
+    const savedId = currentSkinId();
     const isSaved = s.id === savedId;
     const isPreview = skinPreview && s.id === SKIN_ID && !isSaved;
     return `<div class="style-card${isSaved || isPreview ? " active" : ""}" data-vibe="${esc(s.id)}">
