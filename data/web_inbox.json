@@ -1,6 +1,1 @@
-{
- "meta": {
-  "note": "Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."
- },
- "inbox": []
-}
+{"meta":{"note":"Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."},"inbox":[{"name":"Эсто-Садок","lat":43.6851,"lon":40.2561,"uid":"56f96d8f2234a4ff","ts":1791275254,"tg":"@ikristiandr","consent":true}]}
