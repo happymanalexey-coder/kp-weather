@@ -1,6 +1,1 @@
-{
- "meta": {
-  "note": "Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."
- },
- "inbox": []
-}
+{"meta":{"note":"Входящие заявки с сайта/mini-app. Пишет Cloudflare Worker (tools/cloudflare-worker.js), читает и очищает tools/intake_points.py каждые 15 минут."},"inbox":[{"name":"Школа 65","lat":43.6905,"lon":40.1953,"uid":"14a9ff70f27c7d0a","ts":1791258003,"tg":"@go_ride_bro","consent":true}]}
