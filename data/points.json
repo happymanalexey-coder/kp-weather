@@ -525,6 +525,19 @@
    "ele": 558,
    "region": "Красная Поляна",
    "verified": true
+  },
+  {
+   "id": "esto-sadok",
+   "name": "Эсто-Садок",
+   "lat": 43.6851,
+   "lon": 40.2561,
+   "ele": 512,
+   "region": "Красная Поляна",
+   "verified": false,
+   "added_by": "web:56f96d8f2234a4ff",
+   "added_by_username": "@ikristiandr",
+   "added_ts": 1791276646,
+   "via": "web"
   }
  ]
 }
